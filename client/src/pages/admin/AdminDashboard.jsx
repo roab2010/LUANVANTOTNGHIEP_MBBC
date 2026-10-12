@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 
 // ============================================
 // ICON COMPONENTS
@@ -169,11 +170,11 @@ const lowStockProducts = [
 
 const modules = [
   { name: 'Sản phẩm', icon: PackageIcon, desc: 'Quản lý sản phẩm', path: '/admin/products', color: 'bg-teal-50 text-teal-600', ready: true },
-  { name: 'Danh mục', icon: FolderIcon, desc: 'Phân loại sản phẩm', path: '/admin/categories', color: 'bg-blue-50 text-blue-600', ready: false },
-  { name: 'Đơn hàng', icon: ShoppingBagIcon, desc: 'Xử lý đơn hàng', path: '/admin/orders', color: 'bg-violet-50 text-violet-600', ready: false },
-  { name: 'Kho hàng', icon: WarehouseIcon, desc: 'Quản lý tồn kho', path: '/admin/warehouse', color: 'bg-amber-50 text-amber-600', ready: false },
-  { name: 'Khách hàng', icon: UsersIcon, desc: 'Quản lý khách hàng', path: '/admin/customers', color: 'bg-rose-50 text-rose-600', ready: false },
-  { name: 'Thống kê', icon: ChartIcon, desc: 'Phân tích doanh thu', path: '/admin/statistics', color: 'bg-cyan-50 text-cyan-600', ready: false },
+  { name: 'Danh mục', icon: FolderIcon, desc: 'Phân loại sản phẩm', path: '/admin/categories', color: 'bg-blue-50 text-blue-600', ready: true },
+  { name: 'Đơn hàng', icon: ShoppingBagIcon, desc: 'Xử lý đơn hàng', path: '/admin/orders', color: 'bg-violet-50 text-violet-600', ready: true },
+  { name: 'Kho hàng', icon: WarehouseIcon, desc: 'Quản lý tồn kho', path: '/admin/warehouse', color: 'bg-amber-50 text-amber-600', ready: true },
+  { name: 'Khách hàng', icon: UsersIcon, desc: 'Quản lý khách hàng', path: '/admin/customers', color: 'bg-rose-50 text-rose-600', ready: true },
+  { name: 'Thống kê', icon: ChartIcon, desc: 'Phân tích doanh thu', path: '/admin/statistics', color: 'bg-cyan-50 text-cyan-600', ready: true },
 ];
 
 // ============================================
@@ -285,10 +286,10 @@ const AdminDashboard = () => {
             <h2 className="text-base font-semibold text-gray-900">Đơn hàng gần đây</h2>
             <p className="text-sm text-gray-500 mt-0.5">5 đơn hàng mới nhất</p>
           </div>
-          <button className="flex items-center gap-1.5 text-sm font-medium text-primary-600 hover:text-primary-700 transition-colors">
+          <Link to="/admin/orders" className="flex items-center gap-1.5 text-sm font-medium text-primary-600 hover:text-primary-700 transition-colors">
             Xem tất cả
             <ArrowRightIcon />
-          </button>
+          </Link>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full">
@@ -342,10 +343,14 @@ const AdminDashboard = () => {
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 stagger-children">
           {modules.map((item) => {
             const Icon = item.icon;
+            const CardWrapper = item.ready ? Link : 'div';
+            const wrapperProps = item.ready ? { to: item.path } : {};
+
             return (
-              <div
+              <CardWrapper
                 key={item.name}
-                className={`relative p-4 bg-white border border-gray-200 rounded-[var(--radius-md)] transition-all duration-200 group ${
+                {...wrapperProps}
+                className={`relative block p-4 bg-white border border-gray-200 rounded-[var(--radius-md)] transition-all duration-200 group ${
                   item.ready 
                     ? 'hover:shadow-[var(--shadow-card-hover)] hover:-translate-y-0.5 cursor-pointer' 
                     : 'opacity-75'
@@ -359,7 +364,7 @@ const AdminDashboard = () => {
                 {!item.ready && (
                   <span className="absolute top-3 right-3 w-2 h-2 rounded-full bg-amber-400" title="Sắp triển khai" />
                 )}
-              </div>
+              </CardWrapper>
             );
           })}
         </div>

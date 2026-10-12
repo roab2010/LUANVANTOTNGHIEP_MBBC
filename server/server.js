@@ -18,6 +18,11 @@ app.use(express.json()); // Parse JSON body
 // --- Routes ---
 app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/products', require('./routes/productRoutes'));
+app.use('/api/categories', require('./routes/categoryRoutes'));
+app.use('/api/customers', require('./routes/customerRoutes'));
+app.use('/api/warehouse', require('./routes/warehouseRoutes'));
+app.use('/api/orders', require('./routes/orderRoutes'));
+app.use('/api/statistics', require('./routes/statisticRoutes'));
 
 // Route test server
 app.get('/', (req, res) => {

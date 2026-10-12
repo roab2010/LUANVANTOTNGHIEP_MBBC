@@ -10,6 +10,11 @@ import LoginPage from './pages/auth/LoginPage';
 import RegisterPage from './pages/auth/RegisterPage';
 import AdminDashboard from './pages/admin/AdminDashboard';
 import ProductsPage from './pages/admin/products/ProductsPage';
+import CategoriesPage from './pages/admin/categories/CategoriesPage';
+import CustomersPage from './pages/admin/customers/CustomersPage';
+import WarehousePage from './pages/admin/warehouse/WarehousePage';
+import OrdersPage from './pages/admin/orders/OrdersPage';
+import StatisticsPage from './pages/admin/statistics/StatisticsPage';
 import CustomerHome from './pages/customer/CustomerHome';
 
 function App() {
@@ -43,6 +48,11 @@ function App() {
             {/* Nested routes render trong <Outlet /> của AdminLayout */}
             <Route index element={<AdminDashboard />} />
             <Route path="products" element={<ProductsPage />} />
+            <Route path="categories" element={<CategoriesPage />} />
+            <Route path="customers" element={<CustomersPage />} />
+            <Route path="warehouse" element={<WarehousePage />} />
+            <Route path="orders" element={<OrdersPage />} />
+            <Route path="statistics" element={<StatisticsPage />} />
           </Route>
 
           {/* === Trang mặc định → Login === */}
