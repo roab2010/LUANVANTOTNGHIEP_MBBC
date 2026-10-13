@@ -45,6 +45,21 @@ const register = async (req, res) => {
     // --- Kiểm tra email đã tồn tại chưa ---
     const existingUser = await User.findOne({ email });
     if (existingUser) {
+      if (existingUser.status === 'deleted') {
+        // Tài khoản cũ đã bị xóa trước đó, cho phép đăng ký lại với thông tin mới
+        existingUser.fullName = fullName;
+        existingUser.password = password;
+        existingUser.phone = phone || '';
+        existingUser.status = 'active';
+        await existingUser.save();
+        return res.status(201).json({
+          success: true,
+          message: 'Đăng ký thành công',
+          data: {
+            user: existingUser.toJSON(),
+          },
+        });
+      }
       return res.status(400).json({
         success: false,
         message: 'Email này đã được đăng ký',
@@ -93,10 +108,10 @@ const login = async (req, res) => {
 
     // --- Tìm user theo email ---
     const user = await User.findOne({ email });
-    if (!user) {
-      return res.status(401).json({
+    if (!user || user.status === 'deleted') {
+      return res.status(404).json({
         success: false,
-        message: 'Email hoặc mật khẩu không đúng',
+        message: 'Tài khoản không tồn tại trong hệ thống',
       });
     }
 
@@ -104,7 +119,7 @@ const login = async (req, res) => {
     if (user.status === 'blocked') {
       return res.status(403).json({
         success: false,
-        message: 'Tài khoản của bạn đã bị khóa. Vui lòng liên hệ quản trị viên',
+        message: 'Tài khoản của bạn đã bị khóa. Vui lòng liên hệ quản trị viên qua email: admin@quanlybanhang.com',
       });
     }
 
@@ -113,7 +128,7 @@ const login = async (req, res) => {
     if (!isMatch) {
       return res.status(401).json({
         success: false,
-        message: 'Email hoặc mật khẩu không đúng',
+        message: 'Mật khẩu không chính xác',
       });
     }
 
@@ -148,10 +163,17 @@ const getMe = async (req, res) => {
   try {
     // req.user đã được gắn bởi middleware authenticateToken
     const user = await User.findById(req.user.userId);
-    if (!user) {
+    if (!user || user.status === 'deleted') {
       return res.status(404).json({
         success: false,
-        message: 'Không tìm thấy người dùng',
+        message: 'Tài khoản không tồn tại trong hệ thống',
+      });
+    }
+
+    if (user.status === 'blocked') {
+      return res.status(403).json({
+        success: false,
+        message: 'Tài khoản của bạn đã bị khóa. Vui lòng liên hệ quản trị viên qua email: admin@quanlybanhang.com',
       });
     }
 

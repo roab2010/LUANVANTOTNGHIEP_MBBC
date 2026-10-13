@@ -67,24 +67,28 @@ const ProductFormModal = ({ product, onClose, onSuccess }) => {
   const [imagePreview, setImagePreview] = useState('');
   const [removeImage, setRemoveImage] = useState(false);
 
+  // Categories list from Category module
+  const [categories, setCategories] = useState([]);
+  const [categoriesLoading, setCategoriesLoading] = useState(true);
+
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [activeCategories, setActiveCategories] = useState([]);
 
-  // Lấy danh sách danh mục active khi mở modal
+  // Tải danh sách danh mục active từ Module Danh mục
   useEffect(() => {
-    const fetchActiveCategories = async () => {
+    const fetchCategoryList = async () => {
       try {
-        const res = await getCategories({ status: 'active', limit: 100 });
-        if (res?.data?.data?.categories) {
-          setActiveCategories(res.data.data.categories);
-        }
-      } catch {
-        // Nếu không lấy được danh mục, cho phép để trống
-        setActiveCategories([]);
+        setCategoriesLoading(true);
+        const res = await getCategories({ limit: 100, status: 'active' });
+        const list = res.data?.data?.categories || [];
+        setCategories(list);
+      } catch (err) {
+        console.error('Lỗi tải danh mục:', err);
+      } finally {
+        setCategoriesLoading(false);
       }
     };
-    fetchActiveCategories();
+    fetchCategoryList();
   }, []);
 
   // Load dữ liệu khi chỉnh sửa
@@ -429,15 +433,21 @@ const ProductFormModal = ({ product, onClose, onSuccess }) => {
                 name="category"
                 value={formData.category}
                 onChange={handleChange}
-                className="w-full h-10 px-3.5 bg-white border border-gray-300 rounded-lg text-sm text-gray-900 focus:outline-none focus:border-primary-500 focus:ring-[3px] focus:ring-primary-500/15 transition-all duration-200"
+                disabled={categoriesLoading}
+                className="w-full h-10 px-3.5 bg-white border border-gray-300 rounded-lg text-sm text-gray-700 focus:outline-none focus:border-primary-500 focus:ring-[3px] focus:ring-primary-500/15 transition-all duration-200 disabled:opacity-60"
               >
-                <option value="">— Chọn danh mục —</option>
-                {activeCategories.map((cat) => (
+                <option value="">-- Chọn danh mục --</option>
+                {categories.map((cat) => (
                   <option key={cat._id} value={cat.name}>
                     {cat.name}
                   </option>
                 ))}
               </select>
+              {categories.length === 0 && !categoriesLoading && (
+                <p className="text-xs text-amber-600 mt-1">
+                  Chưa có danh mục nào. Bạn có thể vào mục <strong>Danh mục</strong> để thêm mới trước.
+                </p>
+              )}
             </div>
             {isEditing && (
               <div>

@@ -18,36 +18,23 @@ const SpinnerIcon = () => (
 );
 
 const StockAdjustModal = ({ item, onClose, onSuccess }) => {
-  const [actionType, setActionType] = useState('add'); // 'add' | 'subtract' | 'set'
   const [quantity, setQuantity] = useState('');
-  const [reason, setReason] = useState('Nhập thêm hàng');
+  const [reason, setReason] = useState('Nhập thêm hàng mới');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
   const currentStock = item?.stock || 0;
   const numQty = parseInt(quantity) || 0;
 
-  // Tính tồn kho sau điều chỉnh
-  let previewStock = currentStock;
-  if (actionType === 'add') {
-    previewStock = currentStock + numQty;
-  } else if (actionType === 'subtract') {
-    previewStock = Math.max(0, currentStock - numQty);
-  } else if (actionType === 'set') {
-    previewStock = numQty;
-  }
+  // Tính tồn kho sau khi nhập thêm
+  const previewStock = currentStock + numQty;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
 
-    if (quantity === '' || isNaN(numQty) || numQty < 0) {
-      setError('Vui lòng nhập số lượng hợp lệ (từ 0 trở lên)');
-      return;
-    }
-
-    if (actionType === 'subtract' && numQty > currentStock) {
-      setError(`Số lượng giảm (${numQty}) lớn hơn số tồn hiện tại (${currentStock})`);
+    if (quantity === '' || isNaN(numQty) || numQty <= 0) {
+      setError('Vui lòng nhập số lượng cần nhập thêm (từ 1 trở lên)');
       return;
     }
 
@@ -55,14 +42,14 @@ const StockAdjustModal = ({ item, onClose, onSuccess }) => {
     try {
       await adjustStock({
         productId: item._id,
-        actionType,
+        actionType: 'add',
         quantity: numQty,
         reason,
       });
 
       onSuccess();
     } catch (err) {
-      const message = err.response?.data?.message || 'Điều chỉnh tồn kho thất bại';
+      const message = err.response?.data?.message || 'Nhập thêm hàng thất bại';
       setError(message);
     } finally {
       setLoading(false);
@@ -79,7 +66,7 @@ const StockAdjustModal = ({ item, onClose, onSuccess }) => {
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
           <div>
-            <h2 className="text-lg font-semibold text-gray-900">Điều chỉnh tồn kho</h2>
+            <h2 className="text-lg font-semibold text-gray-900">Nhập thêm hàng vào kho</h2>
             <p className="text-xs text-gray-500 truncate max-w-xs">{item?.name}</p>
           </div>
           <button
@@ -106,72 +93,33 @@ const StockAdjustModal = ({ item, onClose, onSuccess }) => {
             <span className="font-bold text-gray-900 text-base">{currentStock} {item?.unit || 'cái'}</span>
           </div>
 
-          {/* Loại điều chỉnh */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">Hình thức thao tác</label>
-            <div className="grid grid-cols-3 gap-2">
-              <button
-                type="button"
-                onClick={() => setActionType('add')}
-                className={`py-2 text-xs font-semibold rounded-lg border transition-all ${
-                  actionType === 'add'
-                    ? 'bg-emerald-50 border-emerald-500 text-emerald-700'
-                    : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
-                }`}
-              >
-                + Nhập thêm
-              </button>
-              <button
-                type="button"
-                onClick={() => setActionType('subtract')}
-                className={`py-2 text-xs font-semibold rounded-lg border transition-all ${
-                  actionType === 'subtract'
-                    ? 'bg-rose-50 border-rose-500 text-rose-700'
-                    : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
-                }`}
-              >
-                - Xuất bớt
-              </button>
-              <button
-                type="button"
-                onClick={() => setActionType('set')}
-                className={`py-2 text-xs font-semibold rounded-lg border transition-all ${
-                  actionType === 'set'
-                    ? 'bg-blue-50 border-blue-500 text-blue-700'
-                    : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
-                }`}
-              >
-                = Đặt lại số tồn
-              </button>
-            </div>
-          </div>
-
-          {/* Số lượng */}
+          {/* Số lượng cần nhập thêm */}
           <div>
             <label htmlFor="adjust-qty" className="block text-sm font-medium text-gray-700 mb-1.5">
-              {actionType === 'set' ? 'Số lượng tồn mới' : 'Số lượng thay đổi'} <span className="text-danger-500">*</span>
+              Số lượng nhập thêm <span className="text-danger-500">*</span>
             </label>
             <input
               id="adjust-qty"
               type="number"
-              min="0"
+              min="1"
               value={quantity}
               onChange={(e) => setQuantity(e.target.value)}
-              placeholder="Nhập số lượng..."
+              placeholder="Nhập số lượng cần thêm..."
+              autoFocus
               className="w-full h-10 px-3.5 bg-white border border-gray-300 rounded-lg text-sm text-gray-900 focus:outline-none focus:border-primary-500 focus:ring-[3px] focus:ring-primary-500/15 transition-all duration-200"
             />
           </div>
 
-          {/* Xem trước tồn sau điều chỉnh */}
-          <div className="p-3 bg-primary-50/60 border border-primary-100 rounded-lg flex items-center justify-between text-sm">
-            <span className="text-primary-800 font-medium">Tồn kho sau điều chỉnh:</span>
-            <span className="font-bold text-primary-900 text-base">{previewStock} {item?.unit || 'cái'}</span>
+          {/* Xem trước tồn sau khi nhập thêm */}
+          <div className="p-3 bg-emerald-50/70 border border-emerald-200/60 rounded-lg flex items-center justify-between text-sm">
+            <span className="text-emerald-800 font-medium">Tồn kho sau khi nhập thêm:</span>
+            <span className="font-bold text-emerald-900 text-base">{previewStock} {item?.unit || 'cái'}</span>
           </div>
 
           {/* Lý do */}
           <div>
             <label htmlFor="adjust-reason" className="block text-sm font-medium text-gray-700 mb-1.5">
-              Lý do điều chỉnh
+              Lý do nhập hàng
             </label>
             <select
               id="adjust-reason"
@@ -179,10 +127,9 @@ const StockAdjustModal = ({ item, onClose, onSuccess }) => {
               onChange={(e) => setReason(e.target.value)}
               className="w-full h-10 px-3 bg-white border border-gray-300 rounded-lg text-sm text-gray-900 focus:outline-none focus:border-primary-500 focus:ring-[3px] focus:ring-primary-500/15 transition-all duration-200"
             >
-              <option value="Nhập thêm hàng">Nhập thêm hàng mới</option>
-              <option value="Kiểm kê định kỳ">Kiểm kê định kỳ</option>
-              <option value="Hàng lỗi / hỏng">Hàng hư hỏng / lỗi vải</option>
-              <option value="Xuất trả nhà cung cấp">Xuất trả nhà cung cấp</option>
+              <option value="Nhập thêm hàng mới">Nhập thêm hàng mới</option>
+              <option value="Bổ sung hàng bán chạy">Bổ sung hàng bán chạy</option>
+              <option value="Nhập hàng theo lô">Nhập hàng theo lô</option>
               <option value="Khác">Lý do khác</option>
             </select>
           </div>
@@ -203,7 +150,7 @@ const StockAdjustModal = ({ item, onClose, onSuccess }) => {
               className="h-10 px-5 text-sm font-semibold text-white bg-primary-600 rounded-lg hover:bg-primary-700 active:scale-[0.98] transition-all disabled:opacity-50 flex items-center gap-2"
             >
               {loading && <SpinnerIcon />}
-              Xác nhận cập nhật
+              Xác nhận nhập kho
             </button>
           </div>
         </form>

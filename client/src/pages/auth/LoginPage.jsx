@@ -142,7 +142,21 @@ const LoginPage = () => {
           {error && (
             <div className="mb-6 flex items-start gap-2.5 p-3.5 bg-danger-50 border border-red-200 rounded-[var(--radius-sm)] animate-slide-down" role="alert">
               <AlertIcon />
-              <p className="text-sm text-danger-700 font-medium">{error}</p>
+              <div className="text-sm text-danger-700 font-medium leading-relaxed">
+                {error.includes('admin@quanlybanhang.com') ? (
+                  <span>
+                    Tài khoản của bạn đã bị khóa. Vui lòng liên hệ quản trị viên qua email:{' '}
+                    <a
+                      href="mailto:admin@quanlybanhang.com"
+                      className="font-bold underline hover:text-danger-900 transition-colors"
+                    >
+                      admin@quanlybanhang.com
+                    </a>
+                  </span>
+                ) : (
+                  error
+                )}
+              </div>
             </div>
           )}
 

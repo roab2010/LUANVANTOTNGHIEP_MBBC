@@ -271,10 +271,10 @@ const WarehousePage = () => {
                         <button
                           onClick={() => setSelectedProduct(item)}
                           className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-primary-600 bg-primary-50 hover:bg-primary-100 rounded-lg transition-colors"
-                          title="Điều chỉnh số lượng kho"
+                          title="Nhập thêm hàng vào kho"
                         >
                           <AdjustIcon />
-                          Điều chỉnh
+                          Nhập thêm
                         </button>
                       </div>
                     </td>

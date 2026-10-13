@@ -1,6 +1,6 @@
 const Order = require('../models/Order');
 const Product = require('../models/Product');
-const Customer = require('../models/Customer');
+const User = require('../models/User');
 
 // ============================================
 // TỔNG QUAN THỐNG KÊ - GET /api/statistics/overview
@@ -17,7 +17,7 @@ const getOverviewStats = async (req, res) => {
       todayOrders,
     ] = await Promise.all([
       Order.find({}, 'totalAmount status paymentStatus createdAt'),
-      Customer.countDocuments({}),
+      User.countDocuments({ role: 'customer' }),
       Product.countDocuments({}),
       Order.find({ createdAt: { $gte: today } }, 'totalAmount status'),
     ]);

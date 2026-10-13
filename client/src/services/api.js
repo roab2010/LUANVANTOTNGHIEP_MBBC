@@ -31,12 +31,15 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    // Nếu token hết hạn hoặc không hợp lệ → đăng xuất
-    if (error.response && error.response.status === 401) {
-      localStorage.removeItem('token');
+    // Nếu token hết hạn, không hợp lệ (401), hoặc tài khoản bị khóa (403 do blocked)
+    const isUnauthorized = error.response && error.response.status === 401;
+    const isBlocked = error.response && error.response.status === 403 && error.response.data?.message?.includes('khóa');
+
+    if (isUnauthorized || isBlocked) {
       // Chỉ redirect nếu không phải đang ở trang login/register
       const currentPath = window.location.pathname;
       if (currentPath !== '/login' && currentPath !== '/register') {
+        localStorage.removeItem('token');
         window.location.href = '/login';
       }
     }

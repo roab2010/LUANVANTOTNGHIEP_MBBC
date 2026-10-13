@@ -72,6 +72,8 @@
 - ❌ KHÔNG có role Staff
 - ❌ KHÔNG cho user chọn role khi đăng ký
 - ❌ KHÔNG cho user gửi role=admin từ API
+- ❌ KHÔNG thêm mới khách hàng thủ công ở trang Admin: Khách hàng liên kết trực tiếp bảng User (`role: customer`) và tự động ghi nhận khi người dùng đăng ký tài khoản.
+- ❌ KHÔNG tạo đơn hàng thủ công ở trang Admin: Đơn hàng chỉ được sinh ra khi Khách hàng đặt mua sản phẩm (Customer Checkout). Trang Admin chỉ phục vụ xem danh sách, lọc, theo dõi và cập nhật trạng thái đơn hàng.
 
 ---
 
@@ -150,7 +152,7 @@ QuanLyBanHangBC/
   password: String (required, bcrypt hashed),
   phone: String (optional),
   role: 'admin' | 'customer' (default: 'customer'),
-  status: 'active' | 'blocked' (default: 'active'),
+  status: 'active' | 'blocked' | 'deleted' (default: 'active'),
   timestamps: true
 }
 ```
@@ -290,3 +292,10 @@ JWT_SECRET=chuoi_bi_mat_bat_ky_tu_chon
 | 12/10/2026 | Hoàn thành Module 4: Quản lý danh mục (Category model, controller, routes, CategoriesPage, CategoryFormModal, categoryApi) |
 | 13/10/2026 | Hoàn thành Module 8: Quản lý khách hàng (Customer model, controller, routes, CustomersPage, CustomerFormModal, customerApi) |
 | 13/10/2026 | Hoàn thành cùng lúc 3 module theo yêu cầu: Module 6 - Quản lý kho (WarehousePage, StockAdjustModal), Module 11 - Quản lý đơn hàng (Order model, controller, routes, OrdersPage, OrderDetailModal, CreateOrderModal), Module 12 - Thống kê doanh thu (statisticController, routes, StatisticsPage) |
+| 13/10/2026 | Cập nhật Module 8: Quản lý khách hàng đồng bộ trực tiếp từ bảng User (role customer), bỏ tạo thủ công, hỗ trợ khóa/mở khóa tài khoản |
+| 13/10/2026 | Cập nhật Auth & Middleware: Khóa tài khoản báo liên hệ email admin@quanlybanhang.com khi đăng nhập; Xóa tài khoản báo không tồn tại trong hệ thống |
+| 13/10/2026 | Dọn dẹp collection thừa customers trên Atlas, xóa file Customer.js; Chuyển chức năng xóa khách hàng sang Xóa mềm (status = deleted) bảo toàn dữ liệu lịch sử |
+| 13/10/2026 | Cập nhật Module 11 (Quản lý đơn hàng): Bỏ tính năng tạo đơn hàng thủ công trên Admin (loại bỏ CreateOrderModal), đơn hàng sẽ tự động ghi nhận khi khách hàng đặt mua |
+| 13/10/2026 | Cập nhật Module 3 (Sản phẩm): Liên kết chọn danh mục từ Module 4 (Category) qua dropdown select thay vì nhập tay |
+| 13/10/2026 | Cập nhật Module 6 (Kho hàng): Tinh gọn modal kho chỉ còn nghiệp vụ "Nhập thêm hàng", loại bỏ chức năng xuất bớt và đặt lại số tồn |
+| 13/10/2026 | Cập nhật Module 4 (Danh mục): Bổ sung thống kê và hiển thị số lượng sản phẩm (productCount) trong từng danh mục trên bảng Admin |

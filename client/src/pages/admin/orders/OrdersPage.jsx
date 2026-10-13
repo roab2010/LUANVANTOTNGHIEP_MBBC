@@ -1,17 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import { getOrders, deleteOrder } from '../../../services/orderApi';
 import OrderDetailModal from './OrderDetailModal';
-import CreateOrderModal from './CreateOrderModal';
 
 // ============================================
 // ICONS
 // ============================================
-const PlusIcon = () => (
-  <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-  </svg>
-);
-
 const SearchIcon = () => (
   <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
     <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
@@ -40,6 +33,12 @@ const ChevronLeftIcon = () => (
 const ChevronRightIcon = () => (
   <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
     <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+  </svg>
+);
+
+const ShoppingBagIcon = () => (
+  <svg className="w-12 h-12 text-gray-300 mx-auto mb-3" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 10.5V6a3.75 3.75 0 10-7.5 0v4.5m11.356-1.993l1.263 12c.07.665-.45 1.243-1.119 1.243H4.25a1.125 1.125 0 01-1.12-1.243l1.264-12A1.125 1.125 0 015.513 7.5h12.974c.576 0 1.059.435 1.119 1.007zM8.625 10.5a.375.375 0 11-.75 0 .375.375 0 01.75 0zm7.5 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
   </svg>
 );
 
@@ -88,7 +87,6 @@ const OrdersPage = () => {
   });
 
   const [selectedOrder, setSelectedOrder] = useState(null);
-  const [showCreateModal, setShowCreateModal] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [deleting, setDeleting] = useState(false);
 
@@ -156,13 +154,6 @@ const OrdersPage = () => {
             {pagination.total > 0 ? `${pagination.total} đơn hàng trong hệ thống` : 'Chưa có đơn hàng nào'}
           </p>
         </div>
-        <button
-          onClick={() => setShowCreateModal(true)}
-          className="inline-flex items-center gap-2 h-10 px-4 bg-primary-600 text-white text-sm font-semibold rounded-lg hover:bg-primary-700 active:scale-[0.98] transition-all shrink-0"
-        >
-          <PlusIcon />
-          Tạo đơn hàng mới
-        </button>
       </div>
 
       {/* Filters */}
@@ -226,14 +217,9 @@ const OrdersPage = () => {
         </div>
       ) : orders.length === 0 ? (
         <div className="text-center py-16 bg-white rounded-[var(--radius-md)] border border-gray-200">
-          <p className="text-gray-500 text-sm">Chưa có đơn hàng nào</p>
-          <button
-            onClick={() => setShowCreateModal(true)}
-            className="mt-4 inline-flex items-center gap-1.5 text-sm font-semibold text-primary-600 hover:text-primary-700"
-          >
-            <PlusIcon />
-            Tạo đơn hàng đầu tiên
-          </button>
+          <ShoppingBagIcon />
+          <p className="text-gray-700 font-medium text-sm">Chưa có đơn hàng nào từ khách hàng</p>
+          <p className="text-gray-400 text-xs mt-1">Đơn hàng sẽ tự động xuất hiện tại đây khi khách hàng tiến hành đặt mua sản phẩm.</p>
         </div>
       ) : (
         <div className="table-container">
@@ -345,17 +331,6 @@ const OrdersPage = () => {
           order={selectedOrder}
           onClose={() => setSelectedOrder(null)}
           onStatusUpdated={() => {
-            fetchOrders();
-          }}
-        />
-      )}
-
-      {/* Create Modal */}
-      {showCreateModal && (
-        <CreateOrderModal
-          onClose={() => setShowCreateModal(false)}
-          onSuccess={() => {
-            setShowCreateModal(false);
             fetchOrders();
           }}
         />
