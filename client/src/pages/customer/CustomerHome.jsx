@@ -122,11 +122,10 @@ const ProductCard = ({ product }) => {
         {/* Wishlist button */}
         <button
           onClick={() => setLiked(!liked)}
-          className={`absolute top-2.5 right-2.5 w-8 h-8 rounded-full flex items-center justify-center transition-all duration-200 ${
-            liked
+          className={`absolute top-2.5 right-2.5 w-8 h-8 rounded-full flex items-center justify-center transition-all duration-200 ${liked
               ? 'bg-red-50 text-red-500'
               : 'bg-white/80 text-gray-400 opacity-0 group-hover:opacity-100 hover:text-red-500'
-          }`}
+            }`}
           aria-label="Yêu thích"
         >
           <HeartIcon filled={liked} />
@@ -197,9 +196,8 @@ const CustomerHome = () => {
               {['Trang chủ', 'Sản phẩm', 'Bộ sưu tập', 'Khuyến mãi'].map((item, i) => (
                 <button
                   key={item}
-                  className={`text-sm font-medium transition-colors duration-150 ${
-                    i === 0 ? 'text-teal-600' : 'text-gray-600 hover:text-gray-900'
-                  }`}
+                  className={`text-sm font-medium transition-colors duration-150 ${i === 0 ? 'text-teal-600' : 'text-gray-600 hover:text-gray-900'
+                    }`}
                 >
                   {item}
                 </button>
@@ -268,9 +266,8 @@ const CustomerHome = () => {
               {['Trang chủ', 'Sản phẩm', 'Bộ sưu tập', 'Khuyến mãi'].map((item, i) => (
                 <button
                   key={item}
-                  className={`block w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium ${
-                    i === 0 ? 'bg-teal-50 text-teal-700' : 'text-gray-600 hover:bg-gray-50'
-                  }`}
+                  className={`block w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium ${i === 0 ? 'bg-teal-50 text-teal-700' : 'text-gray-600 hover:bg-gray-50'
+                    }`}
                 >
                   {item}
                 </button>
@@ -476,14 +473,14 @@ const CustomerHome = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
             {[
-              { 
+              {
                 icon: (
                   <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 18.75a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 01-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h1.125c.621 0 1.129-.504 1.09-1.124a17.902 17.902 0 00-3.213-9.193 2.056 2.056 0 00-1.58-.86H14.25M16.5 18.75h-2.25m0-11.177v-.958c0-.568-.422-1.048-.987-1.106a48.554 48.554 0 00-10.026 0 1.106 1.106 0 00-.987 1.106v7.635m12-6.677v6.677m0 4.5v-4.5m0 0h-12" />
                   </svg>
                 ),
                 title: 'Giao hàng nhanh',
-                desc: 'Miễn phí với đơn từ 300K' 
+                desc: 'Miễn phí với đơn từ 300K'
               },
               {
                 icon: (
