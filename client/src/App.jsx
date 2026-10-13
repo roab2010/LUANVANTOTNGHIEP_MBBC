@@ -11,6 +11,8 @@ import RegisterPage from './pages/auth/RegisterPage';
 import AdminDashboard from './pages/admin/AdminDashboard';
 import ProductsPage from './pages/admin/products/ProductsPage';
 import CategoriesPage from './pages/admin/categories/CategoriesPage';
+import SuppliersPage from './pages/admin/suppliers/SuppliersPage';
+import ImportReceiptsPage from './pages/admin/import/ImportReceiptsPage';
 import CustomersPage from './pages/admin/customers/CustomersPage';
 import WarehousePage from './pages/admin/warehouse/WarehousePage';
 import OrdersPage from './pages/admin/orders/OrdersPage';
@@ -49,9 +51,11 @@ function App() {
             <Route index element={<AdminDashboard />} />
             <Route path="products" element={<ProductsPage />} />
             <Route path="categories" element={<CategoriesPage />} />
-            <Route path="customers" element={<CustomersPage />} />
+            <Route path="suppliers" element={<SuppliersPage />} />
+            <Route path="import-receipts" element={<ImportReceiptsPage />} />
             <Route path="warehouse" element={<WarehousePage />} />
             <Route path="orders" element={<OrdersPage />} />
+            <Route path="customers" element={<CustomersPage />} />
             <Route path="statistics" element={<StatisticsPage />} />
           </Route>
 
