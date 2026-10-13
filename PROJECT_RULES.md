@@ -227,9 +227,9 @@ JWT_SECRET=chuoi_bi_mat_bat_ky_tu_chon
 | 2 | Admin Dashboard | ✅ Hoàn thành |
 | 3 | Quản lý sản phẩm | ✅ Hoàn thành (CRUD Template) |
 | 4 | Quản lý danh mục | ✅ Hoàn thành |
-| 5 | Quản lý nhà cung cấp | ⬜ Chưa bắt đầu |
+| 5 | Quản lý nhà cung cấp | ✅ Hoàn thành |
 | 6 | Quản lý kho | ✅ Hoàn thành |
-| 7 | Nhập hàng | ⬜ Chưa bắt đầu |
+| 7 | Nhập hàng | ✅ Hoàn thành |
 | 8 | Quản lý khách hàng | ✅ Hoàn thành |
 | 9 | Giỏ hàng | ⬜ Chưa bắt đầu |
 | 10 | Đặt hàng / Checkout | ⬜ Chưa bắt đầu |
@@ -299,3 +299,6 @@ JWT_SECRET=chuoi_bi_mat_bat_ky_tu_chon
 | 13/10/2026 | Cập nhật Module 3 (Sản phẩm): Liên kết chọn danh mục từ Module 4 (Category) qua dropdown select thay vì nhập tay |
 | 13/10/2026 | Cập nhật Module 6 (Kho hàng): Tinh gọn modal kho chỉ còn nghiệp vụ "Nhập thêm hàng", loại bỏ chức năng xuất bớt và đặt lại số tồn |
 | 13/10/2026 | Cập nhật Module 4 (Danh mục): Bổ sung thống kê và hiển thị số lượng sản phẩm (productCount) trong từng danh mục trên bảng Admin |
+| 13/10/2026 | Hoàn thành Module 5: Quản lý nhà cung cấp (Supplier model, controller, routes, SuppliersPage, SupplierFormModal, supplierApi) |
+| 13/10/2026 | Cập nhật Module 5 (Nhà cung cấp): Bổ sung kiểm tra không trùng số điện thoại và tên nhà cung cấp (cả thêm mới và cập nhật) |
+| 13/10/2026 | Hoàn thành Module 7: Nhập hàng (ImportReceipt model, controller, routes, importReceiptApi, ImportReceiptsPage, CreateImportReceiptModal, ImportReceiptDetailModal) tự động cập nhật tồn kho Module 6; Bổ sung SupplierHistoryModal liên kết Nhà cung cấp - Phiếu nhập - Sản phẩm theo đúng chuẩn ERD |
