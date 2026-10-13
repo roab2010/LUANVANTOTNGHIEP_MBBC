@@ -224,15 +224,15 @@ JWT_SECRET=chuoi_bi_mat_bat_ky_tu_chon
 | 1 | Authentication & Authorization | ✅ Hoàn thành |
 | 2 | Admin Dashboard | ✅ Hoàn thành |
 | 3 | Quản lý sản phẩm | ✅ Hoàn thành (CRUD Template) |
-| 4 | Quản lý danh mục | ⬜ Chưa bắt đầu |
+| 4 | Quản lý danh mục | ✅ Hoàn thành |
 | 5 | Quản lý nhà cung cấp | ⬜ Chưa bắt đầu |
-| 6 | Quản lý kho | ⬜ Chưa bắt đầu |
+| 6 | Quản lý kho | ✅ Hoàn thành |
 | 7 | Nhập hàng | ⬜ Chưa bắt đầu |
-| 8 | Quản lý khách hàng | ⬜ Chưa bắt đầu |
+| 8 | Quản lý khách hàng | ✅ Hoàn thành |
 | 9 | Giỏ hàng | ⬜ Chưa bắt đầu |
 | 10 | Đặt hàng / Checkout | ⬜ Chưa bắt đầu |
-| 11 | Quản lý đơn hàng | ⬜ Chưa bắt đầu |
-| 12 | Thống kê doanh thu | ⬜ Chưa bắt đầu |
+| 11 | Quản lý đơn hàng | ✅ Hoàn thành |
+| 12 | Thống kê doanh thu | ✅ Hoàn thành |
 | 13 | Quản lý tài khoản | ⬜ Chưa bắt đầu |
 
 ---
@@ -287,3 +287,6 @@ JWT_SECRET=chuoi_bi_mat_bat_ky_tu_chon
 | 22/09/2026 | Tạo project, bắt đầu Module 1: Authentication |
 | 05/10/2026 | Thêm quy tắc triển khai CRUD theo template pattern (Products làm mẫu) |
 | 05/10/2026 | Hoàn thiện Auth UI/UX, Admin Dashboard và module Products (CRUD Template) |
+| 12/10/2026 | Hoàn thành Module 4: Quản lý danh mục (Category model, controller, routes, CategoriesPage, CategoryFormModal, categoryApi) |
+| 13/10/2026 | Hoàn thành Module 8: Quản lý khách hàng (Customer model, controller, routes, CustomersPage, CustomerFormModal, customerApi) |
+| 13/10/2026 | Hoàn thành cùng lúc 3 module theo yêu cầu: Module 6 - Quản lý kho (WarehousePage, StockAdjustModal), Module 11 - Quản lý đơn hàng (Order model, controller, routes, OrdersPage, OrderDetailModal, CreateOrderModal), Module 12 - Thống kê doanh thu (statisticController, routes, StatisticsPage) |
