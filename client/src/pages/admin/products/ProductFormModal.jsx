@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { createProduct, updateProduct } from '../../../services/productApi';
+import { getCategories } from '../../../services/categoryApi';
 
 // ============================================
 // ICON COMPONENTS
@@ -68,6 +69,23 @@ const ProductFormModal = ({ product, onClose, onSuccess }) => {
 
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [activeCategories, setActiveCategories] = useState([]);
+
+  // Lấy danh sách danh mục active khi mở modal
+  useEffect(() => {
+    const fetchActiveCategories = async () => {
+      try {
+        const res = await getCategories({ status: 'active', limit: 100 });
+        if (res?.data?.data?.categories) {
+          setActiveCategories(res.data.data.categories);
+        }
+      } catch {
+        // Nếu không lấy được danh mục, cho phép để trống
+        setActiveCategories([]);
+      }
+    };
+    fetchActiveCategories();
+  }, []);
 
   // Load dữ liệu khi chỉnh sửa
   useEffect(() => {
@@ -406,15 +424,20 @@ const ProductFormModal = ({ product, onClose, onSuccess }) => {
               <label htmlFor="pf-category" className="block text-sm font-medium text-gray-700 mb-1.5">
                 Danh mục
               </label>
-              <input
+              <select
                 id="pf-category"
                 name="category"
-                type="text"
                 value={formData.category}
                 onChange={handleChange}
-                placeholder="Nhập danh mục"
-                className="w-full h-10 px-3.5 bg-white border border-gray-300 rounded-lg text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-primary-500 focus:ring-[3px] focus:ring-primary-500/15 transition-all duration-200"
-              />
+                className="w-full h-10 px-3.5 bg-white border border-gray-300 rounded-lg text-sm text-gray-900 focus:outline-none focus:border-primary-500 focus:ring-[3px] focus:ring-primary-500/15 transition-all duration-200"
+              >
+                <option value="">— Chọn danh mục —</option>
+                {activeCategories.map((cat) => (
+                  <option key={cat._id} value={cat.name}>
+                    {cat.name}
+                  </option>
+                ))}
+              </select>
             </div>
             {isEditing && (
               <div>

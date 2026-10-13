@@ -297,72 +297,64 @@ const CustomerHome = () => {
       </header>
 
       {/* ============================================ */}
-      {/* HERO BANNER */}
+      {/* HERO LOOKBOOK BANNER — Full-width strip */}
       {/* ============================================ */}
-      <section className="relative overflow-hidden bg-[#f5f7f6]">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-center py-12 lg:py-20">
-            {/* Text content */}
-            <div className="animate-slide-up">
-              <span className="inline-flex items-center px-3 py-1 bg-teal-100 text-teal-700 text-xs font-bold rounded-full mb-5 uppercase tracking-wide">
-                Bộ sưu tập mới 2026
-              </span>
-              <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 leading-tight tracking-tight mb-4">
-                Phong cách
-                <br />
-                <span className="text-teal-600">của riêng bạn</span>
-              </h1>
-              <p className="text-base lg:text-lg text-gray-500 max-w-md mb-8 leading-relaxed">
-                Khám phá bộ sưu tập mới nhất với hơn 1,000+ sản phẩm thời trang chất lượng cao, giá tốt nhất thị trường.
-              </p>
-              <div className="flex items-center gap-3">
-                <button className="px-6 py-3 bg-gray-900 text-white text-sm font-semibold rounded-lg hover:bg-gray-800 transition-colors duration-150 active:scale-[0.97]">
-                  Mua sắm ngay
-                </button>
-                <button className="px-6 py-3 bg-white text-gray-700 text-sm font-semibold rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors duration-150">
-                  Xem bộ sưu tập
-                </button>
-              </div>
-
-              {/* Quick stats */}
-              <div className="flex items-center gap-8 mt-10 pt-8 border-t border-gray-200/60">
+      <section className="relative w-full bg-white overflow-hidden">
+        {/* Full-width lookbook image strip — edge-to-edge like Bacykism */}
+        <div className="w-full overflow-hidden">
+          <div
+            className="flex w-max animate-[bannerScroll_40s_linear_infinite] hover:[animation-play-state:paused]"
+            style={{ willChange: 'transform' }}
+          >
+            {/* Two copies for seamless infinite loop */}
+            {[0, 1].map((setIdx) => (
+              <div key={setIdx} className="flex shrink-0">
                 {[
-                  { value: '1,000+', label: 'Sản phẩm' },
-                  { value: '5,000+', label: 'Khách hàng' },
-                  { value: '4.8', label: 'Đánh giá' },
-                ].map(stat => (
-                  <div key={stat.label}>
-                    <p className="text-xl font-bold text-gray-900 tabular-nums">{stat.value}</p>
-                    <p className="text-xs text-gray-400 mt-0.5">{stat.label}</p>
-                  </div>
+                  { src: 'https://images.unsplash.com/photo-1591047139829-d91aecb6caea?w=500&h=600&fit=crop&q=80', alt: 'Áo khoác denim phong cách đường phố' },
+                  { src: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=500&h=600&fit=crop&q=80', alt: 'Phong cách nam tính hiện đại' },
+                  { src: 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=500&h=600&fit=crop&q=80', alt: 'Thời trang nữ thanh lịch' },
+                  { src: 'https://images.unsplash.com/photo-1529139574466-a303027c1d8b?w=500&h=600&fit=crop&q=80', alt: 'Váy đầm thiết kế' },
+                  { src: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=500&h=600&fit=crop&q=80', alt: 'Phong cách street-wear' },
+                  { src: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=500&h=600&fit=crop&q=80', alt: 'Trang phục casual nữ' },
+                  { src: 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=500&h=600&fit=crop&q=80', alt: 'Áo thun nam basic' },
+                  { src: 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?w=500&h=600&fit=crop&q=80', alt: 'Polo cotton cao cấp' },
+                  { src: 'https://images.unsplash.com/photo-1490481651871-ab68de25d43d?w=500&h=600&fit=crop&q=80', alt: 'Phong cách công sở nữ' },
+                  { src: 'https://images.unsplash.com/photo-1552374196-1ab2a1c593e8?w=500&h=600&fit=crop&q=80', alt: 'Outfit đường phố nam' },
+                ].map((img, i) => (
+                  <img
+                    key={`${setIdx}-${i}`}
+                    src={img.src}
+                    alt={img.alt}
+                    loading={setIdx === 0 && i < 5 ? 'eager' : 'lazy'}
+                    className="h-[280px] sm:h-[340px] md:h-[420px] lg:h-[480px] w-auto object-cover shrink-0"
+                  />
                 ))}
               </div>
-            </div>
-
-            {/* Hero image placeholder */}
-            <div className="hidden lg:flex items-center justify-center">
-              <div className="relative w-full max-w-md aspect-[3/4] rounded-2xl overflow-hidden bg-gradient-to-b from-teal-100/50 to-teal-50/30">
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <div className="text-center">
-                    <svg className="w-20 h-20 text-teal-300 mx-auto mb-3" fill="none" stroke="currentColor" strokeWidth={0.8} viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 10.5V6a3.75 3.75 0 10-7.5 0v4.5m11.356-1.993l1.263 12c.07.665-.45 1.243-1.119 1.243H4.25a1.125 1.125 0 01-1.12-1.243l1.264-12A1.125 1.125 0 015.513 7.5h12.974c.576 0 1.059.435 1.119 1.007z" />
-                    </svg>
-                    <p className="text-sm text-teal-400 font-medium">Hình ảnh sản phẩm</p>
-                  </div>
-                </div>
-                {/* Decorative circles */}
-                <div className="absolute -top-10 -right-10 w-40 h-40 rounded-full bg-teal-200/20" />
-                <div className="absolute -bottom-8 -left-8 w-32 h-32 rounded-full bg-teal-200/15" />
-              </div>
-            </div>
+            ))}
           </div>
+        </div>
+
+        {/* Scroll-down chevron */}
+        <div className="flex justify-center py-5">
+          <button
+            onClick={() => {
+              const target = document.getElementById('categories-bar');
+              target?.scrollIntoView({ behavior: 'smooth' });
+            }}
+            className="text-gray-400 hover:text-gray-700 transition-colors animate-bounce"
+            aria-label="Cuộn xuống xem sản phẩm"
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+            </svg>
+          </button>
         </div>
       </section>
 
       {/* ============================================ */}
       {/* CATEGORIES BAR */}
       {/* ============================================ */}
-      <section className="border-b border-gray-100">
+      <section id="categories-bar" className="border-b border-gray-100">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center gap-2 py-4 overflow-x-auto scrollbar-hide">
             <button className="shrink-0 px-4 py-2 bg-gray-900 text-white text-sm font-medium rounded-lg">

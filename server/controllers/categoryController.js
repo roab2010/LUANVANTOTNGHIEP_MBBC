@@ -1,4 +1,5 @@
 const Category = require('../models/Category');
+const Product = require('../models/Product');
 
 // ============================================
 // LẤY DANH SÁCH DANH MỤC - GET /api/categories
@@ -25,19 +26,34 @@ const getCategories = async (req, res) => {
     const limitNum = parseInt(limit) || 10;
     const skip = (pageNum - 1) * limitNum;
 
-    // Query
-    const [categories, total] = await Promise.all([
+    // Query danh mục + đếm sản phẩm theo tên danh mục
+    const [categories, total, productCounts] = await Promise.all([
       Category.find(filter)
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limitNum),
       Category.countDocuments(filter),
+      Product.aggregate([
+        { $group: { _id: '$category', count: { $sum: 1 } } },
+      ]),
     ]);
+
+    // Map đếm sản phẩm theo tên danh mục
+    const countMap = {};
+    productCounts.forEach((item) => {
+      if (item._id) countMap[item._id] = item.count;
+    });
+
+    // Gắn productCount vào từng danh mục
+    const categoriesWithCount = categories.map((cat) => ({
+      ...cat.toObject(),
+      productCount: countMap[cat.name] || 0,
+    }));
 
     res.json({
       success: true,
       data: {
-        categories,
+        categories: categoriesWithCount,
         pagination: {
           page: pageNum,
           limit: limitNum,

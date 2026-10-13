@@ -242,6 +242,7 @@ const CategoriesPage = () => {
                 <th className="w-10">#</th>
                 <th>Tên danh mục</th>
                 <th>Mô tả</th>
+                <th>Số sản phẩm</th>
                 <th>Trạng thái</th>
                 <th>Ngày tạo</th>
                 <th className="text-right">Thao tác</th>
@@ -261,6 +262,11 @@ const CategoriesPage = () => {
                   <td>
                     <span className="text-gray-500 text-sm line-clamp-1">
                       {category.description || '—'}
+                    </span>
+                  </td>
+                  <td>
+                    <span className="text-sm font-semibold text-gray-900 tabular-nums">
+                      {category.productCount ?? 0}
                     </span>
                   </td>
                   <td>
