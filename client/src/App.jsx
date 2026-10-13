@@ -26,15 +26,9 @@ function App() {
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
 
-          {/* === Routes Customer (cần đăng nhập + role customer) === */}
-          <Route
-            path="/customer"
-            element={
-              <ProtectedRoute role="customer">
-                <CustomerHome />
-              </ProtectedRoute>
-            }
-          />
+          {/* === Routes Khách hàng / Storefront M.B.B.C === */}
+          <Route path="/" element={<CustomerHome />} />
+          <Route path="/customer" element={<CustomerHome />} />
 
           {/* === Routes Admin (cần đăng nhập + role admin) === */}
           <Route
@@ -55,11 +49,8 @@ function App() {
             <Route path="statistics" element={<StatisticsPage />} />
           </Route>
 
-          {/* === Trang mặc định → Login === */}
-          <Route path="/" element={<Navigate to="/login" replace />} />
-
-          {/* === 404 → Login === */}
-          <Route path="*" element={<Navigate to="/login" replace />} />
+          {/* === 404 → Về trang chủ === */}
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </AuthProvider>
     </Router>

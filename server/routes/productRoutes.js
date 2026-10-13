@@ -11,17 +11,16 @@ const { authenticateToken } = require('../middleware/authMiddleware');
 const { requireAdmin } = require('../middleware/roleMiddleware');
 const { upload } = require('../config/cloudinary');
 
-// Tất cả routes đều yêu cầu đăng nhập + quyền admin
-router.use(authenticateToken, requireAdmin);
-
-// CRUD routes
+// Public routes: Khách hàng và người dùng đều xem được danh sách và chi tiết sản phẩm
 router.get('/', getProducts);           // Lấy danh sách (có search, filter, phân trang)
 router.get('/:id', getProductById);     // Lấy chi tiết
+
+// Thao tác chỉnh sửa, tạo mới, xóa yêu cầu đăng nhập + quyền admin
+router.use(authenticateToken, requireAdmin);
 
 // Thêm middleware upload.single('image') cho các API có ảnh
 router.post('/', upload.single('image'), createProduct);        // Tạo mới
 router.put('/:id', upload.single('image'), updateProduct);      // Cập nhật
-
 router.delete('/:id', deleteProduct);   // Xóa
 
 // Xử lý lỗi từ Multer

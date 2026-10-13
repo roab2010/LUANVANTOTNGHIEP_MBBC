@@ -5,7 +5,7 @@ const Product = require('../models/Product');
 // ============================================
 const getProducts = async (req, res) => {
   try {
-    const { search, status, page = 1, limit = 10 } = req.query;
+    const { search, status, category, page = 1, limit = 10 } = req.query;
 
     // Tạo filter
     const filter = {};
@@ -13,6 +13,11 @@ const getProducts = async (req, res) => {
     // Tìm kiếm theo tên
     if (search) {
       filter.name = { $regex: search, $options: 'i' };
+    }
+
+    // Lọc theo danh mục
+    if (category && category !== 'ALL') {
+      filter.category = { $regex: category, $options: 'i' };
     }
 
     // Lọc theo trạng thái

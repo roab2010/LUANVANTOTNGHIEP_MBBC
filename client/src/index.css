@@ -58,6 +58,22 @@
   /* --- Transitions --- */
   --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  /* --- M.B.B.C / Bacykism Design System Tokens --- */
+  --font-brand: 'Arial Black', 'Archivo Black', 'Montserrat', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-condensed: 'Bebas Neue', 'Anton', Impact, sans-serif;
+  --font-montserrat: 'Montserrat', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-open-sans: 'Open Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  --color-mbbc-black: #000000;
+  --color-mbbc-surface: #151517;
+  --color-mbbc-card: #1c1c1f;
+  --color-mbbc-border: #2a2a2e;
+  --color-mbbc-text: #252a2b;
+  --color-mbbc-secondary: #333333;
+  --color-mbbc-muted: #6d6565;
+  --color-mbbc-orange: #ff6b00;
+  --color-mbbc-orange-hover: #e55a00;
+  --color-mbbc-orange-glow: rgba(255, 107, 0, 0.28);
 }
 
 /* ============================================
@@ -304,4 +320,16 @@ input, textarea {
 .stat-card:hover {
   box-shadow: var(--shadow-card-hover);
   transform: translateY(-1px);
+}
+
+/* Streetwear Brand Headline Font (Matching Bacykism / Whenever Atelier) */
+.font-brand {
+  font-family: var(--font-brand);
+  font-weight: 900;
+  letter-spacing: 0.04em;
+}
+
+/* Giant Statement Condensed Headline (Matching BALLER STR. Footer Reference) */
+.font-condensed {
+  font-family: var(--font-condensed);
 }
