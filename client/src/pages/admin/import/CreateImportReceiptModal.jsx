@@ -58,7 +58,7 @@ const CreateImportReceiptModal = ({ initialSupplierId = '', onClose, onSuccess }
         setLoadingData(true);
         const [supRes, prodRes] = await Promise.all([
           getSuppliers({ status: 'active', limit: 100 }),
-          getProducts({ status: 'active', limit: 100 }),
+          getProducts({ limit: 100 }),
         ]);
         setSuppliers(supRes.data?.data?.suppliers || []);
         setProducts(prodRes.data?.data?.products || []);
@@ -284,7 +284,7 @@ const CreateImportReceiptModal = ({ initialSupplierId = '', onClose, onSuccess }
                             <option value="">-- Chọn sản phẩm --</option>
                             {products.map((p) => (
                               <option key={p._id} value={p._id}>
-                                {p.name} (Hiện tồn: {p.stock} {p.unit})
+                                {p.name} (Hiện tồn: {p.stock} {p.unit || 'cái'}){p.status === 'inactive' ? ' - [Ngừng bán]' : ''}
                               </option>
                             ))}
                           </select>
