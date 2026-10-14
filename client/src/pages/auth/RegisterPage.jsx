@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import mbbcLogo from '../../assets/logo MBBC.png';
+import sharkBg from '../../assets/camapne.jpg';
 
 // Icon components
 const EyeIcon = () => (
@@ -128,60 +130,65 @@ const RegisterPage = () => {
   return (
     <div className="min-h-screen bg-surface flex">
       {/* --- Left Panel: Branding --- */}
-      <div className="hidden lg:flex lg:w-[480px] xl:w-[540px] shrink-0 bg-primary-700 relative overflow-hidden">
-        {/* Decorative shapes */}
-        <div className="absolute inset-0">
-          <div className="absolute -top-20 -left-20 w-80 h-80 bg-primary-600 rounded-full opacity-40" />
-          <div className="absolute bottom-10 -right-16 w-64 h-64 bg-primary-800 rounded-full opacity-30" />
-          <div className="absolute top-1/2 left-1/3 w-48 h-48 bg-primary-500 rounded-full opacity-20" />
+      <div className="hidden lg:flex lg:w-[480px] xl:w-[540px] shrink-0 bg-black border-r border-neutral-900 relative overflow-hidden">
+        {/* Subtle decorative glow for dark theme */}
+        <div className="absolute inset-0 pointer-events-none">
+          <div className="absolute -top-24 -left-24 w-96 h-96 bg-neutral-900/40 rounded-full blur-3xl" />
+          <div className="absolute bottom-12 -right-16 w-80 h-80 bg-red-950/20 rounded-full blur-3xl" />
         </div>
 
         <div className="relative z-10 flex flex-col justify-between p-12 text-white w-full">
           {/* Logo */}
           <div>
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-10 h-10 bg-white/15 rounded-[var(--radius-sm)] flex items-center justify-center backdrop-blur-sm">
-                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-                </svg>
-              </div>
-              <span className="text-xl font-bold tracking-tight">SellStock</span>
-            </div>
+            <Link to="/" className="inline-flex items-center gap-3 group">
+              <img
+                src={mbbcLogo}
+                alt="M.B.B.C Logo"
+                className="h-10 w-auto object-contain transition-transform duration-300 group-hover:scale-105"
+              />
+              <span className="font-brand text-2xl uppercase tracking-wider text-white">
+                M.B.B.C
+              </span>
+            </Link>
           </div>
 
           {/* Tagline */}
-          <div className="space-y-6">
-            <h2 className="text-3xl xl:text-4xl font-bold leading-tight tracking-tight">
-              Bắt đầu quản lý{' '}
-              <br />
-              cửa hàng của bạn{' '}
-              <br />
-              <span className="text-primary-200">ngay hôm nay.</span>
+          <div className="space-y-4">
+            <h2 className="font-brand text-5xl xl:text-6xl font-black tracking-tight text-[#dc2626] leading-none select-none">
+              M.B.B.C
             </h2>
-            <p className="text-primary-200 text-base leading-relaxed max-w-sm">
-              Tạo tài khoản miễn phí để trải nghiệm hệ thống quản lý bán hàng và kho hàng toàn diện.
+            <p className="text-white text-base xl:text-lg font-medium tracking-wide">
+              "-Made By Bao Cuong-"
             </p>
           </div>
 
           {/* Footer */}
-          <p className="text-primary-300 text-sm">
-            © 2026 SellStock. Đồ án tốt nghiệp CNTT.
+          <p className="text-neutral-500 text-xs tracking-wider">
+            © 2026 M.B.B.C. Đồ án tốt nghiệp CNTT.
           </p>
         </div>
       </div>
 
-      {/* --- Right Panel: Form --- */}
-      <div className="flex-1 flex items-center justify-center px-6 py-12">
-        <div className="w-full max-w-[420px] animate-slide-up">
+      {/* --- Right Panel: Form with Shark Background --- */}
+      <div className="flex-1 flex items-center justify-center px-6 py-12 relative overflow-hidden bg-[#0e5dbb]">
+        {/* Background Image: camapne.jpg shifted to the left to show the shark */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          <img
+            src={sharkBg}
+            alt="Shark Background"
+            className="w-full h-full object-cover object-[65%_center] scale-115 -translate-x-[8%] lg:-translate-x-[12%]"
+          />
+          {/* Subtle Dark Overlay for contrast and depth */}
+          <div className="absolute inset-0 bg-black/15" />
+        </div>
+
+        {/* Register Card (Glassmorphic Card) */}
+        <div className="relative z-10 w-full max-w-[420px] bg-white/90 backdrop-blur-xl p-8 sm:p-10 rounded-2xl shadow-[0_25px_60px_rgba(0,0,0,0.3)] border border-white/60 animate-slide-up">
           {/* Mobile logo */}
-          <div className="lg:hidden flex items-center gap-2.5 mb-10">
-            <div className="w-9 h-9 bg-primary-600 rounded-[var(--radius-sm)] flex items-center justify-center">
-              <svg className="w-4.5 h-4.5 text-white" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-              </svg>
-            </div>
-            <span className="text-lg font-bold text-gray-900 tracking-tight">SellStock</span>
-          </div>
+          <Link to="/" className="lg:hidden inline-flex items-center gap-2.5 mb-8">
+            <img src={mbbcLogo} alt="M.B.B.C Logo" className="h-9 w-auto object-contain" />
+            <span className="font-brand text-xl text-black tracking-wider">M.B.B.C</span>
+          </Link>
 
           {/* Heading */}
           <div className="mb-8">
@@ -321,7 +328,7 @@ const RegisterPage = () => {
               <button
                 type="submit"
                 disabled={loading || success}
-                className="w-full h-11 bg-primary-600 text-white font-semibold text-[0.9375rem] rounded-[var(--radius-sm)] hover:bg-primary-700 active:scale-[0.98] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 transition-all duration-200 disabled:opacity-60 disabled:pointer-events-none flex items-center justify-center gap-2"
+                className="w-full h-11 bg-black text-white font-semibold text-[0.9375rem] rounded-[var(--radius-sm)] hover:bg-neutral-800 active:scale-[0.98] focus:outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2 transition-all duration-200 disabled:opacity-60 disabled:pointer-events-none flex items-center justify-center gap-2 cursor-pointer"
               >
                 {loading ? (
                   <>
@@ -338,7 +345,7 @@ const RegisterPage = () => {
           {/* Login link */}
           <p className="mt-8 text-center text-sm text-gray-500">
             Đã có tài khoản?{' '}
-            <Link to="/login" className="text-primary-600 font-semibold hover:text-primary-700 transition-colors">
+            <Link to="/login" className="text-black font-semibold hover:text-[#dc2626] hover:underline transition-colors">
               Đăng nhập
             </Link>
           </p>

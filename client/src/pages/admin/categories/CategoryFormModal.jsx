@@ -21,21 +21,12 @@ const SpinnerIcon = () => (
 // DANH MỤC QUẦN ÁO / THỜI TRANG PRESET
 // ============================================
 const CLOTHING_CATEGORIES = [
-  'Áo thun',
-  'Áo sơ mi',
-  'Áo khoác',
-  'Áo len & Hoodie',
-  'Áo polo',
-  'Quần jean',
-  'Quần tây & Quần âu',
-  'Quần short',
-  'Quần kaki & Jogger',
-  'Đồ bộ & Đồ mặc nhà',
-  'Đồ thể thao',
-  'Giày dép',
-  'Túi xách & Balo',
-  'Phụ kiện thời trang',
-  
+  'TOPS',
+  'BOTTOMS',
+  'OUTWEAR',
+  'ACCESSORIES',
+  'NEW ARRIVALS',
+
 ];
 
 // ============================================
