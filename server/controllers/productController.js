@@ -109,10 +109,18 @@ const getProducts = async (req, res) => {
       Product.countDocuments(filter),
     ]);
 
+    const safeProducts = isAdmin
+      ? products
+      : products.map((p) => {
+          const obj = p.toObject();
+          delete obj.costPrice;
+          return obj;
+        });
+
     res.json({
       success: true,
       data: {
-        products,
+        products: safeProducts,
         pagination: {
           page: pageNum,
           limit: limitNum,
@@ -143,13 +151,14 @@ const getProductById = async (req, res) => {
       });
     }
 
+    const isAdmin = await checkIsAdmin(req);
+
     // Kiểm tra nếu danh mục của sản phẩm bị khóa và người xem không phải admin
     if (product.category) {
       const cat = await Category.findOne({
         name: { $regex: new RegExp(`^${product.category.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') },
       });
       if (cat && cat.status === 'inactive') {
-        const isAdmin = await checkIsAdmin(req);
         if (!isAdmin) {
           return res.status(404).json({
             success: false,
@@ -159,9 +168,14 @@ const getProductById = async (req, res) => {
       }
     }
 
+    const productData = product.toObject();
+    if (!isAdmin) {
+      delete productData.costPrice;
+    }
+
     res.json({
       success: true,
-      data: { product },
+      data: { product: productData },
     });
   } catch (error) {
     console.error('Lỗi lấy chi tiết sản phẩm:', error);

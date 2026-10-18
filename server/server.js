@@ -22,7 +22,6 @@ app.use('/api/categories', require('./routes/categoryRoutes'));
 app.use('/api/customers', require('./routes/customerRoutes'));
 app.use('/api/suppliers', require('./routes/supplierRoutes'));
 app.use('/api/warehouse', require('./routes/warehouseRoutes'));
-app.use('/api/import-receipts', require('./routes/importReceiptRoutes'));
 app.use('/api/orders', require('./routes/orderRoutes'));
 app.use('/api/statistics', require('./routes/statisticRoutes'));
 

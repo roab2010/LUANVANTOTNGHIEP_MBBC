@@ -229,7 +229,7 @@ JWT_SECRET=chuoi_bi_mat_bat_ky_tu_chon
 | 4 | Quản lý danh mục | ✅ Hoàn thành |
 | 5 | Quản lý nhà cung cấp | ✅ Hoàn thành |
 | 6 | Quản lý kho | ✅ Đã gộp vào Module Sản phẩm |
-| 7 | Nhập hàng | ✅ Hoàn thành |
+| 7 | Nhập hàng | ✅ Đã tinh gọn & tích hợp trực tiếp vào Module Sản phẩm |
 | 8 | Quản lý khách hàng | ✅ Hoàn thành |
 | 9 | Giỏ hàng | ⬜ Chưa bắt đầu |
 | 10 | Đặt hàng / Checkout | ⬜ Chưa bắt đầu |
@@ -306,3 +306,5 @@ JWT_SECRET=chuoi_bi_mat_bat_ky_tu_chon
 | 18/10/2026 | Tái cấu trúc trang Admin Dashboard: Loại bỏ hoàn toàn mock data, tích hợp 100% dữ liệu thực tế từ Database (thẻ thống kê doanh thu, đơn hàng chờ, vốn tồn kho, biểu đồ 7 ngày chuyển đổi Doanh thu/Số đơn, cảnh báo sản phẩm sắp hết hàng từ kho thực tế, bảng 5 đơn hàng gần đây và lối tắt 7 phân hệ quản trị) |
 | 18/10/2026 | Cập nhật Module 4 (Danh mục): Chuyển đổi chức năng "Xóa" thành "Khóa / Mở khóa" danh mục (backend soft lock bảo toàn dữ liệu); Khắc phục icon ổ khóa trực quan: Danh mục Đã khóa hiển thị icon Ổ khóa ĐÓNG màu đỏ, danh mục Đang hoạt động hiển thị icon Ổ khóa MỞ; Gỡ bỏ mục "Nhập hàng" khỏi Sidebar menu và Dashboard (do đã hợp nhất nhập hàng vào từng sản phẩm) |
 | 19/10/2026 | Cập nhật Module 3 (Sản phẩm) & Kho: Giới hạn giá nhập tối đa 10,000,000 ₫ (thay vì 1 tỷ); Chặn nhập trực tiếp theo thời gian thực (real-time input blocking) cho giá nhập (> 10 triệu) và % lợi nhuận (> 1.000%); Giới hạn số lượng tồn kho/nhập thêm tối đa 10,000 sản phẩm; Chuẩn hóa đơn vị tính (tối đa 15 ký tự, bổ sung chip gợi ý chọn nhanh: cái, chiếc, bộ, đôi, hộp, gói); Thêm noValidate và thông báo lỗi tiếng Việt nội dòng (inline validation) loại bỏ popup tiếng Anh của trình duyệt |
+| 19/10/2026 | Tinh gọn chức năng kho cho dự án MBBC: Chuyển toàn bộ quy trình nhập kho & xuất kho trực tiếp vào từng sản phẩm tại trang Quản lý sản phẩm; Thêm nút và modal Xem chi tiết (ProductDetailModal) kèm bảng lịch sử giao dịch kho thực tế của riêng sản phẩm đó; Tinh gọn nút Nhập kho (StockAdjustModal) tăng tồn và ghi nhận lịch sử; Thêm nút và modal Xuất kho (StockExportModal) giảm tồn với 4 lý do (hàng lỗi/hư hỏng, sử dụng nội bộ, điều chỉnh tồn kho, khác) và chặn xuất vượt tồn; Tạo model StockHistory hợp nhất; Ẩn giá vốn nội bộ costPrice đối với tài khoản Customer |
+| 19/10/2026 | Dọn dẹp triệt để hệ thống phiếu nhập cũ: Xóa toàn bộ dữ liệu 3 phiếu nhập cũ trong collection importreceipts trên Atlas, trừ lại số lượng tồn kho đã nhập thử (LOGO MOB CAP trừ 5 cái từ 10 xuống 5; ADDICT FLARED WASHED PANTS trừ 15 cái từ 25 xuống 10); Gỡ bỏ hoàn toàn nút xem lịch sử phiếu nhập (icon đồng hồ), modal lịch sử cung cấp (SupplierHistoryModal) và modal tạo phiếu nhập (CreateImportReceiptModal) khỏi trang Quản lý nhà cung cấp (SuppliersPage); Xóa bỏ toàn bộ controller, routes, API và model ImportReceipt.js không còn sử dụng |

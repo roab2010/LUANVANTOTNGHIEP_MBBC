@@ -1,8 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { getSuppliers, deleteSupplier } from '../../../services/supplierApi';
 import SupplierFormModal from './SupplierFormModal';
-import SupplierHistoryModal from './SupplierHistoryModal';
-import CreateImportReceiptModal from '../import/CreateImportReceiptModal';
 
 // ============================================
 // ICON COMPONENTS
@@ -28,12 +26,6 @@ const EditIcon = () => (
 const TrashIcon = () => (
   <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
     <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
-  </svg>
-);
-
-const HistoryIcon = () => (
-  <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
   </svg>
 );
 
@@ -81,11 +73,6 @@ const SuppliersPage = () => {
   const [editingSupplier, setEditingSupplier] = useState(null);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [deleting, setDeleting] = useState(false);
-
-  // Xem lịch sử nhập hàng và tạo phiếu nhập từ NCC
-  const [historySupplier, setHistorySupplier] = useState(null);
-  const [showCreateReceiptModal, setShowCreateReceiptModal] = useState(false);
-  const [presetSupplier, setPresetSupplier] = useState(null);
 
   const fetchSuppliers = useCallback(async () => {
     setLoading(true);
@@ -278,13 +265,6 @@ const SuppliersPage = () => {
                   <td>
                     <div className="flex items-center justify-end gap-1">
                       <button
-                        onClick={() => setHistorySupplier(supplier)}
-                        className="p-2 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all duration-150"
-                        title="Xem lịch sử cung cấp & hàng hóa đã nhập"
-                      >
-                        <HistoryIcon />
-                      </button>
-                      <button
                         onClick={() => handleEdit(supplier)}
                         className="p-2 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-all duration-150"
                         title="Sửa thông tin"
@@ -341,34 +321,6 @@ const SuppliersPage = () => {
             setEditingSupplier(null);
           }}
           onSuccess={handleFormSuccess}
-        />
-      )}
-
-      {/* Modal Lịch sử nhập hàng & Hàng hóa cung cấp */}
-      {historySupplier && (
-        <SupplierHistoryModal
-          supplier={historySupplier}
-          onClose={() => setHistorySupplier(null)}
-          onOpenCreateReceipt={(sup) => {
-            setPresetSupplier(sup);
-            setShowCreateReceiptModal(true);
-          }}
-        />
-      )}
-
-      {/* Modal Tạo phiếu nhập nhanh từ nhà cung cấp này */}
-      {showCreateReceiptModal && (
-        <CreateImportReceiptModal
-          initialSupplierId={presetSupplier?._id}
-          onClose={() => {
-            setShowCreateReceiptModal(false);
-            setPresetSupplier(null);
-          }}
-          onSuccess={() => {
-            setShowCreateReceiptModal(false);
-            setPresetSupplier(null);
-            fetchSuppliers();
-          }}
         />
       )}
 

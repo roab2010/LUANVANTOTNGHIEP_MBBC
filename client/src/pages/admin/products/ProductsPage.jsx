@@ -3,7 +3,9 @@ import { getProducts } from '../../../services/productApi';
 import { getCategories } from '../../../services/categoryApi';
 import { getWarehouseStats } from '../../../services/warehouseApi';
 import ProductFormModal from './ProductFormModal';
+import ProductDetailModal from './ProductDetailModal';
 import StockAdjustModal from '../warehouse/StockAdjustModal';
+import StockExportModal from './StockExportModal';
 
 // ============================================
 // ICON COMPONENTS
@@ -20,9 +22,22 @@ const PlusIcon = () => (
   </svg>
 );
 
-const AdjustIcon = () => (
-  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+const EyeIcon = () => (
+  <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />
+    <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+  </svg>
+);
+
+const ImportIcon = () => (
+  <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+  </svg>
+);
+
+const ExportIcon = () => (
+  <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
   </svg>
 );
 
@@ -84,8 +99,14 @@ const ProductsPage = () => {
   const [showModal, setShowModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
 
-  // Modal nhập thêm tồn kho
+  // Modal chi tiết sản phẩm & lịch sử kho
+  const [selectedDetailProduct, setSelectedDetailProduct] = useState(null);
+
+  // Modal nhập kho
   const [selectedAdjustProduct, setSelectedAdjustProduct] = useState(null);
+
+  // Modal xuất kho
+  const [selectedExportProduct, setSelectedExportProduct] = useState(null);
 
   // ============================================
   // FETCH PRODUCTS & STATS
@@ -158,6 +179,11 @@ const ProductsPage = () => {
 
   const handleAdjustSuccess = () => {
     setSelectedAdjustProduct(null);
+    fetchProductsAndStats();
+  };
+
+  const handleExportSuccess = () => {
+    setSelectedExportProduct(null);
     fetchProductsAndStats();
   };
 
@@ -313,7 +339,11 @@ const ProductsPage = () => {
                 return (
                   <tr key={product._id}>
                     <td>
-                      <div className="w-11 h-11 rounded-lg bg-gray-50 border border-gray-100 flex items-center justify-center overflow-hidden shrink-0">
+                      <div
+                        onClick={() => setSelectedDetailProduct(product)}
+                        className="w-11 h-11 rounded-lg bg-gray-50 border border-gray-100 flex items-center justify-center overflow-hidden shrink-0 cursor-pointer hover:opacity-85 transition-opacity"
+                        title="Xem chi tiết & lịch sử kho"
+                      >
                         {product.image ? (
                           <img src={product.image} alt={product.name} className="w-full h-full object-cover" />
                         ) : (
@@ -323,7 +353,14 @@ const ProductsPage = () => {
                     </td>
                     <td>
                       <div>
-                        <p className="font-semibold text-gray-900">{product.name}</p>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedDetailProduct(product)}
+                          className="font-semibold text-gray-900 text-left hover:text-primary-600 transition-colors cursor-pointer block"
+                          title="Xem chi tiết & lịch sử kho"
+                        >
+                          {product.name}
+                        </button>
                         <div className="flex flex-wrap items-center gap-1.5 mt-1">
                           {product.supplier?.name && (
                             <span className="text-[11px] font-medium text-primary-700 bg-primary-50 border border-primary-100 px-1.5 py-0.5 rounded">
@@ -382,14 +419,33 @@ const ProductsPage = () => {
                     </td>
                     <td>
                       <div className="flex items-center justify-end gap-1.5">
-                        {/* Nút Nhập thêm tồn kho */}
+                        {/* Nút Xem chi tiết */}
+                        <button
+                          onClick={() => setSelectedDetailProduct(product)}
+                          className="p-1.5 text-gray-400 hover:text-primary-600 hover:bg-gray-100 rounded-lg transition-all"
+                          title="Xem chi tiết & lịch sử kho"
+                        >
+                          <EyeIcon />
+                        </button>
+
+                        {/* Nút Nhập kho */}
                         <button
                           onClick={() => setSelectedAdjustProduct(product)}
-                          className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-primary-600 bg-primary-50 hover:bg-primary-100 rounded-lg transition-colors"
+                          className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold text-teal-700 bg-[#e8f7f5] hover:bg-[#d4f2ee] rounded-lg transition-all active:scale-[0.98]"
                           title="Nhập thêm hàng vào kho"
                         >
-                          <AdjustIcon />
-                          <span>Nhập thêm</span>
+                          <ImportIcon />
+                          <span>Nhập kho</span>
+                        </button>
+
+                        {/* Nút Xuất kho */}
+                        <button
+                          onClick={() => setSelectedExportProduct(product)}
+                          className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold text-amber-800 bg-[#fef3c7] hover:bg-[#fde68a] rounded-lg transition-all active:scale-[0.98]"
+                          title="Xuất kho hàng lỗi / nội bộ / kiểm kê"
+                        >
+                          <ExportIcon />
+                          <span>Xuất kho</span>
                         </button>
 
                         {/* Nút Sửa */}
@@ -435,7 +491,15 @@ const ProductsPage = () => {
         </div>
       )}
 
-
+      {/* Modal Xem chi tiết & Lịch sử kho */}
+      {selectedDetailProduct && (
+        <ProductDetailModal
+          product={selectedDetailProduct}
+          onClose={() => setSelectedDetailProduct(null)}
+          onOpenImport={(p) => setSelectedAdjustProduct(p)}
+          onOpenExport={(p) => setSelectedExportProduct(p)}
+        />
+      )}
 
       {/* Product form modal (Thêm / Sửa sản phẩm) */}
       {showModal && (
@@ -446,12 +510,21 @@ const ProductsPage = () => {
         />
       )}
 
-      {/* Stock adjust modal (Nhập thêm hàng vào kho) */}
+      {/* Stock import modal (Nhập kho) */}
       {selectedAdjustProduct && (
         <StockAdjustModal
           item={selectedAdjustProduct}
           onClose={() => setSelectedAdjustProduct(null)}
           onSuccess={handleAdjustSuccess}
+        />
+      )}
+
+      {/* Stock export modal (Xuất kho) */}
+      {selectedExportProduct && (
+        <StockExportModal
+          item={selectedExportProduct}
+          onClose={() => setSelectedExportProduct(null)}
+          onSuccess={handleExportSuccess}
         />
       )}
     </div>
