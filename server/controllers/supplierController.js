@@ -101,6 +101,34 @@ const createSupplier = async (req, res) => {
       });
     }
 
+    if (name.trim().length > 100) {
+      return res.status(400).json({
+        success: false,
+        message: 'Tên nhà cung cấp không được vượt quá 100 ký tự',
+      });
+    }
+
+    if (phone && phone.trim().length > 11) {
+      return res.status(400).json({
+        success: false,
+        message: 'Số điện thoại không được vượt quá 11 ký tự',
+      });
+    }
+
+    if (address && address.trim().length > 200) {
+      return res.status(400).json({
+        success: false,
+        message: 'Địa chỉ không được vượt quá 200 ký tự',
+      });
+    }
+
+    if (note && note.trim().length > 300) {
+      return res.status(400).json({
+        success: false,
+        message: 'Ghi chú không được vượt quá 300 ký tự',
+      });
+    }
+
     const existingSupplier = await Supplier.findOne({ name: name.trim() });
     if (existingSupplier) {
       return res.status(400).json({
@@ -154,6 +182,34 @@ const updateSupplier = async (req, res) => {
       return res.status(404).json({
         success: false,
         message: 'Không tìm thấy nhà cung cấp',
+      });
+    }
+
+    if (name && name.trim().length > 100) {
+      return res.status(400).json({
+        success: false,
+        message: 'Tên nhà cung cấp không được vượt quá 100 ký tự',
+      });
+    }
+
+    if (phone && phone.trim().length > 11) {
+      return res.status(400).json({
+        success: false,
+        message: 'Số điện thoại không được vượt quá 11 ký tự',
+      });
+    }
+
+    if (address && address.trim().length > 200) {
+      return res.status(400).json({
+        success: false,
+        message: 'Địa chỉ không được vượt quá 200 ký tự',
+      });
+    }
+
+    if (note && note.trim().length > 300) {
+      return res.status(400).json({
+        success: false,
+        message: 'Ghi chú không được vượt quá 300 ký tự',
       });
     }
 
