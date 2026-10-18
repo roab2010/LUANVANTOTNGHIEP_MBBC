@@ -225,10 +225,10 @@ JWT_SECRET=chuoi_bi_mat_bat_ky_tu_chon
 |---|--------|-----------|
 | 1 | Authentication & Authorization | ✅ Hoàn thành |
 | 2 | Admin Dashboard | ✅ Hoàn thành |
-| 3 | Quản lý sản phẩm | ✅ Hoàn thành (CRUD Template) |
+| 3 | Quản lý sản phẩm & tồn kho | ✅ Hoàn thành (Gộp Module 3 & 6) |
 | 4 | Quản lý danh mục | ✅ Hoàn thành |
 | 5 | Quản lý nhà cung cấp | ✅ Hoàn thành |
-| 6 | Quản lý kho | ✅ Hoàn thành |
+| 6 | Quản lý kho | ✅ Đã gộp vào Module Sản phẩm |
 | 7 | Nhập hàng | ✅ Hoàn thành |
 | 8 | Quản lý khách hàng | ✅ Hoàn thành |
 | 9 | Giỏ hàng | ⬜ Chưa bắt đầu |
@@ -302,3 +302,6 @@ JWT_SECRET=chuoi_bi_mat_bat_ky_tu_chon
 | 13/10/2026 | Hoàn thành Module 5: Quản lý nhà cung cấp (Supplier model, controller, routes, SuppliersPage, SupplierFormModal, supplierApi) |
 | 13/10/2026 | Cập nhật Module 5 (Nhà cung cấp): Bổ sung kiểm tra không trùng số điện thoại và tên nhà cung cấp (cả thêm mới và cập nhật) |
 | 13/10/2026 | Hoàn thành Module 7: Nhập hàng (ImportReceipt model, controller, routes, importReceiptApi, ImportReceiptsPage, CreateImportReceiptModal, ImportReceiptDetailModal) tự động cập nhật tồn kho Module 6; Bổ sung SupplierHistoryModal liên kết Nhà cung cấp - Phiếu nhập - Sản phẩm theo đúng chuẩn ERD |
+| 18/10/2026 | Hợp nhất Module 3 (Sản phẩm) và Module 6 (Kho hàng) thành một trang duy nhất "Quản lý sản phẩm": Bổ sung 4 thẻ KPI tồn kho, bộ lọc tình trạng tồn kho, hiển thị vốn tồn từng sản phẩm; Giữ nút "Thêm sản phẩm" ở góc trên; Tích hợp tạo phiếu nhập kho với chọn Nhà cung cấp và đơn giá nhập tại nút "Nhập thêm"; Bỏ ô nhập số lượng tồn kho khi sửa sản phẩm; Bổ sung chọn và sửa lại Nhà cung cấp đối tác (supplier) trong form Thêm/Sửa sản phẩm, hiển thị tag Nhà cung cấp trên bảng danh sách sản phẩm |
+| 18/10/2026 | Tái cấu trúc trang Admin Dashboard: Loại bỏ hoàn toàn mock data, tích hợp 100% dữ liệu thực tế từ Database (thẻ thống kê doanh thu, đơn hàng chờ, vốn tồn kho, biểu đồ 7 ngày chuyển đổi Doanh thu/Số đơn, cảnh báo sản phẩm sắp hết hàng từ kho thực tế, bảng 5 đơn hàng gần đây và lối tắt 7 phân hệ quản trị) |
+| 18/10/2026 | Cập nhật Module 4 (Danh mục): Chuyển đổi chức năng "Xóa" thành "Khóa / Mở khóa" danh mục (backend soft lock bảo toàn dữ liệu); Khắc phục icon ổ khóa trực quan: Danh mục Đã khóa hiển thị icon Ổ khóa ĐÓNG màu đỏ, danh mục Đang hoạt động hiển thị icon Ổ khóa MỞ; Gỡ bỏ mục "Nhập hàng" khỏi Sidebar menu và Dashboard (do đã hợp nhất nhập hàng vào từng sản phẩm) |

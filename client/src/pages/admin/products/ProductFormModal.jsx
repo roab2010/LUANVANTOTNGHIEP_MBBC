@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { createProduct, updateProduct } from '../../../services/productApi';
 import { getCategories } from '../../../services/categoryApi';
+import { getSuppliers } from '../../../services/supplierApi';
 
 // ============================================
 // ICON COMPONENTS
@@ -59,6 +60,7 @@ const ProductFormModal = ({ product, onClose, onSuccess }) => {
     stock: '',
     unit: 'cái',
     category: '',
+    supplier: '',
     status: 'active',
   });
   
@@ -70,6 +72,10 @@ const ProductFormModal = ({ product, onClose, onSuccess }) => {
   // Categories list from Category module
   const [categories, setCategories] = useState([]);
   const [categoriesLoading, setCategoriesLoading] = useState(true);
+
+  // Suppliers list from Supplier module
+  const [suppliers, setSuppliers] = useState([]);
+  const [suppliersLoading, setSuppliersLoading] = useState(true);
 
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -89,6 +95,23 @@ const ProductFormModal = ({ product, onClose, onSuccess }) => {
       }
     };
     fetchCategoryList();
+  }, []);
+
+  // Tải danh sách nhà cung cấp active từ Module Nhà cung cấp
+  useEffect(() => {
+    const fetchSupplierList = async () => {
+      try {
+        setSuppliersLoading(true);
+        const res = await getSuppliers({ limit: 100, status: 'active' });
+        const list = res.data?.data?.suppliers || [];
+        setSuppliers(list);
+      } catch (err) {
+        console.error('Lỗi tải nhà cung cấp:', err);
+      } finally {
+        setSuppliersLoading(false);
+      }
+    };
+    fetchSupplierList();
   }, []);
 
   // Load dữ liệu khi chỉnh sửa
@@ -113,6 +136,7 @@ const ProductFormModal = ({ product, onClose, onSuccess }) => {
         stock: product.stock?.toString() || '',
         unit: product.unit || 'cái',
         category: product.category || '',
+        supplier: product.supplier?._id || product.supplier || '',
         status: product.status || 'active',
       });
 
@@ -207,9 +231,12 @@ const ProductFormModal = ({ product, onClose, onSuccess }) => {
       payload.append('description', formData.description.trim());
       payload.append('price', calculatedPrice);
       payload.append('costPrice', cost);
-      payload.append('stock', formData.stock ? Number(formData.stock) : 0);
+      if (!isEditing) {
+        payload.append('stock', formData.stock ? Number(formData.stock) : 0);
+      }
       payload.append('unit', formData.unit.trim() || 'cái');
       payload.append('category', formData.category.trim());
+      payload.append('supplier', formData.supplier || '');
       payload.append('status', isEditing ? formData.status : 'active');
       
       if (imageFile) {
@@ -389,24 +416,26 @@ const ProductFormModal = ({ product, onClose, onSuccess }) => {
             <span className="text-lg font-bold text-teal-600">{formatCurrency(calculatedPrice)}</span>
           </div>
 
-          {/* Số lượng + Đơn vị */}
+          {/* Đơn vị tính (và số lượng nếu tạo mới) */}
           <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label htmlFor="pf-stock" className="block text-sm font-medium text-gray-700 mb-1.5">
-                Số lượng
-              </label>
-              <input
-                id="pf-stock"
-                name="stock"
-                type="number"
-                min="0"
-                value={formData.stock}
-                onChange={handleChange}
-                placeholder="0"
-                className="w-full h-10 px-3.5 bg-white border border-gray-300 rounded-lg text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-primary-500 focus:ring-[3px] focus:ring-primary-500/15 transition-all duration-200"
-              />
-            </div>
-            <div>
+            {!isEditing && (
+              <div>
+                <label htmlFor="pf-stock" className="block text-sm font-medium text-gray-700 mb-1.5">
+                  Số lượng
+                </label>
+                <input
+                  id="pf-stock"
+                  name="stock"
+                  type="number"
+                  min="0"
+                  value={formData.stock}
+                  onChange={handleChange}
+                  placeholder="0"
+                  className="w-full h-10 px-3.5 bg-white border border-gray-300 rounded-lg text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-primary-500 focus:ring-[3px] focus:ring-primary-500/15 transition-all duration-200"
+                />
+              </div>
+            )}
+            <div className={isEditing ? "col-span-2" : ""}>
               <label htmlFor="pf-unit" className="block text-sm font-medium text-gray-700 mb-1.5">
                 Đơn vị tính
               </label>
@@ -422,9 +451,9 @@ const ProductFormModal = ({ product, onClose, onSuccess }) => {
             </div>
           </div>
 
-          {/* Danh mục + Trạng thái */}
+          {/* Danh mục + Nhà cung cấp */}
           <div className="grid grid-cols-2 gap-4">
-            <div className={!isEditing ? "col-span-2" : ""}>
+            <div>
               <label htmlFor="pf-category" className="block text-sm font-medium text-gray-700 mb-1.5">
                 Danh mục
               </label>
@@ -445,28 +474,56 @@ const ProductFormModal = ({ product, onClose, onSuccess }) => {
               </select>
               {categories.length === 0 && !categoriesLoading && (
                 <p className="text-xs text-amber-600 mt-1">
-                  Chưa có danh mục nào. Bạn có thể vào mục <strong>Danh mục</strong> để thêm mới trước.
+                  Chưa có danh mục nào.
                 </p>
               )}
             </div>
-            {isEditing && (
-              <div>
-                <label htmlFor="pf-status" className="block text-sm font-medium text-gray-700 mb-1.5">
-                  Trạng thái
-                </label>
-                <select
-                  id="pf-status"
-                  name="status"
-                  value={formData.status}
-                  onChange={handleChange}
-                  className="w-full h-10 px-3.5 bg-white border border-gray-300 rounded-lg text-sm text-gray-700 focus:outline-none focus:border-primary-500 focus:ring-[3px] focus:ring-primary-500/15 transition-all duration-200"
-                >
-                  <option value="active">Đang bán</option>
-                  <option value="inactive">Ngừng bán</option>
-                </select>
-              </div>
-            )}
+
+            <div>
+              <label htmlFor="pf-supplier" className="block text-sm font-medium text-gray-700 mb-1.5">
+                Nhà cung cấp
+              </label>
+              <select
+                id="pf-supplier"
+                name="supplier"
+                value={formData.supplier}
+                onChange={handleChange}
+                disabled={suppliersLoading}
+                className="w-full h-10 px-3.5 bg-white border border-gray-300 rounded-lg text-sm text-gray-700 focus:outline-none focus:border-primary-500 focus:ring-[3px] focus:ring-primary-500/15 transition-all duration-200 disabled:opacity-60"
+              >
+                <option value="">-- Chọn nhà cung cấp --</option>
+                {suppliers.map((sup) => (
+                  <option key={sup._id} value={sup._id}>
+                    {sup.name} {sup.phone ? `(${sup.phone})` : ''}
+                  </option>
+                ))}
+              </select>
+              {suppliers.length === 0 && !suppliersLoading && (
+                <p className="text-xs text-amber-600 mt-1">
+                  Chưa có nhà cung cấp nào.
+                </p>
+              )}
+            </div>
           </div>
+
+          {/* Trạng thái kinh doanh (chỉ hiển thị khi sửa sản phẩm) */}
+          {isEditing && (
+            <div>
+              <label htmlFor="pf-status" className="block text-sm font-medium text-gray-700 mb-1.5">
+                Trạng thái kinh doanh
+              </label>
+              <select
+                id="pf-status"
+                name="status"
+                value={formData.status}
+                onChange={handleChange}
+                className="w-full h-10 px-3.5 bg-white border border-gray-300 rounded-lg text-sm text-gray-700 focus:outline-none focus:border-primary-500 focus:ring-[3px] focus:ring-primary-500/15 transition-all duration-200"
+              >
+                <option value="active">Đang bán</option>
+                <option value="inactive">Ngừng bán</option>
+              </select>
+            </div>
+          )}
 
           {/* Actions */}
           <div className="flex items-center justify-end gap-3 pt-3 border-t border-gray-100">

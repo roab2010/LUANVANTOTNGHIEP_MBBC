@@ -1,5 +1,6 @@
-import { useState } from 'react';
-import { adjustStock } from '../../../services/warehouseApi';
+import { useState, useEffect } from 'react';
+import { getSuppliers } from '../../../services/supplierApi';
+import { createImportReceipt } from '../../../services/importReceiptApi';
 
 // ============================================
 // ICON COMPONENTS
@@ -12,39 +13,78 @@ const CloseIcon = () => (
 
 const SpinnerIcon = () => (
   <svg className="animate-spin h-5 w-5 text-white" fill="none" viewBox="0 0 24 24">
-    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth={4} />
     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
   </svg>
 );
 
 const StockAdjustModal = ({ item, onClose, onSuccess }) => {
+  const [suppliers, setSuppliers] = useState([]);
+  const [suppliersLoading, setSuppliersLoading] = useState(true);
+  const [supplierId, setSupplierId] = useState('');
   const [quantity, setQuantity] = useState('');
+  const [importPrice, setImportPrice] = useState(item?.costPrice || '');
   const [reason, setReason] = useState('Nhập thêm hàng mới');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
+  // Tải danh sách nhà cung cấp
+  useEffect(() => {
+    const fetchSupplierList = async () => {
+      try {
+        setSuppliersLoading(true);
+        const res = await getSuppliers({ status: 'active', limit: 100 });
+        const list = res.data?.data?.suppliers || [];
+        setSuppliers(list);
+        if (list.length > 0) {
+          setSupplierId(list[0]._id);
+        }
+      } catch (err) {
+        console.error('Lỗi tải danh sách nhà cung cấp:', err);
+      } finally {
+        setSuppliersLoading(false);
+      }
+    };
+    fetchSupplierList();
+  }, []);
+
   const currentStock = item?.stock || 0;
   const numQty = parseInt(quantity) || 0;
-
-  // Tính tồn kho sau khi nhập thêm
   const previewStock = currentStock + numQty;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
 
+    if (!supplierId) {
+      setError('Vui lòng chọn nhà cung cấp đối tác');
+      return;
+    }
+
     if (quantity === '' || isNaN(numQty) || numQty <= 0) {
       setError('Vui lòng nhập số lượng cần nhập thêm (từ 1 trở lên)');
       return;
     }
 
+    const priceNum = Number(importPrice);
+    if (isNaN(priceNum) || priceNum < 0) {
+      setError('Đơn giá nhập không hợp lệ');
+      return;
+    }
+
     setLoading(true);
     try {
-      await adjustStock({
-        productId: item._id,
-        actionType: 'add',
-        quantity: numQty,
-        reason,
+      // Tạo phiếu nhập hàng để tự động tăng tồn kho và lưu lịch sử nhà cung cấp
+      await createImportReceipt({
+        supplierId,
+        items: [
+          {
+            product: item._id,
+            quantity: numQty,
+            importPrice: priceNum || item.costPrice || 0,
+          },
+        ],
+        note: reason || `Nhập thêm hàng cho ${item.name}`,
       });
 
       onSuccess();
@@ -93,33 +133,79 @@ const StockAdjustModal = ({ item, onClose, onSuccess }) => {
             <span className="font-bold text-gray-900 text-base">{currentStock} {item?.unit || 'cái'}</span>
           </div>
 
-          {/* Số lượng cần nhập thêm */}
+          {/* Chọn Nhà cung cấp */}
           <div>
-            <label htmlFor="adjust-qty" className="block text-sm font-medium text-gray-700 mb-1.5">
-              Số lượng nhập thêm <span className="text-danger-500">*</span>
+            <label htmlFor="adjust-supplier" className="block text-sm font-medium text-gray-700 mb-1.5">
+              Nhà cung cấp đối tác <span className="text-danger-500">*</span>
             </label>
-            <input
-              id="adjust-qty"
-              type="number"
-              min="1"
-              value={quantity}
-              onChange={(e) => setQuantity(e.target.value)}
-              placeholder="Nhập số lượng cần thêm..."
-              autoFocus
-              className="w-full h-10 px-3.5 bg-white border border-gray-300 rounded-lg text-sm text-gray-900 focus:outline-none focus:border-primary-500 focus:ring-[3px] focus:ring-primary-500/15 transition-all duration-200"
-            />
+            <select
+              id="adjust-supplier"
+              value={supplierId}
+              onChange={(e) => {
+                setSupplierId(e.target.value);
+                setError('');
+              }}
+              disabled={loading || suppliersLoading}
+              className="w-full h-10 px-3 bg-white border border-gray-300 rounded-lg text-sm text-gray-900 focus:outline-none focus:border-primary-500 focus:ring-[3px] focus:ring-primary-500/15 transition-all duration-200"
+            >
+              <option value="">-- Chọn nhà cung cấp --</option>
+              {suppliers.map((sup) => (
+                <option key={sup._id} value={sup._id}>
+                  {sup.name} {sup.phone ? `(${sup.phone})` : ''}
+                </option>
+              ))}
+            </select>
+            {suppliers.length === 0 && !suppliersLoading && (
+              <p className="text-xs text-amber-600 mt-1">
+                Chưa có nhà cung cấp nào. Vui lòng vào mục Nhà cung cấp để thêm trước.
+              </p>
+            )}
+          </div>
+
+          {/* Số lượng + Đơn giá nhập */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label htmlFor="adjust-qty" className="block text-sm font-medium text-gray-700 mb-1.5">
+                Số lượng nhập <span className="text-danger-500">*</span>
+              </label>
+              <input
+                id="adjust-qty"
+                type="number"
+                min="1"
+                value={quantity}
+                onChange={(e) => setQuantity(e.target.value)}
+                placeholder="Nhập số lượng..."
+                autoFocus
+                className="w-full h-10 px-3.5 bg-white border border-gray-300 rounded-lg text-sm text-gray-900 focus:outline-none focus:border-primary-500 focus:ring-[3px] focus:ring-primary-500/15 transition-all duration-200"
+              />
+            </div>
+
+            <div>
+              <label htmlFor="adjust-price" className="block text-sm font-medium text-gray-700 mb-1.5">
+                Đơn giá nhập (₫)
+              </label>
+              <input
+                id="adjust-price"
+                type="number"
+                min="0"
+                value={importPrice}
+                onChange={(e) => setImportPrice(e.target.value)}
+                placeholder="0"
+                className="w-full h-10 px-3.5 bg-white border border-gray-300 rounded-lg text-sm text-gray-900 focus:outline-none focus:border-primary-500 focus:ring-[3px] focus:ring-primary-500/15 transition-all duration-200"
+              />
+            </div>
           </div>
 
           {/* Xem trước tồn sau khi nhập thêm */}
           <div className="p-3 bg-emerald-50/70 border border-emerald-200/60 rounded-lg flex items-center justify-between text-sm">
-            <span className="text-emerald-800 font-medium">Tồn kho sau khi nhập thêm:</span>
+            <span className="text-emerald-800 font-medium">Tồn kho sau khi nhập:</span>
             <span className="font-bold text-emerald-900 text-base">{previewStock} {item?.unit || 'cái'}</span>
           </div>
 
-          {/* Lý do */}
+          {/* Lý do / Ghi chú */}
           <div>
             <label htmlFor="adjust-reason" className="block text-sm font-medium text-gray-700 mb-1.5">
-              Lý do nhập hàng
+              Lý do / Ghi chú nhập hàng
             </label>
             <select
               id="adjust-reason"
@@ -130,6 +216,7 @@ const StockAdjustModal = ({ item, onClose, onSuccess }) => {
               <option value="Nhập thêm hàng mới">Nhập thêm hàng mới</option>
               <option value="Bổ sung hàng bán chạy">Bổ sung hàng bán chạy</option>
               <option value="Nhập hàng theo lô">Nhập hàng theo lô</option>
+              <option value="Đợt nhập bổ sung kho">Đợt nhập bổ sung kho</option>
               <option value="Khác">Lý do khác</option>
             </select>
           </div>
@@ -146,7 +233,7 @@ const StockAdjustModal = ({ item, onClose, onSuccess }) => {
             </button>
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || suppliers.length === 0}
               className="h-10 px-5 text-sm font-semibold text-white bg-primary-600 rounded-lg hover:bg-primary-700 active:scale-[0.98] transition-all disabled:opacity-50 flex items-center gap-2"
             >
               {loading && <SpinnerIcon />}

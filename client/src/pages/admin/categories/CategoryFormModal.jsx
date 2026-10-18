@@ -195,7 +195,7 @@ const CategoryFormModal = ({ category, onClose, onSuccess }) => {
                 className="w-full h-10 px-3.5 bg-white border border-gray-300 rounded-lg text-sm text-gray-700 focus:outline-none focus:border-primary-500 focus:ring-[3px] focus:ring-primary-500/15 transition-all duration-200"
               >
                 <option value="active">Đang hoạt động</option>
-                <option value="inactive">Ngừng hoạt động</option>
+                <option value="inactive">Đã khóa (Tạm ngừng)</option>
               </select>
             </div>
           )}

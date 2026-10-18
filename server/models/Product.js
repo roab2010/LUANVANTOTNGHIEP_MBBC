@@ -37,6 +37,11 @@ const productSchema = new mongoose.Schema(
       default: '',
       trim: true,
     },
+    supplier: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Supplier',
+      default: null,
+    },
     image: {
       type: String,
       default: '',

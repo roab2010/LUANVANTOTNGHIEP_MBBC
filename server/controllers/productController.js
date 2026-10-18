@@ -5,7 +5,7 @@ const Product = require('../models/Product');
 // ============================================
 const getProducts = async (req, res) => {
   try {
-    const { search, status, category, page = 1, limit = 10 } = req.query;
+    const { search, status, stockStatus, category, page = 1, limit = 10 } = req.query;
 
     // Tạo filter
     const filter = {};
@@ -20,9 +20,18 @@ const getProducts = async (req, res) => {
       filter.category = { $regex: category, $options: 'i' };
     }
 
-    // Lọc theo trạng thái
+    // Lọc theo trạng thái kinh doanh
     if (status && ['active', 'inactive'].includes(status)) {
       filter.status = status;
+    }
+
+    // Lọc theo tình trạng tồn kho
+    if (stockStatus === 'out_of_stock') {
+      filter.stock = { $lte: 0 };
+    } else if (stockStatus === 'low_stock') {
+      filter.stock = { $gt: 0, $lte: 10 };
+    } else if (stockStatus === 'in_stock') {
+      filter.stock = { $gt: 10 };
     }
 
     // Phân trang
@@ -33,6 +42,7 @@ const getProducts = async (req, res) => {
     // Query
     const [products, total] = await Promise.all([
       Product.find(filter)
+        .populate('supplier', 'name phone')
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limitNum),
@@ -65,7 +75,7 @@ const getProducts = async (req, res) => {
 // ============================================
 const getProductById = async (req, res) => {
   try {
-    const product = await Product.findById(req.params.id);
+    const product = await Product.findById(req.params.id).populate('supplier', 'name phone address');
     if (!product) {
       return res.status(404).json({
         success: false,
@@ -98,7 +108,7 @@ const getProductById = async (req, res) => {
 // ============================================
 const createProduct = async (req, res) => {
   try {
-    const { name, description, price, costPrice, stock, unit, category, status } = req.body;
+    const { name, description, price, costPrice, stock, unit, category, supplier, status } = req.body;
 
     // --- Validate input ---
     if (!name || !name.trim()) {
@@ -151,6 +161,7 @@ const createProduct = async (req, res) => {
       stock: stock !== undefined ? Number(stock) : 0,
       unit: unit?.trim() || 'cái',
       category: category?.trim() || '',
+      supplier: supplier ? supplier : null,
       status: status || 'active',
       image: imageUrl,
     });
@@ -174,7 +185,7 @@ const createProduct = async (req, res) => {
 // ============================================
 const updateProduct = async (req, res) => {
   try {
-    const { name, description, price, costPrice, stock, unit, category, status } = req.body;
+    const { name, description, price, costPrice, stock, unit, category, supplier, status } = req.body;
 
     // --- Validate input ---
     if (name !== undefined && !name.trim()) {
@@ -214,6 +225,7 @@ const updateProduct = async (req, res) => {
     if (stock !== undefined) updateData.stock = Number(stock);
     if (unit !== undefined) updateData.unit = unit.trim();
     if (category !== undefined) updateData.category = category.trim();
+    if (supplier !== undefined) updateData.supplier = supplier ? supplier : null;
     if (status !== undefined) updateData.status = status;
 
     // Lấy thông tin sản phẩm cũ để xử lý ảnh (tùy chọn xóa trên cloudinary nếu cần thiết, ở đây tạm thời bỏ qua phần xóa ảnh cũ trên cloudinary để giữ code đơn giản, hoặc có thể thêm thư viện để xóa)
@@ -229,7 +241,7 @@ const updateProduct = async (req, res) => {
       req.params.id,
       updateData,
       { new: true, runValidators: true }
-    );
+    ).populate('supplier', 'name phone address');
 
     if (!product) {
       return res.status(404).json({

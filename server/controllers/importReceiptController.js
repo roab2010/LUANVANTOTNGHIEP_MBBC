@@ -188,11 +188,12 @@ const createImportReceipt = async (req, res) => {
       status: 'completed',
     });
 
-    // TỰ ĐỘNG CẬP NHẬT TỒN KHO & GIÁ VỐN CHO TỪNG SẢN PHẨM
+    // TỰ ĐỘNG CẬP NHẬT TỒN KHO & GIÁ VỐN & NHÀ CUNG CẤP CHO TỪNG SẢN PHẨM
     for (const it of validatedItems) {
       await Product.findByIdAndUpdate(it.product, {
         $inc: { stock: it.quantity },
         costPrice: it.importPrice, // Cập nhật giá vốn mới nhất
+        supplier: supplierId,      // Cập nhật nhà cung cấp nhập hàng
       });
     }
 

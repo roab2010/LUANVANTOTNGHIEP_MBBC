@@ -46,8 +46,9 @@ function App() {
             <Route path="products" element={<ProductsPage />} />
             <Route path="categories" element={<CategoriesPage />} />
             <Route path="suppliers" element={<SuppliersPage />} />
-            <Route path="import-receipts" element={<ImportReceiptsPage />} />
-            <Route path="warehouse" element={<WarehousePage />} />
+            <Route path="import-receipts" element={<Navigate to="/admin/products" replace />} />
+            <Route path="import" element={<Navigate to="/admin/products" replace />} />
+            <Route path="warehouse" element={<Navigate to="/admin/products" replace />} />
             <Route path="orders" element={<OrdersPage />} />
             <Route path="customers" element={<CustomersPage />} />
             <Route path="statistics" element={<StatisticsPage />} />

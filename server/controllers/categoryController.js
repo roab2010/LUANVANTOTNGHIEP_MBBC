@@ -232,11 +232,15 @@ const updateCategory = async (req, res) => {
 };
 
 // ============================================
-// XÓA DANH MỤC - DELETE /api/categories/:id
+// KHÓA DANH MỤC (BẢO TOÀN LƯU VẾT) - DELETE /api/categories/:id
 // ============================================
 const deleteCategory = async (req, res) => {
   try {
-    const category = await Category.findByIdAndDelete(req.params.id);
+    const category = await Category.findByIdAndUpdate(
+      req.params.id,
+      { status: 'inactive' },
+      { new: true }
+    );
 
     if (!category) {
       return res.status(404).json({
@@ -247,7 +251,8 @@ const deleteCategory = async (req, res) => {
 
     res.json({
       success: true,
-      message: 'Xóa danh mục thành công',
+      message: 'Khóa danh mục thành công, dữ liệu lịch sử sản phẩm đã được bảo toàn',
+      data: { category },
     });
   } catch (error) {
     console.error('Lỗi xóa danh mục:', error);
