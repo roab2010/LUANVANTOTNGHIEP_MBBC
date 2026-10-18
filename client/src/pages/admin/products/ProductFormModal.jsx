@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { createProduct, updateProduct } from '../../../services/productApi';
+import { createProduct, updateProduct, getProducts } from '../../../services/productApi';
 import { getCategories } from '../../../services/categoryApi';
 import { getSuppliers } from '../../../services/supplierApi';
 
@@ -37,6 +37,12 @@ const TrashIcon = ({ className }) => (
   </svg>
 );
 
+const LockIcon = ({ className = 'w-4 h-4' }) => (
+  <svg className={className} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+  </svg>
+);
+
 // Format currency
 const formatCurrency = (value) => {
   return new Intl.NumberFormat('vi-VN', {
@@ -44,6 +50,19 @@ const formatCurrency = (value) => {
     currency: 'VND',
   }).format(value || 0);
 };
+
+// Cấu hình giới hạn chuẩn của hệ thống
+const LIMITS = {
+  COST_PRICE_MIN: 10000,
+  COST_PRICE_MAX: 10000000, // Giới hạn 10 triệu theo yêu cầu
+  PROFIT_MARGIN_MIN: 0,
+  PROFIT_MARGIN_MAX: 1000,   // Tối đa 1.000%
+  STOCK_MIN: 0,
+  STOCK_MAX: 10000,         // Tối đa 10.000 sản phẩm
+  UNIT_MAX_LENGTH: 15,
+};
+
+const COMMON_UNITS = ['cái', 'chiếc', 'bộ', 'đôi', 'hộp', 'gói'];
 
 // ============================================
 // PRODUCT FORM MODAL COMPONENT
@@ -63,6 +82,14 @@ const ProductFormModal = ({ product, onClose, onSuccess }) => {
     supplier: '',
     status: 'active',
   });
+
+  // State lỗi từng trường để cảnh báo ngay tại chỗ (inline error)
+  const [fieldErrors, setFieldErrors] = useState({
+    costPrice: '',
+    profitMargin: '',
+    stock: '',
+    unit: '',
+  });
   
   // Image states
   const [imageFile, setImageFile] = useState(null);
@@ -80,12 +107,12 @@ const ProductFormModal = ({ product, onClose, onSuccess }) => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // Tải danh sách danh mục active từ Module Danh mục
+  // Tải danh sách tất cả danh mục từ Module Danh mục
   useEffect(() => {
     const fetchCategoryList = async () => {
       try {
         setCategoriesLoading(true);
-        const res = await getCategories({ limit: 100, status: 'active' });
+        const res = await getCategories({ limit: 100 });
         const list = res.data?.data?.categories || [];
         setCategories(list);
       } catch (err) {
@@ -125,7 +152,7 @@ const ProductFormModal = ({ product, onClose, onSuccess }) => {
         // Remove trailing zeroes if it's a whole number
         margin = parseFloat(margin).toString();
       } else if (cost === 0 && price > 0) {
-         margin = '100'; 
+        margin = '100'; 
       }
 
       setFormData({
@@ -146,15 +173,140 @@ const ProductFormModal = ({ product, onClose, onSuccess }) => {
     }
   }, [product]);
 
+  // Kiểm tra danh mục hiện tại của sản phẩm có bị khóa không
+  const currentCategoryObj = categories.find(
+    (c) => c.name?.toLowerCase().trim() === (product?.category || '').toLowerCase().trim()
+  );
+  const isCurrentCategoryLocked = isEditing && !!product?.category && currentCategoryObj?.status === 'inactive';
+
   // Derived price
   const cost = Number(formData.costPrice) || 0;
   const margin = Number(formData.profitMargin) || 0;
   const calculatedPrice = cost + (cost * margin) / 100;
 
-  // Xử lý thay đổi input
+  // Xử lý thay đổi input chung
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
+    setError('');
+  };
+
+  // Xử lý giá nhập: Chặn không cho nhập quá 10 triệu và hiển thị lỗi ngay tại chỗ
+  const handleCostPriceChange = (e) => {
+    const rawVal = e.target.value.replace(/[^0-9]/g, '');
+    setError('');
+
+    if (rawVal === '') {
+      setFormData((prev) => ({ ...prev, costPrice: '' }));
+      setFieldErrors((prev) => ({ ...prev, costPrice: '' }));
+      return;
+    }
+
+    const num = Number(rawVal);
+    // CHẶN KHÔNG CHO NHẬP THÊM NẾU VƯỢT QUÁ 10 TRIỆU
+    if (num > LIMITS.COST_PRICE_MAX) {
+      setFieldErrors((prev) => ({
+        ...prev,
+        costPrice: `Giá nhập tối đa là ${formatCurrency(LIMITS.COST_PRICE_MAX)}`,
+      }));
+      return; // Không nhận ký tự làm vượt quá 10 triệu
+    }
+
+    setFormData((prev) => ({ ...prev, costPrice: rawVal }));
+    setFieldErrors((prev) => ({ ...prev, costPrice: '' }));
+  };
+
+  const handleCostPriceBlur = () => {
+    if (formData.costPrice !== '') {
+      const num = Number(formData.costPrice);
+      if (num < LIMITS.COST_PRICE_MIN) {
+        setFieldErrors((prev) => ({
+          ...prev,
+          costPrice: `Giá nhập tối thiểu là ${formatCurrency(LIMITS.COST_PRICE_MIN)}`,
+        }));
+      }
+    }
+  };
+
+  // Xử lý lợi nhuận: Chặn không cho nhập quá 1000% và báo lỗi ngay tại chỗ
+  const handleProfitMarginChange = (e) => {
+    const rawVal = e.target.value;
+    setError('');
+
+    if (rawVal === '') {
+      setFormData((prev) => ({ ...prev, profitMargin: '' }));
+      setFieldErrors((prev) => ({ ...prev, profitMargin: '' }));
+      return;
+    }
+
+    // Chỉ nhận số và tối đa 1 dấu chấm thập phân
+    if (!/^\d*\.?\d*$/.test(rawVal)) return;
+
+    const num = Number(rawVal);
+    // CHẶN KHÔNG CHO NHẬP THÊM NẾU VƯỢT QUÁ 1000%
+    if (num > LIMITS.PROFIT_MARGIN_MAX) {
+      setFieldErrors((prev) => ({
+        ...prev,
+        profitMargin: `Lợi nhuận tối đa là ${LIMITS.PROFIT_MARGIN_MAX}%`,
+      }));
+      return; // Không nhận ký tự làm vượt quá 1000%
+    }
+
+    if (num < LIMITS.PROFIT_MARGIN_MIN) {
+      setFieldErrors((prev) => ({
+        ...prev,
+        profitMargin: 'Lợi nhuận không được âm',
+      }));
+      return;
+    }
+
+    setFormData((prev) => ({ ...prev, profitMargin: rawVal }));
+    setFieldErrors((prev) => ({ ...prev, profitMargin: '' }));
+  };
+
+  // Xử lý số lượng tồn kho: Chặn không cho nhập quá 10,000 sản phẩm
+  const handleStockChange = (e) => {
+    const rawVal = e.target.value.replace(/[^0-9]/g, '');
+    setError('');
+
+    if (rawVal === '') {
+      setFormData((prev) => ({ ...prev, stock: '' }));
+      setFieldErrors((prev) => ({ ...prev, stock: '' }));
+      return;
+    }
+
+    const num = Number(rawVal);
+    // CHẶN KHÔNG CHO NHẬP THÊM NẾU VƯỢT QUÁ 10.000 SẢN PHẨM
+    if (num > LIMITS.STOCK_MAX) {
+      setFieldErrors((prev) => ({
+        ...prev,
+        stock: `Số lượng tối đa là ${LIMITS.STOCK_MAX.toLocaleString()} sản phẩm`,
+      }));
+      return; // Không nhận ký tự làm vượt quá 10.000
+    }
+
+    setFormData((prev) => ({ ...prev, stock: rawVal }));
+    setFieldErrors((prev) => ({ ...prev, stock: '' }));
+  };
+
+  // Xử lý đơn vị tính
+  const handleUnitChange = (e) => {
+    const val = e.target.value;
+    setError('');
+    if (val.length > LIMITS.UNIT_MAX_LENGTH) {
+      setFieldErrors((prev) => ({
+        ...prev,
+        unit: `Đơn vị tính tối đa ${LIMITS.UNIT_MAX_LENGTH} ký tự`,
+      }));
+      return;
+    }
+    setFormData((prev) => ({ ...prev, unit: val }));
+    setFieldErrors((prev) => ({ ...prev, unit: '' }));
+  };
+
+  const handleSelectUnit = (u) => {
+    setFormData((prev) => ({ ...prev, unit: u }));
+    setFieldErrors((prev) => ({ ...prev, unit: '' }));
     setError('');
   };
 
@@ -191,29 +343,66 @@ const ProductFormModal = ({ product, onClose, onSuccess }) => {
     if (fileInput) fileInput.value = '';
   };
 
-  // Validate form phía frontend
+  // Validate form phía frontend trước khi submit
   const validateForm = () => {
+    const newFieldErrors = {};
+
     if (!formData.name.trim()) {
       setError('Vui lòng nhập tên sản phẩm');
       return false;
     }
-    
+
     const costPriceNum = Number(formData.costPrice);
-    if (formData.costPrice === '' || costPriceNum < 10000 || costPriceNum > 1000000000) {
-      setError('Giá nhập phải từ 10,000 đến 1,000,000,000 ₫');
-      return false;
+    if (formData.costPrice === '' || isNaN(costPriceNum)) {
+      newFieldErrors.costPrice = 'Vui lòng nhập giá nhập';
+    } else if (costPriceNum < LIMITS.COST_PRICE_MIN || costPriceNum > LIMITS.COST_PRICE_MAX) {
+      newFieldErrors.costPrice = `Giá nhập phải từ ${formatCurrency(LIMITS.COST_PRICE_MIN)} đến ${formatCurrency(LIMITS.COST_PRICE_MAX)}`;
     }
 
     const profitMarginNum = Number(formData.profitMargin);
-    if (formData.profitMargin === '' || profitMarginNum < 0 || profitMarginNum > 1000) {
-      setError('Phần trăm lợi nhuận phải từ 0 đến 1000%');
+    if (formData.profitMargin === '' || isNaN(profitMarginNum)) {
+      newFieldErrors.profitMargin = 'Vui lòng nhập % lợi nhuận';
+    } else if (profitMarginNum < LIMITS.PROFIT_MARGIN_MIN || profitMarginNum > LIMITS.PROFIT_MARGIN_MAX) {
+      newFieldErrors.profitMargin = `Lợi nhuận phải từ ${LIMITS.PROFIT_MARGIN_MIN}% đến ${LIMITS.PROFIT_MARGIN_MAX}%`;
+    }
+
+    if (!isEditing && formData.stock !== '') {
+      const stockNum = Number(formData.stock);
+      if (isNaN(stockNum) || stockNum < LIMITS.STOCK_MIN || stockNum > LIMITS.STOCK_MAX) {
+        newFieldErrors.stock = `Số lượng phải từ ${LIMITS.STOCK_MIN} đến ${LIMITS.STOCK_MAX.toLocaleString()}`;
+      }
+    }
+
+    if (!formData.unit.trim()) {
+      newFieldErrors.unit = 'Vui lòng nhập hoặc chọn đơn vị tính';
+    } else if (formData.unit.trim().length > LIMITS.UNIT_MAX_LENGTH) {
+      newFieldErrors.unit = `Đơn vị tính tối đa ${LIMITS.UNIT_MAX_LENGTH} ký tự`;
+    }
+
+    if (Object.keys(newFieldErrors).length > 0) {
+      setFieldErrors((prev) => ({ ...prev, ...newFieldErrors }));
+      setError('Vui lòng kiểm tra và sửa các thông tin chưa hợp lệ');
       return false;
     }
 
-    if (formData.stock && Number(formData.stock) < 0) {
-      setError('Số lượng không được âm');
+    // Kiểm tra quy tắc danh mục bị khóa
+    if (isEditing && isCurrentCategoryLocked && formData.category !== product.category) {
+      setError(`Sản phẩm đang thuộc danh mục bị khóa ("${product.category}"), không được phép chuyển sang danh mục khác.`);
       return false;
     }
+
+    if (formData.category) {
+      const selectedCat = categories.find(
+        (c) => c.name?.toLowerCase().trim() === formData.category.toLowerCase().trim()
+      );
+      if (selectedCat && selectedCat.status === 'inactive') {
+        if (!isEditing || selectedCat.name !== product?.category) {
+          setError(`Danh mục "${selectedCat.name}" đang bị khóa, không thể chọn danh mục này.`);
+          return false;
+        }
+      }
+    }
+
     return true;
   };
 
@@ -226,8 +415,47 @@ const ProductFormModal = ({ product, onClose, onSuccess }) => {
 
     setLoading(true);
     try {
+      // --- Kiểm tra trùng tên sản phẩm phía frontend ---
+      const trimmedName = formData.name.trim();
+      const checkRes = await getProducts({ search: trimmedName, limit: 50 });
+      const existingProducts = checkRes.data?.data?.products || [];
+      const duplicate = existingProducts.find((p) => {
+        if (isEditing && p._id === product._id) return false;
+        return p.name.trim().toLowerCase() === trimmedName.toLowerCase();
+      });
+      if (duplicate) {
+        setError('Tên sản phẩm đã tồn tại.');
+        setLoading(false);
+        return;
+      }
+
+      // --- Kiểm tra trùng nội dung ảnh phía frontend ---
+      if (imageFile) {
+        try {
+          const arrayBuffer = await imageFile.arrayBuffer();
+          const hashBuffer = await window.crypto.subtle.digest('SHA-256', arrayBuffer);
+          const hashArray = Array.from(new Uint8Array(hashBuffer));
+          const fileHash = hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
+
+          const allProductsRes = await getProducts({ limit: 100 });
+          const allProducts = allProductsRes.data?.data?.products || [];
+          const duplicateImage = allProducts.find((p) => {
+            if (isEditing && p._id === product._id) return false;
+            return p.imageHash && p.imageHash === fileHash;
+          });
+
+          if (duplicateImage) {
+            setError('Hình ảnh này đã được sử dụng cho sản phẩm khác.');
+            setLoading(false);
+            return;
+          }
+        } catch (hashErr) {
+          console.warn('Frontend image hash check error, delegating to backend:', hashErr);
+        }
+      }
+
       const payload = new FormData();
-      payload.append('name', formData.name.trim());
+      payload.append('name', trimmedName);
       payload.append('description', formData.description.trim());
       payload.append('price', calculatedPrice);
       payload.append('costPrice', cost);
@@ -290,7 +518,7 @@ const ProductFormModal = ({ product, onClose, onSuccess }) => {
         )}
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-5">
+        <form onSubmit={handleSubmit} noValidate className="p-6 space-y-5">
           
           {/* Tên sản phẩm */}
           <div>
@@ -376,37 +604,61 @@ const ProductFormModal = ({ product, onClose, onSuccess }) => {
           {/* Giá nhập + Phần trăm lợi nhuận */}
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label htmlFor="pf-costPrice" className="block text-sm font-medium text-gray-700 mb-1.5">
-                Giá nhập (₫) <span className="text-danger-500">*</span>
+              <label htmlFor="pf-costPrice" className="block text-sm font-medium text-gray-700 mb-1.5 flex items-center justify-between">
+                <span>Giá nhập (₫) <span className="text-danger-500">*</span></span>
+                <span className="text-xs text-gray-400 font-normal">Tối đa 10 triệu</span>
               </label>
               <input
                 id="pf-costPrice"
                 name="costPrice"
-                type="number"
-                min="10000"
-                max="1000000000"
+                type="text"
+                inputMode="numeric"
                 value={formData.costPrice}
-                onChange={handleChange}
-                placeholder="0"
-                className="w-full h-10 px-3.5 bg-white border border-gray-300 rounded-lg text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-primary-500 focus:ring-[3px] focus:ring-primary-500/15 transition-all duration-200"
+                onChange={handleCostPriceChange}
+                onBlur={handleCostPriceBlur}
+                placeholder="10.000 - 10.000.000"
+                className={`w-full h-10 px-3.5 bg-white border rounded-lg text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none transition-all duration-200 ${
+                  fieldErrors.costPrice
+                    ? 'border-danger-500 focus:border-danger-500 focus:ring-[3px] focus:ring-danger-500/15'
+                    : 'border-gray-300 focus:border-primary-500 focus:ring-[3px] focus:ring-primary-500/15'
+                }`}
               />
+              {fieldErrors.costPrice && (
+                <p className="mt-1 text-xs text-danger-600 font-medium flex items-center gap-1">
+                  <svg className="w-3.5 h-3.5 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                  </svg>
+                  {fieldErrors.costPrice}
+                </p>
+              )}
             </div>
             <div>
-              <label htmlFor="pf-profitMargin" className="block text-sm font-medium text-gray-700 mb-1.5">
-                Lợi nhuận (%) <span className="text-danger-500">*</span>
+              <label htmlFor="pf-profitMargin" className="block text-sm font-medium text-gray-700 mb-1.5 flex items-center justify-between">
+                <span>Lợi nhuận (%) <span className="text-danger-500">*</span></span>
+                <span className="text-xs text-gray-400 font-normal">0% - 1.000%</span>
               </label>
               <input
                 id="pf-profitMargin"
                 name="profitMargin"
-                type="number"
-                min="0"
-                max="1000"
-                step="0.01"
+                type="text"
+                inputMode="decimal"
                 value={formData.profitMargin}
-                onChange={handleChange}
+                onChange={handleProfitMarginChange}
                 placeholder="Ví dụ: 20"
-                className="w-full h-10 px-3.5 bg-white border border-gray-300 rounded-lg text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-primary-500 focus:ring-[3px] focus:ring-primary-500/15 transition-all duration-200"
+                className={`w-full h-10 px-3.5 bg-white border rounded-lg text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none transition-all duration-200 ${
+                  fieldErrors.profitMargin
+                    ? 'border-danger-500 focus:border-danger-500 focus:ring-[3px] focus:ring-danger-500/15'
+                    : 'border-gray-300 focus:border-primary-500 focus:ring-[3px] focus:ring-primary-500/15'
+                }`}
               />
+              {fieldErrors.profitMargin && (
+                <p className="mt-1 text-xs text-danger-600 font-medium flex items-center gap-1">
+                  <svg className="w-3.5 h-3.5 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                  </svg>
+                  {fieldErrors.profitMargin}
+                </p>
+              )}
             </div>
           </div>
 
@@ -420,58 +672,124 @@ const ProductFormModal = ({ product, onClose, onSuccess }) => {
           <div className="grid grid-cols-2 gap-4">
             {!isEditing && (
               <div>
-                <label htmlFor="pf-stock" className="block text-sm font-medium text-gray-700 mb-1.5">
-                  Số lượng
+                <label htmlFor="pf-stock" className="block text-sm font-medium text-gray-700 mb-1.5 flex items-center justify-between">
+                  <span>Số lượng</span>
+                  <span className="text-xs text-gray-400 font-normal">Tối đa 10.000</span>
                 </label>
                 <input
                   id="pf-stock"
                   name="stock"
-                  type="number"
-                  min="0"
+                  type="text"
+                  inputMode="numeric"
                   value={formData.stock}
-                  onChange={handleChange}
+                  onChange={handleStockChange}
                   placeholder="0"
-                  className="w-full h-10 px-3.5 bg-white border border-gray-300 rounded-lg text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-primary-500 focus:ring-[3px] focus:ring-primary-500/15 transition-all duration-200"
+                  className={`w-full h-10 px-3.5 bg-white border rounded-lg text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none transition-all duration-200 ${
+                    fieldErrors.stock
+                      ? 'border-danger-500 focus:border-danger-500 focus:ring-[3px] focus:ring-danger-500/15'
+                      : 'border-gray-300 focus:border-primary-500 focus:ring-[3px] focus:ring-primary-500/15'
+                  }`}
                 />
+                {fieldErrors.stock && (
+                  <p className="mt-1 text-xs text-danger-600 font-medium flex items-center gap-1">
+                    <svg className="w-3.5 h-3.5 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                    </svg>
+                    {fieldErrors.stock}
+                  </p>
+                )}
               </div>
             )}
             <div className={isEditing ? "col-span-2" : ""}>
-              <label htmlFor="pf-unit" className="block text-sm font-medium text-gray-700 mb-1.5">
-                Đơn vị tính
+              <label htmlFor="pf-unit" className="block text-sm font-medium text-gray-700 mb-1.5 flex items-center justify-between">
+                <span>Đơn vị tính</span>
+                <span className="text-xs text-gray-400 font-normal">Tối đa 15 ký tự</span>
               </label>
               <input
                 id="pf-unit"
                 name="unit"
                 type="text"
+                maxLength={15}
                 value={formData.unit}
-                onChange={handleChange}
-                placeholder="cái, hộp, kg..."
-                className="w-full h-10 px-3.5 bg-white border border-gray-300 rounded-lg text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-primary-500 focus:ring-[3px] focus:ring-primary-500/15 transition-all duration-200"
+                onChange={handleUnitChange}
+                placeholder="cái, chiếc, bộ, đôi..."
+                className={`w-full h-10 px-3.5 bg-white border rounded-lg text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none transition-all duration-200 ${
+                  fieldErrors.unit
+                    ? 'border-danger-500 focus:border-danger-500 focus:ring-[3px] focus:ring-danger-500/15'
+                    : 'border-gray-300 focus:border-primary-500 focus:ring-[3px] focus:ring-primary-500/15'
+                }`}
               />
+              {/* Quick Select Badges */}
+              <div className="flex flex-wrap items-center gap-1.5 mt-2">
+                <span className="text-xs text-gray-400 mr-0.5">Gợi ý nhanh:</span>
+                {COMMON_UNITS.map((u) => {
+                  const isSelected = formData.unit?.trim().toLowerCase() === u;
+                  return (
+                    <button
+                      key={u}
+                      type="button"
+                      onClick={() => handleSelectUnit(u)}
+                      className={`text-xs px-2.5 py-1 rounded-md border transition-all ${
+                        isSelected
+                          ? 'bg-primary-50 border-primary-500 text-primary-700 font-semibold shadow-xs'
+                          : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100 hover:border-gray-300'
+                      }`}
+                    >
+                      {u}
+                    </button>
+                  );
+                })}
+              </div>
+              {fieldErrors.unit && (
+                <p className="mt-1 text-xs text-danger-600 font-medium flex items-center gap-1">
+                  <svg className="w-3.5 h-3.5 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                  </svg>
+                  {fieldErrors.unit}
+                </p>
+              )}
             </div>
           </div>
 
           {/* Danh mục + Nhà cung cấp */}
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label htmlFor="pf-category" className="block text-sm font-medium text-gray-700 mb-1.5">
-                Danh mục
-              </label>
+              <div className="flex items-center justify-between mb-1.5">
+                <label htmlFor="pf-category" className="block text-sm font-medium text-gray-700">
+                  Danh mục
+                </label>
+                {isCurrentCategoryLocked && (
+                  <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-rose-600 bg-rose-50 px-2 py-0.5 rounded">
+                    <LockIcon className="w-3 h-3" />
+                    Đang bị khóa
+                  </span>
+                )}
+              </div>
               <select
                 id="pf-category"
                 name="category"
                 value={formData.category}
                 onChange={handleChange}
-                disabled={categoriesLoading}
-                className="w-full h-10 px-3.5 bg-white border border-gray-300 rounded-lg text-sm text-gray-700 focus:outline-none focus:border-primary-500 focus:ring-[3px] focus:ring-primary-500/15 transition-all duration-200 disabled:opacity-60"
+                disabled={categoriesLoading || isCurrentCategoryLocked}
+                title={isCurrentCategoryLocked ? 'Danh mục hiện tại đang bị khóa, không thể chuyển sang danh mục khác' : undefined}
+                className="w-full h-10 px-3.5 bg-white border border-gray-300 rounded-lg text-sm text-gray-700 focus:outline-none focus:border-primary-500 focus:ring-[3px] focus:ring-primary-500/15 transition-all duration-200 disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed"
               >
                 <option value="">-- Chọn danh mục --</option>
                 {categories.map((cat) => (
-                  <option key={cat._id} value={cat.name}>
-                    {cat.name}
+                  <option
+                    key={cat._id}
+                    value={cat.name}
+                    disabled={cat.status === 'inactive' && cat.name !== formData.category}
+                  >
+                    {cat.name} {cat.status === 'inactive' ? '(Đã khóa)' : ''}
                   </option>
                 ))}
               </select>
+              {isCurrentCategoryLocked && (
+                <p className="text-xs text-rose-600 mt-1.5 font-medium leading-tight">
+                  Danh mục "{product.category}" đang bị khóa. Không thể chuyển sang danh mục khác khi danh mục hiện tại đang bị khóa.
+                </p>
+              )}
               {categories.length === 0 && !categoriesLoading && (
                 <p className="text-xs text-amber-600 mt-1">
                   Chưa có danh mục nào.

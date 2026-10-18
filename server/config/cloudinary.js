@@ -1,7 +1,7 @@
 const cloudinary = require('cloudinary').v2;
-const { CloudinaryStorage } = require('multer-storage-cloudinary');
 const multer = require('multer');
 const path = require('path');
+const { Readable } = require('stream');
 
 // Configure Cloudinary
 cloudinary.config({
@@ -10,14 +10,8 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
-// Configure Multer Storage with Cloudinary
-const storage = new CloudinaryStorage({
-  cloudinary: cloudinary,
-  params: {
-    folder: 'sellstock/products',
-    allowed_formats: ['jpg', 'jpeg', 'png', 'webp'],
-  },
-});
+// Use memory storage to inspect buffer and compute hash before Cloudinary upload
+const storage = multer.memoryStorage();
 
 // File filter for backend validation
 const fileFilter = (req, file, cb) => {
@@ -38,4 +32,22 @@ const upload = multer({
   },
 });
 
-module.exports = { cloudinary, upload };
+// Helper to stream upload buffer to Cloudinary
+const uploadToCloudinary = (buffer, folder = 'sellstock/products') => {
+  return new Promise((resolve, reject) => {
+    const uploadStream = cloudinary.uploader.upload_stream(
+      {
+        folder,
+        allowed_formats: ['jpg', 'jpeg', 'png', 'webp'],
+      },
+      (error, result) => {
+        if (error) return reject(error);
+        resolve(result);
+      }
+    );
+    Readable.from(buffer).pipe(uploadStream);
+  });
+};
+
+module.exports = { cloudinary, upload, uploadToCloudinary };
+

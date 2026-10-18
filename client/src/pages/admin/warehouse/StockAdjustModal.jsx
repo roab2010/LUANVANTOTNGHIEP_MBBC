@@ -24,6 +24,8 @@ const StockAdjustModal = ({ item, onClose, onSuccess }) => {
   const [supplierId, setSupplierId] = useState('');
   const [quantity, setQuantity] = useState('');
   const [importPrice, setImportPrice] = useState(item?.costPrice || '');
+  const [qtyError, setQtyError] = useState('');
+  const [priceError, setPriceError] = useState('');
   const [reason, setReason] = useState('Nhập thêm hàng mới');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -52,6 +54,46 @@ const StockAdjustModal = ({ item, onClose, onSuccess }) => {
   const numQty = parseInt(quantity) || 0;
   const previewStock = currentStock + numQty;
 
+  const handleQuantityChange = (e) => {
+    const raw = e.target.value.replace(/[^0-9]/g, '');
+    setError('');
+
+    if (raw === '') {
+      setQuantity('');
+      setQtyError('');
+      return;
+    }
+
+    const num = Number(raw);
+    if (num > 10000) {
+      setQtyError('Số lượng nhập tối đa là 10.000 sản phẩm');
+      return; // Chặn không cho nhập thêm
+    }
+
+    setQuantity(raw);
+    setQtyError('');
+  };
+
+  const handlePriceChange = (e) => {
+    const raw = e.target.value.replace(/[^0-9]/g, '');
+    setError('');
+
+    if (raw === '') {
+      setImportPrice('');
+      setPriceError('');
+      return;
+    }
+
+    const num = Number(raw);
+    if (num > 10000000) {
+      setPriceError('Đơn giá nhập tối đa là 10.000.000 ₫');
+      return; // Chặn không cho nhập thêm
+    }
+
+    setImportPrice(raw);
+    setPriceError('');
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
@@ -62,13 +104,23 @@ const StockAdjustModal = ({ item, onClose, onSuccess }) => {
     }
 
     if (quantity === '' || isNaN(numQty) || numQty <= 0) {
-      setError('Vui lòng nhập số lượng cần nhập thêm (từ 1 trở lên)');
+      setQtyError('Vui lòng nhập số lượng cần nhập thêm (từ 1 trở lên)');
+      return;
+    }
+
+    if (numQty > 10000) {
+      setQtyError('Số lượng nhập tối đa là 10.000 sản phẩm');
       return;
     }
 
     const priceNum = Number(importPrice);
     if (isNaN(priceNum) || priceNum < 0) {
-      setError('Đơn giá nhập không hợp lệ');
+      setPriceError('Đơn giá nhập không hợp lệ');
+      return;
+    }
+
+    if (priceNum > 10000000) {
+      setPriceError('Đơn giá nhập tối đa là 10.000.000 ₫');
       return;
     }
 
@@ -126,7 +178,7 @@ const StockAdjustModal = ({ item, onClose, onSuccess }) => {
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+        <form onSubmit={handleSubmit} noValidate className="p-6 space-y-4">
           {/* Thông tin tồn hiện tại */}
           <div className="p-3 bg-gray-50 rounded-lg flex items-center justify-between text-sm">
             <span className="text-gray-600">Tồn kho hiện tại:</span>
@@ -165,34 +217,50 @@ const StockAdjustModal = ({ item, onClose, onSuccess }) => {
           {/* Số lượng + Đơn giá nhập */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label htmlFor="adjust-qty" className="block text-sm font-medium text-gray-700 mb-1.5">
-                Số lượng nhập <span className="text-danger-500">*</span>
+              <label htmlFor="adjust-qty" className="block text-sm font-medium text-gray-700 mb-1.5 flex items-center justify-between">
+                <span>Số lượng nhập <span className="text-danger-500">*</span></span>
+                <span className="text-xs text-gray-400 font-normal">Tối đa 10.000</span>
               </label>
               <input
                 id="adjust-qty"
-                type="number"
-                min="1"
+                type="text"
+                inputMode="numeric"
                 value={quantity}
-                onChange={(e) => setQuantity(e.target.value)}
-                placeholder="Nhập số lượng..."
+                onChange={handleQuantityChange}
+                placeholder="Từ 1 đến 10.000..."
                 autoFocus
-                className="w-full h-10 px-3.5 bg-white border border-gray-300 rounded-lg text-sm text-gray-900 focus:outline-none focus:border-primary-500 focus:ring-[3px] focus:ring-primary-500/15 transition-all duration-200"
+                className={`w-full h-10 px-3.5 bg-white border rounded-lg text-sm text-gray-900 focus:outline-none transition-all duration-200 ${
+                  qtyError
+                    ? 'border-danger-500 focus:border-danger-500 focus:ring-[3px] focus:ring-danger-500/15'
+                    : 'border-gray-300 focus:border-primary-500 focus:ring-[3px] focus:ring-primary-500/15'
+                }`}
               />
+              {qtyError && (
+                <p className="mt-1 text-xs text-danger-600 font-medium">{qtyError}</p>
+              )}
             </div>
 
             <div>
-              <label htmlFor="adjust-price" className="block text-sm font-medium text-gray-700 mb-1.5">
-                Đơn giá nhập (₫)
+              <label htmlFor="adjust-price" className="block text-sm font-medium text-gray-700 mb-1.5 flex items-center justify-between">
+                <span>Đơn giá nhập (₫)</span>
+                <span className="text-xs text-gray-400 font-normal">Tối đa 10 triệu</span>
               </label>
               <input
                 id="adjust-price"
-                type="number"
-                min="0"
+                type="text"
+                inputMode="numeric"
                 value={importPrice}
-                onChange={(e) => setImportPrice(e.target.value)}
-                placeholder="0"
-                className="w-full h-10 px-3.5 bg-white border border-gray-300 rounded-lg text-sm text-gray-900 focus:outline-none focus:border-primary-500 focus:ring-[3px] focus:ring-primary-500/15 transition-all duration-200"
+                onChange={handlePriceChange}
+                placeholder="Tối đa 10.000.000"
+                className={`w-full h-10 px-3.5 bg-white border rounded-lg text-sm text-gray-900 focus:outline-none transition-all duration-200 ${
+                  priceError
+                    ? 'border-danger-500 focus:border-danger-500 focus:ring-[3px] focus:ring-danger-500/15'
+                    : 'border-gray-300 focus:border-primary-500 focus:ring-[3px] focus:ring-primary-500/15'
+                }`}
               />
+              {priceError && (
+                <p className="mt-1 text-xs text-danger-600 font-medium">{priceError}</p>
+              )}
             </div>
           </div>
 

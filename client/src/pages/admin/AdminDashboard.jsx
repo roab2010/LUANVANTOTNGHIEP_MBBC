@@ -197,10 +197,10 @@ const AdminDashboard = () => {
         {/* Doanh thu */}
         <div className="p-5 bg-white border border-gray-200 rounded-[var(--radius-md)] shadow-sm">
           <div className="flex items-start justify-between mb-3">
-            <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-teal-50 text-teal-600">
+            <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-cyan-50 text-cyan-600">
               <CurrencyIcon />
             </div>
-            <span className="text-[11px] font-semibold text-teal-700 bg-teal-50 border border-teal-100 px-2 py-0.5 rounded-full">
+            <span className="text-[11px] font-semibold text-cyan-700 bg-cyan-50 border border-cyan-100 px-2 py-0.5 rounded-full">
               Thực tế
             </span>
           </div>
@@ -218,7 +218,7 @@ const AdminDashboard = () => {
         {/* Đơn hàng */}
         <div className="p-5 bg-white border border-gray-200 rounded-[var(--radius-md)] shadow-sm">
           <div className="flex items-start justify-between mb-3">
-            <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-blue-50 text-blue-600">
+            <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-violet-50 text-violet-600">
               <ShoppingBagIcon />
             </div>
             {overview?.pendingOrdersCount > 0 ? (
@@ -236,7 +236,7 @@ const AdminDashboard = () => {
           </p>
           <div className="flex items-center justify-between text-xs text-gray-500 mt-1">
             <span>Tổng đơn đặt hàng</span>
-            <span className="text-blue-600 font-medium">
+            <span className="text-violet-600 font-medium">
               {overview?.deliveredOrdersCount || 0} đã giao
             </span>
           </div>
@@ -245,7 +245,7 @@ const AdminDashboard = () => {
         {/* Sản phẩm & Tồn kho */}
         <div className="p-5 bg-white border border-gray-200 rounded-[var(--radius-md)] shadow-sm">
           <div className="flex items-start justify-between mb-3">
-            <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-indigo-50 text-indigo-600">
+            <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-teal-50 text-teal-600">
               <PackageIcon />
             </div>
             {warehouseStats?.lowStockCount > 0 ? (
@@ -253,7 +253,7 @@ const AdminDashboard = () => {
                 {warehouseStats.lowStockCount} sắp hết
               </span>
             ) : (
-              <span className="text-[11px] font-medium text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">
+              <span className="text-[11px] font-medium text-teal-700 bg-teal-50 px-2 py-0.5 rounded-full">
                 Tồn đủ
               </span>
             )}
@@ -272,10 +272,10 @@ const AdminDashboard = () => {
         {/* Khách hàng */}
         <div className="p-5 bg-white border border-gray-200 rounded-[var(--radius-md)] shadow-sm">
           <div className="flex items-start justify-between mb-3">
-            <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-violet-50 text-violet-600">
+            <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-rose-50 text-rose-600">
               <UsersIcon />
             </div>
-            <span className="text-[11px] font-semibold text-violet-700 bg-violet-50 border border-violet-100 px-2 py-0.5 rounded-full">
+            <span className="text-[11px] font-semibold text-rose-700 bg-rose-50 border border-rose-100 px-2 py-0.5 rounded-full">
               Khách hàng
             </span>
           </div>
@@ -284,7 +284,7 @@ const AdminDashboard = () => {
           </p>
           <div className="flex items-center justify-between text-xs text-gray-500 mt-1">
             <span>Tài khoản đã đăng ký</span>
-            <span className="text-violet-600 font-medium">Bảo mật</span>
+            <span className="text-rose-600 font-medium">Bảo mật</span>
           </div>
         </div>
       </div>

@@ -8,6 +8,7 @@ import mbbcLogo from '../../assets/logo MBBC.png';
 
 // Service API Backend
 import { getProducts } from '../../services/productApi';
+import { getPublicCategories } from '../../services/categoryApi';
 
 // ============================================
 // ICONS (Clean, Precision SVG)
@@ -54,19 +55,6 @@ const CloseIcon = () => (
   </svg>
 );
 
-// ============================================
-// DATA SẢN PHẨM M.B.B.C - STREETWEAR LOOKBOOK
-// ============================================
-const categories = ['ALL', 'TOPS', 'OUTWEAR', 'BOTTOMS', 'ACCESSORIES'];
-
-const shopDropdownItems = [
-  { label: 'TOPS', filter: 'TOPS' },
-  { label: 'OUTWEAR', filter: 'OUTWEAR' },
-  { label: 'BOTTOMS', filter: 'BOTTOMS' },
-  { label: 'ACCESSORIES', filter: 'ACCESSORIES' },
-  { label: 'NEW ARRIVALS', filter: 'ALL' },
-];
-
 // Format VND currency
 const formatPrice = (val) => {
   return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(val);
@@ -90,6 +78,7 @@ const CustomerHome = () => {
 
   // Product Filter & Cart State
   const [products, setProducts] = useState([]);
+  const [activeCategories, setActiveCategories] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState('ALL');
   const [visibleLimit, setVisibleLimit] = useState(10);
@@ -103,7 +92,55 @@ const CustomerHome = () => {
 
   const searchBoxRef = useRef(null);
 
-  // Tải danh sách sản phẩm thật từ Backend MongoDB
+  // Tải danh sách danh mục đang hoạt động từ Backend (ẩn danh mục đã bị khóa)
+  useEffect(() => {
+    const fetchActiveCategories = async () => {
+      try {
+        const res = await getPublicCategories();
+        if (res.data?.success && Array.isArray(res.data.data?.categories)) {
+          setActiveCategories(res.data.data.categories.map((c) => c.name));
+        }
+      } catch (err) {
+        console.error('Lỗi khi tải danh mục active:', err);
+      }
+    };
+    fetchActiveCategories();
+  }, []);
+
+  // Danh mục tabs động (chỉ hiển thị các danh mục đang hoạt động)
+  const categoryTabs = useMemo(() => {
+    if (activeCategories.length > 0) {
+      return ['ALL', ...activeCategories];
+    }
+    return ['ALL', 'TOPS', 'OUTWEAR', 'BOTTOMS', 'ACCESSORIES'];
+  }, [activeCategories]);
+
+  // Dropdown menu SHOP động (chính xác theo các danh mục lấy từ backend)
+  const shopDropdownItems = useMemo(() => {
+    if (activeCategories.length > 0) {
+      return activeCategories.map((cat) => ({ label: cat, filter: cat }));
+    }
+    return [
+      { label: 'TOPS', filter: 'TOPS' },
+      { label: 'OUTWEAR', filter: 'OUTWEAR' },
+      { label: 'BOTTOMS', filter: 'BOTTOMS' },
+      { label: 'ACCESSORIES', filter: 'ACCESSORIES' },
+    ];
+  }, [activeCategories]);
+
+  // Tự động chuyển về ALL nếu danh mục đang chọn bị Admin khóa
+  useEffect(() => {
+    if (selectedCategory !== 'ALL' && activeCategories.length > 0) {
+      const exists = activeCategories.some(
+        (c) => c.toUpperCase() === selectedCategory.toUpperCase()
+      );
+      if (!exists) {
+        setSelectedCategory('ALL');
+      }
+    }
+  }, [activeCategories, selectedCategory]);
+
+  // Tải danh sách sản phẩm thật từ Backend MongoDB (backend tự động ẩn sản phẩm thuộc danh mục bị khóa)
   useEffect(() => {
     const fetchBackendProducts = async () => {
       try {
@@ -592,7 +629,7 @@ const CustomerHome = () => {
 
           {/* Category Tabs tối giản */}
           <div className="flex flex-wrap items-center justify-center gap-6 sm:gap-10 mt-6 border-b border-neutral-100 pb-4">
-            {categories.map((cat) => (
+            {categoryTabs.map((cat) => (
               <button
                 key={cat}
                 onClick={() => setSelectedCategory(cat)}

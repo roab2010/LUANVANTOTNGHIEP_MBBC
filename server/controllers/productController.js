@@ -1,11 +1,30 @@
+const crypto = require('crypto');
+const jwt = require('jsonwebtoken');
 const Product = require('../models/Product');
+const Category = require('../models/Category');
+const User = require('../models/User');
+const { uploadToCloudinary } = require('../config/cloudinary');
+
+// Helper: Kiểm tra request có phải từ Admin có token hợp lệ không
+const checkIsAdmin = async (req) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) return false;
+    const token = authHeader.split(' ')[1];
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const user = await User.findById(decoded.userId).select('role status');
+    return !!(user && user.status === 'active' && user.role === 'admin');
+  } catch (err) {
+    return false;
+  }
+};
 
 // ============================================
 // LẤY DANH SÁCH SẢN PHẨM - GET /api/products
 // ============================================
 const getProducts = async (req, res) => {
   try {
-    const { search, status, stockStatus, category, page = 1, limit = 10 } = req.query;
+    const { search, status, stockStatus, category, includeLocked, page = 1, limit = 10 } = req.query;
 
     // Tạo filter
     const filter = {};
@@ -13,11 +32,6 @@ const getProducts = async (req, res) => {
     // Tìm kiếm theo tên
     if (search) {
       filter.name = { $regex: search, $options: 'i' };
-    }
-
-    // Lọc theo danh mục
-    if (category && category !== 'ALL') {
-      filter.category = { $regex: category, $options: 'i' };
     }
 
     // Lọc theo trạng thái kinh doanh
@@ -32,6 +46,52 @@ const getProducts = async (req, res) => {
       filter.stock = { $gt: 0, $lte: 10 };
     } else if (stockStatus === 'in_stock') {
       filter.stock = { $gt: 10 };
+    }
+
+    // Phân quyền: Kiểm tra Admin có yêu cầu xem cả danh mục bị khóa không
+    const isAdmin = await checkIsAdmin(req);
+    const allowLocked = isAdmin && (includeLocked === 'true' || includeLocked === true);
+
+    if (!allowLocked) {
+      // Ẩn toàn bộ sản phẩm thuộc danh mục bị khóa (áp dụng cho khách hàng & API công khai)
+      const inactiveCategories = await Category.find({ status: 'inactive' }).select('name').lean();
+      const inactiveCatNames = inactiveCategories.map((c) => c.name);
+
+      if (inactiveCatNames.length > 0) {
+        if (category && category !== 'ALL') {
+          const isCategoryLocked = inactiveCatNames.some(
+            (cName) => cName.toLowerCase() === category.trim().toLowerCase()
+          );
+          if (isCategoryLocked) {
+            // Danh mục khách hàng lọc đang bị khóa -> Không hiển thị bất kỳ sản phẩm nào
+            return res.json({
+              success: true,
+              data: {
+                products: [],
+                pagination: {
+                  page: parseInt(page) || 1,
+                  limit: parseInt(limit) || 10,
+                  total: 0,
+                  totalPages: 0,
+                },
+              },
+            });
+          }
+          filter.category = {
+            $regex: new RegExp(`^${category.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i'),
+            $nin: inactiveCatNames,
+          };
+        } else {
+          filter.category = { $nin: inactiveCatNames };
+        }
+      } else if (category && category !== 'ALL') {
+        filter.category = { $regex: new RegExp(`^${category.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') };
+      }
+    } else {
+      // Cho phép Admin xem tất cả danh mục (bao gồm cả danh mục bị khóa)
+      if (category && category !== 'ALL') {
+        filter.category = { $regex: new RegExp(`^${category.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') };
+      }
     }
 
     // Phân trang
@@ -83,6 +143,22 @@ const getProductById = async (req, res) => {
       });
     }
 
+    // Kiểm tra nếu danh mục của sản phẩm bị khóa và người xem không phải admin
+    if (product.category) {
+      const cat = await Category.findOne({
+        name: { $regex: new RegExp(`^${product.category.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') },
+      });
+      if (cat && cat.status === 'inactive') {
+        const isAdmin = await checkIsAdmin(req);
+        if (!isAdmin) {
+          return res.status(404).json({
+            success: false,
+            message: 'Không tìm thấy sản phẩm',
+          });
+        }
+      }
+    }
+
     res.json({
       success: true,
       data: { product },
@@ -132,29 +208,83 @@ const createProduct = async (req, res) => {
       });
     }
 
-    if (costPrice !== undefined && Number(costPrice) < 0) {
+    if (costPrice !== undefined && costPrice !== '') {
+      const costNum = Number(costPrice);
+      if (isNaN(costNum) || costNum < 10000 || costNum > 10000000) {
+        return res.status(400).json({
+          success: false,
+          message: 'Giá nhập phải từ 10,000 ₫ đến 10,000,000 ₫',
+        });
+      }
+    }
+
+    if (stock !== undefined && stock !== '') {
+      const stockNum = Number(stock);
+      if (isNaN(stockNum) || stockNum < 0 || stockNum > 10000) {
+        return res.status(400).json({
+          success: false,
+          message: 'Số lượng tồn kho phải từ 0 đến 10,000',
+        });
+      }
+    }
+
+    if (unit !== undefined && unit.trim().length > 20) {
       return res.status(400).json({
         success: false,
-        message: 'Giá nhập không được âm',
+        message: 'Đơn vị tính không được quá 20 ký tự',
       });
     }
 
-    if (stock !== undefined && Number(stock) < 0) {
+    // --- Kiểm tra trùng tên sản phẩm (case-insensitive, trim) ---
+    const trimmedName = name.trim();
+    const existingByName = await Product.findOne({
+      name: { $regex: new RegExp(`^${trimmedName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') },
+    });
+    if (existingByName) {
       return res.status(400).json({
         success: false,
-        message: 'Số lượng tồn kho không được âm',
+        message: 'Tên sản phẩm đã tồn tại.',
       });
     }
 
-    // --- Xử lý ảnh ---
+    // --- Kiểm tra quy tắc danh mục bị khóa khi tạo mới ---
+    if (category && category.trim()) {
+      const trimmedCat = category.trim();
+      const catDoc = await Category.findOne({
+        name: { $regex: new RegExp(`^${trimmedCat.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') },
+      });
+      if (catDoc && catDoc.status === 'inactive') {
+        return res.status(400).json({
+          success: false,
+          message: `Không thể thêm sản phẩm vào danh mục đang bị khóa ("${catDoc.name}").`,
+        });
+      }
+    }
+
+    // --- Xử lý ảnh + kiểm tra trùng nội dung ảnh ---
     let imageUrl = '';
+    let imageHash = '';
     if (req.file) {
-      imageUrl = req.file.path;
+      // 1. Tính toán SHA-256 hash từ binary buffer của ảnh
+      imageHash = crypto.createHash('sha256').update(req.file.buffer).digest('hex');
+
+      // 2. Kiểm tra trùng nội dung ảnh với các sản phẩm đã có
+      const existingByHash = await Product.findOne({ imageHash });
+      if (existingByHash) {
+        return res.status(400).json({
+          success: false,
+          message: 'Hình ảnh này đã được sử dụng cho sản phẩm khác.',
+        });
+      }
+
+      // 3. Nếu chưa trùng, upload buffer lên Cloudinary
+      const uploadResult = await uploadToCloudinary(req.file.buffer);
+      imageUrl = uploadResult.secure_url;
     }
 
     // --- Tạo sản phẩm ---
     const product = await Product.create({
-      name: name.trim(),
+      name: trimmedName,
       description: description?.trim() || '',
       price: Number(price),
       costPrice: costPrice !== undefined ? Number(costPrice) : 0,
@@ -164,6 +294,7 @@ const createProduct = async (req, res) => {
       supplier: supplier ? supplier : null,
       status: status || 'active',
       image: imageUrl,
+      imageHash: imageHash,
     });
 
     res.status(201).json({
@@ -202,18 +333,87 @@ const updateProduct = async (req, res) => {
       });
     }
 
-    if (costPrice !== undefined && Number(costPrice) < 0) {
+    if (costPrice !== undefined && costPrice !== '') {
+      const costNum = Number(costPrice);
+      if (isNaN(costNum) || costNum < 10000 || costNum > 10000000) {
+        return res.status(400).json({
+          success: false,
+          message: 'Giá nhập phải từ 10,000 ₫ đến 10,000,000 ₫',
+        });
+      }
+    }
+
+    if (stock !== undefined && stock !== '') {
+      const stockNum = Number(stock);
+      if (isNaN(stockNum) || stockNum < 0 || stockNum > 10000) {
+        return res.status(400).json({
+          success: false,
+          message: 'Số lượng tồn kho phải từ 0 đến 10,000',
+        });
+      }
+    }
+
+    if (unit !== undefined && unit.trim().length > 20) {
       return res.status(400).json({
         success: false,
-        message: 'Giá nhập không được âm',
+        message: 'Đơn vị tính không được quá 20 ký tự',
       });
     }
 
-    if (stock !== undefined && Number(stock) < 0) {
-      return res.status(400).json({
-        success: false,
-        message: 'Số lượng tồn kho không được âm',
+    // --- Kiểm tra trùng tên sản phẩm (case-insensitive, trim, loại trừ chính nó) ---
+    if (name !== undefined) {
+      const trimmedName = name.trim();
+      const existingByName = await Product.findOne({
+        _id: { $ne: req.params.id },
+        name: { $regex: new RegExp(`^${trimmedName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') },
       });
+      if (existingByName) {
+        return res.status(400).json({
+          success: false,
+          message: 'Tên sản phẩm đã tồn tại.',
+        });
+      }
+    }
+
+    // --- Kiểm tra sản phẩm tồn tại trước khi cập nhật ---
+    const existingProduct = await Product.findById(req.params.id);
+    if (!existingProduct) {
+      return res.status(404).json({
+        success: false,
+        message: 'Không tìm thấy sản phẩm',
+      });
+    }
+
+    // --- Kiểm tra quy tắc khi danh mục bị khóa khi chỉnh sửa ---
+    // 1. Nếu sản phẩm hiện tại đang thuộc danh mục bị khóa, KHÔNG cho phép chuyển sang danh mục khác
+    if (existingProduct.category) {
+      const currentCatDoc = await Category.findOne({
+        name: { $regex: new RegExp(`^${existingProduct.category.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') },
+      });
+      if (currentCatDoc && currentCatDoc.status === 'inactive') {
+        if (category !== undefined && category.trim().toLowerCase() !== existingProduct.category.trim().toLowerCase()) {
+          return res.status(400).json({
+            success: false,
+            message: `Sản phẩm đang thuộc danh mục bị khóa ("${currentCatDoc.name}"), không được phép chuyển sang danh mục khác.`,
+          });
+        }
+      }
+    }
+
+    // 2. Không cho phép chuyển sản phẩm vào danh mục đang bị khóa
+    if (category !== undefined && category.trim()) {
+      const newCatName = category.trim();
+      if (!existingProduct.category || newCatName.toLowerCase() !== existingProduct.category.trim().toLowerCase()) {
+        const targetCatDoc = await Category.findOne({
+          name: { $regex: new RegExp(`^${newCatName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') },
+        });
+        if (targetCatDoc && targetCatDoc.status === 'inactive') {
+          return res.status(400).json({
+            success: false,
+            message: `Không thể chuyển sản phẩm vào danh mục đang bị khóa ("${targetCatDoc.name}").`,
+          });
+        }
+      }
     }
 
     // --- Tìm và cập nhật ---
@@ -228,13 +428,32 @@ const updateProduct = async (req, res) => {
     if (supplier !== undefined) updateData.supplier = supplier ? supplier : null;
     if (status !== undefined) updateData.status = status;
 
-    // Lấy thông tin sản phẩm cũ để xử lý ảnh (tùy chọn xóa trên cloudinary nếu cần thiết, ở đây tạm thời bỏ qua phần xóa ảnh cũ trên cloudinary để giữ code đơn giản, hoặc có thể thêm thư viện để xóa)
-    // Nếu có file mới tải lên, lấy url mới
+    // Lấy thông tin sản phẩm cũ để xử lý ảnh
+    // Nếu có file mới tải lên, tính hash và kiểm tra trùng trước khi upload
     if (req.file) {
-      updateData.image = req.file.path;
+      // 1. Tính toán SHA-256 hash từ binary buffer của ảnh mới
+      const newHash = crypto.createHash('sha256').update(req.file.buffer).digest('hex');
+
+      // 2. Kiểm tra trùng hash với sản phẩm khác (ngoại trừ chính sản phẩm đang sửa)
+      const existingByHash = await Product.findOne({
+        _id: { $ne: req.params.id },
+        imageHash: newHash,
+      });
+      if (existingByHash) {
+        return res.status(400).json({
+          success: false,
+          message: 'Hình ảnh này đã được sử dụng cho sản phẩm khác.',
+        });
+      }
+
+      // 3. Upload ảnh mới lên Cloudinary
+      const uploadResult = await uploadToCloudinary(req.file.buffer);
+      updateData.image = uploadResult.secure_url;
+      updateData.imageHash = newHash;
     } else if (req.body.removeImage === 'true') {
       // Nếu user chủ động xóa ảnh
       updateData.image = '';
+      updateData.imageHash = '';
     }
 
     const product = await Product.findByIdAndUpdate(

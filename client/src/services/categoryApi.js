@@ -25,7 +25,17 @@ export const updateCategory = (id, data) => {
   return api.put(`/categories/${id}`, data);
 };
 
+// Khóa / Mở khóa danh mục
+export const toggleCategoryStatus = (id) => {
+  return api.patch(`/categories/${id}/toggle-status`);
+};
+
 // Xóa danh mục
 export const deleteCategory = (id) => {
   return api.delete(`/categories/${id}`);
+};
+
+// Lấy danh sách danh mục công khai đang hoạt động (dành cho trang khách hàng)
+export const getPublicCategories = () => {
+  return api.get('/categories/public');
 };

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { getProducts } from '../../../services/productApi';
+import { getCategories } from '../../../services/categoryApi';
 import { getWarehouseStats } from '../../../services/warehouseApi';
 import ProductFormModal from './ProductFormModal';
 import StockAdjustModal from '../warehouse/StockAdjustModal';
@@ -65,6 +66,7 @@ const formatCurrency = (value) => {
 const ProductsPage = () => {
   // State
   const [products, setProducts] = useState([]);
+  const [categories, setCategories] = useState([]);
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -95,20 +97,23 @@ const ProductsPage = () => {
       const params = {
         page: pagination.page,
         limit: pagination.limit,
+        includeLocked: 'true', // Admin quản lý toàn bộ sản phẩm
       };
       if (search.trim()) params.search = search.trim();
       if (statusFilter) params.status = statusFilter;
       if (stockStatus) params.stockStatus = stockStatus;
 
-      const [prodRes, statsRes] = await Promise.all([
+      const [prodRes, statsRes, catRes] = await Promise.all([
         getProducts(params),
         getWarehouseStats(),
+        getCategories({ limit: 100 }),
       ]);
 
       const { products: data, pagination: paginationData } = prodRes.data.data;
       setProducts(data);
       setPagination(paginationData);
       setStats(statsRes.data?.data?.stats || null);
+      setCategories(catRes.data?.data?.categories || []);
     } catch (err) {
       const message = err.response?.data?.message || 'Không thể tải danh sách sản phẩm và tồn kho';
       setError(message);
@@ -332,7 +337,22 @@ const ProductsPage = () => {
                       </div>
                     </td>
                     <td>
-                      <span className="text-gray-600 text-sm">{product.category || '—'}</span>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-gray-600 text-sm">{product.category || '—'}</span>
+                        {(() => {
+                          const catObj = categories.find(
+                            (c) => c.name?.toLowerCase().trim() === (product.category || '').toLowerCase().trim()
+                          );
+                          if (catObj && catObj.status === 'inactive') {
+                            return (
+                              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-rose-50 text-rose-600 border border-rose-200" title="Danh mục này đang bị khóa">
+                                Khóa
+                              </span>
+                            );
+                          }
+                          return null;
+                        })()}
+                      </div>
                     </td>
                     <td>
                       <span className="text-gray-600 text-sm tabular-nums">{formatCurrency(product.costPrice)}</span>

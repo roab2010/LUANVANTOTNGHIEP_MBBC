@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { getCategories, updateCategory } from '../../../services/categoryApi';
+import { getCategories, toggleCategoryStatus } from '../../../services/categoryApi';
 import CategoryFormModal from './CategoryFormModal';
 
 // ============================================
@@ -147,9 +147,8 @@ const CategoriesPage = () => {
   const handleToggleLock = async () => {
     if (!lockConfirm) return;
     setLocking(true);
-    const nextStatus = lockConfirm.status === 'active' ? 'inactive' : 'active';
     try {
-      await updateCategory(lockConfirm._id, { status: nextStatus });
+      await toggleCategoryStatus(lockConfirm._id);
       setLockConfirm(null);
       fetchCategories();
     } catch (err) {
@@ -393,6 +392,7 @@ const CategoriesPage = () => {
       {showModal && (
         <CategoryFormModal
           category={editingCategory}
+          existingCategories={categories}
           onClose={() => { setShowModal(false); setEditingCategory(null); }}
           onSuccess={handleFormSuccess}
         />

@@ -17,29 +17,23 @@ const SpinnerIcon = () => (
   </svg>
 );
 
-// ============================================
-// DANH MỤC QUẦN ÁO / THỜI TRANG PRESET
-// ============================================
-const CLOTHING_CATEGORIES = [
-  'TOPS',
-  'BOTTOMS',
-  'OUTWEAR',
-  'ACCESSORIES',
-  'NEW ARRIVALS',
-
-];
+// Giới hạn ký tự danh mục
+const LIMITS = {
+  NAME_MIN: 2,
+  NAME_MAX: 50,
+  DESC_MAX: 200,
+};
 
 // ============================================
 // CATEGORY FORM MODAL COMPONENT
 // ============================================
-const CategoryFormModal = ({ category, onClose, onSuccess }) => {
+const CategoryFormModal = ({ category, existingCategories = [], onClose, onSuccess }) => {
   const isEditing = !!category;
 
   // State form
   const [formData, setFormData] = useState({
     name: '',
     description: '',
-    status: 'active',
   });
 
   const [error, setError] = useState('');
@@ -51,7 +45,6 @@ const CategoryFormModal = ({ category, onClose, onSuccess }) => {
       setFormData({
         name: category.name || '',
         description: category.description || '',
-        status: category.status || 'active',
       });
     }
   }, [category]);
@@ -65,14 +58,30 @@ const CategoryFormModal = ({ category, onClose, onSuccess }) => {
 
   // Validate form phía frontend
   const validateForm = () => {
-    if (!formData.name.trim()) {
-      setError('Vui lòng chọn tên danh mục');
+    const trimmed = formData.name.trim();
+    if (!trimmed) {
+      setError('Vui lòng nhập tên danh mục');
       return false;
     }
-    if (formData.name.trim().length > 100) {
-      setError('Tên danh mục không được vượt quá 100 ký tự');
+    if (trimmed.length < LIMITS.NAME_MIN || trimmed.length > LIMITS.NAME_MAX) {
+      setError(`Tên danh mục phải có từ ${LIMITS.NAME_MIN} đến ${LIMITS.NAME_MAX} ký tự`);
       return false;
     }
+    if (formData.description.trim().length > LIMITS.DESC_MAX) {
+      setError(`Mô tả danh mục tối đa ${LIMITS.DESC_MAX} ký tự`);
+      return false;
+    }
+
+    // Kiểm tra trùng tên (không phân biệt hoa/thường hoặc khoảng trắng thừa)
+    const isDuplicate = (existingCategories || []).some((cat) => {
+      if (isEditing && (cat._id === category._id || cat.id === category._id)) return false;
+      return cat.name?.trim().toLowerCase() === trimmed.toLowerCase();
+    });
+    if (isDuplicate) {
+      setError('Tên danh mục đã tồn tại');
+      return false;
+    }
+
     return true;
   };
 
@@ -88,7 +97,6 @@ const CategoryFormModal = ({ category, onClose, onSuccess }) => {
       const payload = {
         name: formData.name.trim(),
         description: formData.description.trim(),
-        status: isEditing ? formData.status : 'active',
       };
 
       if (isEditing) {
@@ -142,63 +150,49 @@ const CategoryFormModal = ({ category, onClose, onSuccess }) => {
 
           {/* Tên danh mục */}
           <div>
-            <label htmlFor="cf-name" className="block text-sm font-medium text-gray-700 mb-1.5">
-              Tên danh mục <span className="text-danger-500">*</span>
-            </label>
-            <select
+            <div className="flex items-center justify-between mb-1.5">
+              <label htmlFor="cf-name" className="block text-sm font-medium text-gray-700">
+                Tên danh mục <span className="text-danger-500">*</span>
+              </label>
+              <span className={`text-xs tabular-nums ${formData.name.length > LIMITS.NAME_MAX ? 'text-danger-600 font-semibold' : 'text-gray-400'}`}>
+                {formData.name.length}/{LIMITS.NAME_MAX}
+              </span>
+            </div>
+            <input
               id="cf-name"
               name="name"
+              type="text"
+              maxLength={LIMITS.NAME_MAX}
               value={formData.name}
               onChange={handleChange}
+              placeholder="Nhập tên danh mục (2 - 50 ký tự)..."
               autoFocus
-              className="w-full h-10 px-3.5 bg-white border border-gray-300 rounded-lg text-sm text-gray-900 focus:outline-none focus:border-primary-500 focus:ring-[3px] focus:ring-primary-500/15 transition-all duration-200"
-            >
-              <option value="">-- Chọn danh mục quần áo --</option>
-              {CLOTHING_CATEGORIES.map((cat) => (
-                <option key={cat} value={cat}>
-                  {cat}
-                </option>
-              ))}
-              {formData.name && !CLOTHING_CATEGORIES.includes(formData.name) && (
-                <option value={formData.name}>{formData.name}</option>
-              )}
-            </select>
+              className="w-full h-10 px-3.5 bg-white border border-gray-300 rounded-lg text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-primary-500 focus:ring-[3px] focus:ring-primary-500/15 transition-all duration-200"
+            />
           </div>
 
           {/* Mô tả */}
           <div>
-            <label htmlFor="cf-description" className="block text-sm font-medium text-gray-700 mb-1.5">
-              Mô tả
-            </label>
+            <div className="flex items-center justify-between mb-1.5">
+              <label htmlFor="cf-description" className="block text-sm font-medium text-gray-700">
+                Mô tả
+              </label>
+              <span className={`text-xs tabular-nums ${formData.description.length > LIMITS.DESC_MAX ? 'text-danger-600 font-semibold' : 'text-gray-400'}`}>
+                {formData.description.length}/{LIMITS.DESC_MAX}
+              </span>
+            </div>
             <textarea
               id="cf-description"
               name="description"
+              maxLength={LIMITS.DESC_MAX}
               value={formData.description}
               onChange={handleChange}
-              placeholder="Mô tả ngắn về danh mục này (không bắt buộc)"
+              placeholder="Mô tả ngắn về danh mục này (không bắt buộc, tối đa 200 ký tự)"
               rows={3}
               className="w-full px-3.5 py-2.5 bg-white border border-gray-300 rounded-lg text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-primary-500 focus:ring-[3px] focus:ring-primary-500/15 transition-all duration-200 resize-none"
             />
           </div>
 
-          {/* Trạng thái (chỉ hiển thị khi chỉnh sửa) */}
-          {isEditing && (
-            <div>
-              <label htmlFor="cf-status" className="block text-sm font-medium text-gray-700 mb-1.5">
-                Trạng thái
-              </label>
-              <select
-                id="cf-status"
-                name="status"
-                value={formData.status}
-                onChange={handleChange}
-                className="w-full h-10 px-3.5 bg-white border border-gray-300 rounded-lg text-sm text-gray-700 focus:outline-none focus:border-primary-500 focus:ring-[3px] focus:ring-primary-500/15 transition-all duration-200"
-              >
-                <option value="active">Đang hoạt động</option>
-                <option value="inactive">Đã khóa (Tạm ngừng)</option>
-              </select>
-            </div>
-          )}
 
           {/* Actions */}
           <div className="flex items-center justify-end gap-3 pt-3 border-t border-gray-100">

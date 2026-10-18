@@ -146,17 +146,17 @@ const createImportReceipt = async (req, res) => {
       const qty = parseInt(item.quantity);
       const price = Number(item.importPrice);
 
-      if (isNaN(qty) || qty <= 0) {
+      if (isNaN(qty) || qty <= 0 || qty > 10000) {
         return res.status(400).json({
           success: false,
-          message: `Số lượng nhập của sản phẩm "${product.name}" phải từ 1 trở lên`,
+          message: `Số lượng nhập của sản phẩm "${product.name}" phải từ 1 đến 10,000`,
         });
       }
 
-      if (isNaN(price) || price < 0) {
+      if (isNaN(price) || price < 0 || price > 10000000) {
         return res.status(400).json({
           success: false,
-          message: `Giá nhập của sản phẩm "${product.name}" không hợp lệ`,
+          message: `Giá nhập của sản phẩm "${product.name}" phải từ 0 đến 10,000,000 ₫`,
         });
       }
 

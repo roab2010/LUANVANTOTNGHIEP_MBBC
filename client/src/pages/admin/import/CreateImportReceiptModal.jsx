@@ -137,8 +137,16 @@ const CreateImportReceiptModal = ({ initialSupplierId = '', onClose, onSuccess }
         setError(`Số lượng của dòng số ${i + 1} phải từ 1 trở lên`);
         return;
       }
+      if (parseInt(it.quantity) > 10000) {
+        setError(`Số lượng của dòng số ${i + 1} tối đa là 10,000 sản phẩm`);
+        return;
+      }
       if (it.importPrice === '' || Number(it.importPrice) < 0) {
         setError(`Giá nhập của dòng số ${i + 1} không hợp lệ`);
+        return;
+      }
+      if (Number(it.importPrice) > 10000000) {
+        setError(`Giá nhập của dòng số ${i + 1} tối đa là 10,000,000 ₫`);
         return;
       }
     }
@@ -196,7 +204,7 @@ const CreateImportReceiptModal = ({ initialSupplierId = '', onClose, onSuccess }
         )}
 
         {/* Body Form */}
-        <form onSubmit={handleSubmit} className="p-6 overflow-y-auto space-y-5 flex-1">
+        <form onSubmit={handleSubmit} noValidate className="p-6 overflow-y-auto space-y-5 flex-1">
           {/* Thông tin nhà cung cấp */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>

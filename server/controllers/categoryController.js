@@ -118,9 +118,25 @@ const createCategory = async (req, res) => {
       });
     }
 
-    // Kiểm tra tên danh mục đã tồn tại chưa
+    const trimmedName = name.trim();
+    if (trimmedName.length < 2 || trimmedName.length > 50) {
+      return res.status(400).json({
+        success: false,
+        message: 'Tên danh mục phải có từ 2 đến 50 ký tự',
+      });
+    }
+
+    if (description && description.trim().length > 200) {
+      return res.status(400).json({
+        success: false,
+        message: 'Mô tả danh mục tối đa 200 ký tự',
+      });
+    }
+
+    // Kiểm tra tên danh mục đã tồn tại chưa (không phân biệt hoa/thường và khoảng trắng)
+    const escapedName = trimmedName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const existingCategory = await Category.findOne({
-      name: { $regex: `^${name.trim()}$`, $options: 'i' },
+      name: { $regex: new RegExp(`^${escapedName}$`, 'i') },
     });
     if (existingCategory) {
       return res.status(400).json({
@@ -129,11 +145,11 @@ const createCategory = async (req, res) => {
       });
     }
 
-    // --- Tạo danh mục ---
+    // --- Tạo danh mục (luôn mặc định active, không cho phép đổi qua createCategory) ---
     const category = await Category.create({
-      name: name.trim(),
+      name: trimmedName,
       description: description?.trim() || '',
-      status: status || 'active',
+      status: 'active',
     });
 
     res.status(201).json({
@@ -162,21 +178,41 @@ const createCategory = async (req, res) => {
 // ============================================
 const updateCategory = async (req, res) => {
   try {
-    const { name, description, status } = req.body;
+    const { name, description } = req.body;
 
-    // --- Validate input ---
-    if (name !== undefined && !name.trim()) {
-      return res.status(400).json({
+    const category = await Category.findById(req.params.id);
+    if (!category) {
+      return res.status(404).json({
         success: false,
-        message: 'Tên danh mục không được để trống',
+        message: 'Không tìm thấy danh mục',
       });
     }
 
-    // Kiểm tra tên trùng (loại trừ chính nó)
-    if (name) {
+    const oldName = category.name;
+    let isNameChanged = false;
+
+    // --- Validate & kiểm tra trùng tên ---
+    if (name !== undefined) {
+      const trimmedName = name.trim();
+      if (!trimmedName) {
+        return res.status(400).json({
+          success: false,
+          message: 'Tên danh mục không được để trống',
+        });
+      }
+
+      if (trimmedName.length < 2 || trimmedName.length > 50) {
+        return res.status(400).json({
+          success: false,
+          message: 'Tên danh mục phải có từ 2 đến 50 ký tự',
+        });
+      }
+
+      // Kiểm tra tên trùng (loại trừ chính nó, so sánh không phân biệt chữ hoa/thường hoặc khoảng trắng thừa)
+      const escapedName = trimmedName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       const existingCategory = await Category.findOne({
-        name: { $regex: `^${name.trim()}$`, $options: 'i' },
         _id: { $ne: req.params.id },
+        name: { $regex: new RegExp(`^${escapedName}$`, 'i') },
       });
       if (existingCategory) {
         return res.status(400).json({
@@ -184,25 +220,32 @@ const updateCategory = async (req, res) => {
           message: 'Tên danh mục đã tồn tại',
         });
       }
+
+      if (trimmedName !== oldName) {
+        isNameChanged = true;
+      }
+      category.name = trimmedName;
     }
 
-    // --- Tạo object cập nhật ---
-    const updateData = {};
-    if (name !== undefined) updateData.name = name.trim();
-    if (description !== undefined) updateData.description = description.trim();
-    if (status !== undefined) updateData.status = status;
+    if (description !== undefined) {
+      if (description.trim().length > 200) {
+        return res.status(400).json({
+          success: false,
+          message: 'Mô tả danh mục tối đa 200 ký tự',
+        });
+      }
+      category.description = description.trim();
+    }
 
-    const category = await Category.findByIdAndUpdate(
-      req.params.id,
-      updateData,
-      { new: true, runValidators: true }
-    );
+    await category.save();
 
-    if (!category) {
-      return res.status(404).json({
-        success: false,
-        message: 'Không tìm thấy danh mục',
-      });
+    // NẾU TÊN DANH MỤC THAY ĐỔI: Tự động cập nhật toàn bộ sản phẩm đang thuộc danh mục đó để giữ nguyên liên kết
+    if (isNameChanged && oldName) {
+      const escapedOldName = oldName.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      await Product.updateMany(
+        { category: { $regex: new RegExp(`^${escapedOldName}$`, 'i') } },
+        { category: category.name }
+      );
     }
 
     res.json({
@@ -222,6 +265,46 @@ const updateCategory = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: 'Tên danh mục đã tồn tại',
+      });
+    }
+    res.status(500).json({
+      success: false,
+      message: 'Lỗi server, vui lòng thử lại sau',
+    });
+  }
+};
+
+// ============================================
+// KHÓA / MỞ KHÓA DANH MỤC - PATCH /api/categories/:id/toggle-status
+// ============================================
+const toggleCategoryStatus = async (req, res) => {
+  try {
+    const category = await Category.findById(req.params.id);
+
+    if (!category) {
+      return res.status(404).json({
+        success: false,
+        message: 'Không tìm thấy danh mục',
+      });
+    }
+
+    const nextStatus = category.status === 'active' ? 'inactive' : 'active';
+    category.status = nextStatus;
+    await category.save();
+
+    const actionText = nextStatus === 'active' ? 'Mở khóa' : 'Khóa';
+
+    res.json({
+      success: true,
+      message: `${actionText} danh mục thành công`,
+      data: { category },
+    });
+  } catch (error) {
+    console.error('Lỗi thay đổi trạng thái danh mục:', error);
+    if (error.name === 'CastError') {
+      return res.status(400).json({
+        success: false,
+        message: 'ID danh mục không hợp lệ',
       });
     }
     res.status(500).json({
@@ -269,10 +352,35 @@ const deleteCategory = async (req, res) => {
   }
 };
 
+// ============================================
+// LẤY DANH MỤC CÔNG KHAI (CHỈ ACTIVE CHO KHÁCH HÀNG) - GET /api/categories/public
+// ============================================
+const getPublicCategories = async (req, res) => {
+  try {
+    const categories = await Category.find({ status: 'active' })
+      .select('name description')
+      .sort({ name: 1 })
+      .lean();
+
+    res.json({
+      success: true,
+      data: { categories },
+    });
+  } catch (error) {
+    console.error('Lỗi lấy danh mục công khai:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Lỗi server, vui lòng thử lại sau',
+    });
+  }
+};
+
 module.exports = {
   getCategories,
   getCategoryById,
   createCategory,
   updateCategory,
+  toggleCategoryStatus,
   deleteCategory,
+  getPublicCategories,
 };
