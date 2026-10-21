@@ -96,6 +96,19 @@ const productSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    // Đánh giá sao trung bình (1.0 đến 5.0) - Chỉ tính từ các đánh giá APPROVED
+    ratingAverage: {
+      type: Number,
+      default: 0,
+      min: 0,
+      max: 5,
+    },
+    // Tổng số lượt đánh giá đã được APPROVED
+    reviewCount: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
   },
   {
     timestamps: true, // Tự động tạo createdAt và updatedAt
@@ -121,6 +134,9 @@ productSchema.index({ name: 'text' });
 
 // Index cho imageHash — sparse để bỏ qua sản phẩm cũ chưa có hash
 productSchema.index({ imageHash: 1 }, { sparse: true });
+
+// Index sắp xếp theo đánh giá trung bình
+productSchema.index({ ratingAverage: -1 });
 
 const Product = mongoose.model('Product', productSchema);
 

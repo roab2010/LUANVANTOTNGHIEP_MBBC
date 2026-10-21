@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { getMyOrders } from '../../services/orderApi';
+import { getMyReviews } from '../../services/reviewApi';
 import { getVariantColorHex } from '../../components/VariantSelect';
 
 // ============================================
@@ -57,7 +59,9 @@ const getStatusBadge = (status) => {
 };
 
 const MyOrdersModal = ({ isOpen, onClose, onExploreClick }) => {
+  const navigate = useNavigate();
   const [orders, setOrders] = useState([]);
+  const [reviewedKeys, setReviewedKeys] = useState(new Set());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -65,9 +69,26 @@ const MyOrdersModal = ({ isOpen, onClose, onExploreClick }) => {
     setLoading(true);
     setError('');
     try {
-      const res = await getMyOrders({ limit: 50 });
-      if (res.data?.success && Array.isArray(res.data.data?.orders)) {
-        setOrders(res.data.data.orders);
+      const [orderRes, reviewRes] = await Promise.allSettled([
+        getMyOrders({ limit: 50 }),
+        getMyReviews({ limit: 100 }),
+      ]);
+
+      if (orderRes.status === 'fulfilled' && orderRes.value.data?.success) {
+        setOrders(orderRes.value.data.data?.orders || []);
+      }
+
+      if (reviewRes.status === 'fulfilled' && reviewRes.value.data?.success) {
+        const revs = reviewRes.value.data.data?.reviews || [];
+        const set = new Set();
+        revs.forEach((r) => {
+          const ordId = r.orderId?._id ? r.orderId._id.toString() : (r.orderId ? r.orderId.toString() : '');
+          const prodId = r.productId?._id ? r.productId._id.toString() : (r.productId ? r.productId.toString() : '');
+          if (ordId && prodId) {
+            set.add(`${ordId}_${prodId}`);
+          }
+        });
+        setReviewedKeys(set);
       }
     } catch (err) {
       console.error('Lỗi tải danh sách đơn hàng:', err);
@@ -254,14 +275,46 @@ const MyOrdersModal = ({ isOpen, onClose, onExploreClick }) => {
                             </div>
                           </div>
 
-                          {/* Giá tiền */}
-                          <div className="text-right shrink-0">
-                            <p className="font-mono font-bold text-neutral-900 text-sm">
-                              {formatPrice(it.total || it.price * it.quantity)}
-                            </p>
-                            <p className="text-[10px] text-neutral-400">
-                              {formatPrice(it.price)}/cái
-                            </p>
+                          {/* Giá tiền & Nút đánh giá */}
+                          <div className="text-right shrink-0 flex flex-col items-end gap-1.5">
+                            <div>
+                              <p className="font-mono font-bold text-neutral-900 text-sm">
+                                {formatPrice(it.total || it.price * it.quantity)}
+                              </p>
+                              <p className="text-[10px] text-neutral-400">
+                                {formatPrice(it.price)}/cái
+                              </p>
+                            </div>
+
+                            {ord.status === 'delivered' && it.product && (() => {
+                              const prodId = it.product?._id ? it.product._id.toString() : (it.product ? it.product.toString() : '');
+                              const isItemReviewed = it.isReviewed || reviewedKeys.has(`${ord._id}_${prodId}`);
+
+                              return isItemReviewed ? (
+                                <div
+                                  className="px-2.5 py-1 bg-neutral-100 border border-neutral-300 text-neutral-600 text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 select-none"
+                                  title="Bạn đã gửi đánh giá cho sản phẩm này"
+                                >
+                                  <span className="text-emerald-600 font-bold">✓</span>
+                                  <span>ĐÃ ĐÁNH GIÁ</span>
+                                </div>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    onClose();
+                                    navigate(`/product/${prodId}`);
+                                    setTimeout(() => {
+                                      document.getElementById('reviews-section')?.scrollIntoView({ behavior: 'smooth' });
+                                    }, 200);
+                                  }}
+                                  className="px-2.5 py-1 bg-black hover:bg-neutral-800 text-white text-[10px] font-bold uppercase tracking-wider transition-colors flex items-center gap-1 shadow-2xs"
+                                >
+                                  <span className="text-amber-400">★</span>
+                                  <span>Đánh giá</span>
+                                </button>
+                              );
+                            })()}
                           </div>
                         </div>
                       );

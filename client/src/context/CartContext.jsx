@@ -21,6 +21,7 @@ export const CartProvider = ({ children }) => {
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
   const [orderSuccess, setOrderSuccess] = useState(null);
   const [isMyOrdersOpen, setIsMyOrdersOpen] = useState(false);
+  const [isMyReviewsOpen, setIsMyReviewsOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState(null);
 
   // Lưu giỏ hàng vào localStorage mỗi khi thay đổi
@@ -142,6 +143,8 @@ export const CartProvider = ({ children }) => {
     setOrderSuccess,
     isMyOrdersOpen,
     setIsMyOrdersOpen,
+    isMyReviewsOpen,
+    setIsMyReviewsOpen,
     toastMessage,
     showToast,
   };

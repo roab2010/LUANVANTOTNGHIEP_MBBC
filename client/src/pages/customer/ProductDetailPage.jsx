@@ -6,6 +6,8 @@ import { useCart } from '../../context/CartContext';
 import StoreHeader from '../../components/common/StoreHeader';
 import StoreModals from '../../components/common/StoreModals';
 import { getVariantColorHex } from '../../components/VariantSelect';
+import ReviewSection from '../../components/customer/ReviewSection';
+import StarRatingDisplay from '../../components/common/StarRatingDisplay';
 
 // ============================================
 // FORMAT CURRENCY VND
@@ -536,6 +538,22 @@ const ProductDetailPage = () => {
                 {product.name}
               </h1>
 
+              {/* Rating Preview */}
+              <div className="flex items-center gap-2 pt-1">
+                <StarRatingDisplay rating={product.ratingAverage || 0} size="sm" />
+                <button
+                  type="button"
+                  onClick={() => {
+                    document.getElementById('reviews-section')?.scrollIntoView({ behavior: 'smooth' });
+                  }}
+                  className="text-xs text-neutral-500 hover:text-black transition-colors underline font-semibold tracking-wide"
+                >
+                  {product.reviewCount && product.reviewCount > 0
+                    ? `${product.ratingAverage?.toFixed(1)} (${product.reviewCount} đánh giá)`
+                    : 'Chưa có đánh giá (Gửi nhận xét)'}
+                </button>
+              </div>
+
               {/* Price & Stock status - ĐỔI MÀU GIÁ SANG ĐỎ MBBC */}
               <div className="flex items-baseline justify-between pt-2">
                 <span className="text-3xl sm:text-4xl font-extrabold tracking-tight text-[#b91c1c]">
@@ -825,6 +843,16 @@ const ProductDetailPage = () => {
 
           </div>
         </div>
+
+        {/* ========================================================= */}
+        {/* KHU VỰC ĐÁNH GIÁ SẢN PHẨM (CUSTOMER REVIEWS SECTION) */}
+        {/* ========================================================= */}
+        <ReviewSection
+          productId={product._id || product.id}
+          productName={product.name}
+          productCategory={product.category}
+          productImage={product.image}
+        />
 
         {/* ========================================================= */}
         {/* SẢN PHẨM LIÊN QUAN / CÙNG DANH MỤC */}

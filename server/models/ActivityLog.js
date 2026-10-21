@@ -50,6 +50,7 @@ const activityLogSchema = new mongoose.Schema(
         'INVENTORY',
         'SHIPPING',
         'SYSTEM',
+        'REVIEW',
       ],
       trim: true,
     },

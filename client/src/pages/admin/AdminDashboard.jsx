@@ -4,6 +4,9 @@ import { getOverviewStats, getRevenueChart } from '../../services/statisticApi';
 import { getWarehouseStats } from '../../services/warehouseApi';
 import { getOrders } from '../../services/orderApi';
 import { getProducts } from '../../services/productApi';
+import { getAdminReviews, moderateReview } from '../../services/reviewApi';
+import StarRatingDisplay from '../../components/common/StarRatingDisplay';
+import ReviewDetailModal from './reviews/ReviewDetailModal';
 
 // ============================================
 // ICON COMPONENTS
@@ -41,6 +44,24 @@ const FolderIcon = () => (
 const TruckIcon = () => (
   <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
     <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 18.75a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 01-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h1.125c.621 0 1.129-.504 1.09-1.124a17.902 17.902 0 00-3.213-9.193 2.056 2.056 0 00-1.58-.86H14.25M16.5 18.75h-2.25m0-11.177v-.958c0-.568-.422-1.048-.987-1.106a48.554 48.554 0 00-10.026 0 1.106 1.106 0 00-.987 1.106v7.635m12-6.677v6.677m0 4.5v-4.5m0 0h-12" />
+  </svg>
+);
+
+const StarIcon = () => (
+  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+    <path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z" />
+  </svg>
+);
+
+const ShieldCheckIcon = () => (
+  <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
+  </svg>
+);
+
+const CheckSmallIcon = () => (
+  <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
   </svg>
 );
 
@@ -98,6 +119,13 @@ const orderStatusMap = {
   cancelled: { label: 'Đã hủy', badgeClass: 'bg-red-50 text-red-600 border-red-200' },
 };
 
+const reviewStatusMap = {
+  PENDING: { label: 'Chờ duyệt', badgeClass: 'bg-amber-50 text-amber-800 border-amber-200' },
+  APPROVED: { label: 'Đã duyệt', badgeClass: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+  HIDDEN: { label: 'Đã ẩn', badgeClass: 'bg-gray-100 text-gray-700 border-gray-200' },
+  REJECTED: { label: 'Từ chối', badgeClass: 'bg-rose-50 text-rose-700 border-rose-200' },
+};
+
 // ============================================
 // SYSTEM MODULES QUICK ACCESS
 // ============================================
@@ -106,8 +134,10 @@ const systemModules = [
   { name: 'Danh mục', icon: FolderIcon, desc: 'Phân loại nhóm mặt hàng', path: '/admin/categories', color: 'bg-blue-50 text-blue-600' },
   { name: 'Nhà cung cấp', icon: TruckIcon, desc: 'Đối tác & lịch sử nhập', path: '/admin/suppliers', color: 'bg-amber-50 text-amber-600' },
   { name: 'Đơn hàng', icon: ShoppingBagIcon, desc: 'Theo dõi & xử lý đơn đặt', path: '/admin/orders', color: 'bg-violet-50 text-violet-600' },
+  { name: 'Đánh giá SP', icon: StarIcon, desc: 'Kiểm duyệt & phản hồi khách', path: '/admin/reviews', color: 'bg-amber-50 text-amber-500' },
   { name: 'Khách hàng', icon: UsersIcon, desc: 'Tài khoản khách hàng', path: '/admin/customers', color: 'bg-rose-50 text-rose-600' },
   { name: 'Thống kê', icon: ChartIcon, desc: 'Báo cáo doanh thu bán hàng', path: '/admin/statistics', color: 'bg-cyan-50 text-cyan-600' },
+  { name: 'Nhật ký', icon: ShieldCheckIcon, desc: 'Lịch sử thao tác hệ thống', path: '/admin/activity-logs', color: 'bg-emerald-50 text-emerald-600' },
 ];
 
 // ============================================
@@ -124,17 +154,21 @@ const AdminDashboard = () => {
   const [revenueChart, setRevenueChart] = useState([]);
   const [recentOrders, setRecentOrders] = useState([]);
   const [lowStockList, setLowStockList] = useState([]);
+  const [reviewStats, setReviewStats] = useState(null);
+  const [approvingId, setApprovingId] = useState(null);
+  const [selectedReviewForModal, setSelectedReviewForModal] = useState(null);
 
   const fetchDashboardData = async () => {
     setLoading(true);
     setError('');
     try {
-      const [ovRes, whRes, chartRes, ordersRes, lowStockRes] = await Promise.all([
+      const [ovRes, whRes, chartRes, ordersRes, lowStockRes, revRes] = await Promise.all([
         getOverviewStats(),
         getWarehouseStats(),
         getRevenueChart(),
         getOrders({ limit: 5 }),
         getProducts({ stockStatus: 'low_stock', limit: 4 }),
+        getAdminReviews({ limit: 4 }),
       ]);
 
       setOverview(ovRes.data?.data || null);
@@ -142,11 +176,39 @@ const AdminDashboard = () => {
       setRevenueChart(chartRes.data?.data?.chartData || []);
       setRecentOrders(ordersRes.data?.data?.orders || []);
       setLowStockList(lowStockRes.data?.data?.products || []);
+      setReviewStats(revRes.data?.data || null);
     } catch (err) {
       console.error('Lỗi tải dữ liệu Dashboard:', err);
       setError(err.response?.data?.message || 'Không thể kết nối đến server để tải dữ liệu thống kê');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleQuickApprove = async (reviewId) => {
+    try {
+      setApprovingId(reviewId);
+      await moderateReview(reviewId, { status: 'APPROVED' });
+      // Cập nhật reviewStats nội bộ mượt mà
+      setReviewStats((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          kpi: {
+            ...prev.kpi,
+            pending: Math.max(0, (prev.kpi?.pending || 1) - 1),
+            approved: (prev.kpi?.approved || 0) + 1,
+          },
+          reviews: (prev.reviews || []).map((r) =>
+            r._id === reviewId ? { ...r, status: 'APPROVED' } : r
+          ),
+        };
+      });
+    } catch (err) {
+      console.error('Lỗi duyệt nhanh đánh giá:', err);
+      alert(err.response?.data?.message || 'Không thể duyệt đánh giá');
+    } finally {
+      setApprovingId(null);
     }
   };
 
@@ -192,8 +254,39 @@ const AdminDashboard = () => {
         </div>
       )}
 
+      {/* Pending Reviews Alert Banner */}
+      {!loading && reviewStats?.kpi?.pending > 0 && (
+        <div className="p-4 bg-amber-50 border border-amber-200 rounded-[var(--radius-md)] flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 shadow-sm">
+          <div className="flex items-start sm:items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center text-amber-600 shrink-0">
+              <StarIcon />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="text-sm font-bold text-amber-900">
+                  Có {reviewStats.kpi.pending} đánh giá sản phẩm mới đang chờ kiểm duyệt
+                </h2>
+                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-200 text-amber-800 animate-pulse">
+                  Cần xử lý
+                </span>
+              </div>
+              <p className="text-xs text-amber-700 mt-0.5">
+                Khách hàng đã gửi đánh giá sau khi hoàn thành đơn. Hãy kiểm duyệt để hiển thị công khai trên website.
+              </p>
+            </div>
+          </div>
+          <Link
+            to="/admin/reviews?status=PENDING"
+            className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold rounded-lg shadow-sm transition-colors shrink-0"
+          >
+            <span>Duyệt đánh giá ngay</span>
+            <ArrowRightIcon />
+          </Link>
+        </div>
+      )}
+
       {/* Stat KPI Cards (Dữ liệu thật 100%) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
         {/* Doanh thu */}
         <div className="p-5 bg-white border border-gray-200 rounded-[var(--radius-md)] shadow-sm">
           <div className="flex items-start justify-between mb-3">
@@ -262,8 +355,8 @@ const AdminDashboard = () => {
             {loading ? '—' : overview?.totalProducts || 0}
           </p>
           <div className="flex items-center justify-between text-xs text-gray-500 mt-1">
-            <span>Mặt hàng đang quản lý</span>
-            <span className="text-gray-600 font-medium truncate max-w-[140px]" title={formatCurrency(warehouseStats?.totalCostValue)}>
+            <span>Mặt hàng quản lý</span>
+            <span className="text-gray-600 font-medium truncate max-w-[130px]" title={formatCurrency(warehouseStats?.totalCostValue)}>
               Vốn: {formatCurrency(warehouseStats?.totalCostValue)}
             </span>
           </div>
@@ -287,6 +380,37 @@ const AdminDashboard = () => {
             <span className="text-rose-600 font-medium">Bảo mật</span>
           </div>
         </div>
+
+        {/* Đánh giá sản phẩm */}
+        <Link
+          to="/admin/reviews"
+          className="p-5 bg-white border border-gray-200 rounded-[var(--radius-md)] shadow-sm hover:border-amber-300 transition-all group block"
+          title="Nhấn để xem trang quản lý đánh giá"
+        >
+          <div className="flex items-start justify-between mb-3">
+            <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-amber-50 text-amber-500 group-hover:scale-105 transition-transform">
+              <StarIcon />
+            </div>
+            {reviewStats?.kpi?.pending > 0 ? (
+              <span className="text-[11px] font-semibold text-amber-800 bg-amber-100 border border-amber-200 px-2 py-0.5 rounded-full animate-pulse">
+                {reviewStats.kpi.pending} chờ duyệt
+              </span>
+            ) : (
+              <span className="text-[11px] font-medium text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">
+                Đã duyệt hết
+              </span>
+            )}
+          </div>
+          <p className="text-2xl font-bold text-gray-900 tracking-tight tabular-nums">
+            {loading ? '—' : reviewStats?.kpi?.total || 0}
+          </p>
+          <div className="flex items-center justify-between text-xs text-gray-500 mt-1">
+            <span>Tổng đánh giá</span>
+            <span className="text-amber-600 font-medium">
+              {reviewStats?.kpi?.approved || 0} đã duyệt
+            </span>
+          </div>
+        </Link>
       </div>
 
       {/* Main Content Grid: Biểu đồ & Cảnh báo tồn kho */}
@@ -498,13 +622,184 @@ const AdminDashboard = () => {
         </div>
       </div>
 
+      {/* Recent Reviews Widget (Dữ liệu thật 100%) */}
+      <div className="bg-white border border-gray-200 rounded-[var(--radius-md)] overflow-hidden shadow-sm">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-5 border-b border-gray-100">
+          <div>
+            <div className="flex items-center gap-2">
+              <h2 className="text-base font-semibold text-gray-900">Đánh giá sản phẩm mới nhất</h2>
+              {reviewStats?.kpi?.pending > 0 && (
+                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200">
+                  {reviewStats.kpi.pending} chờ duyệt
+                </span>
+              )}
+            </div>
+            <p className="text-sm text-gray-500 mt-0.5">Phản hồi và nhận xét trực tiếp từ người mua hàng</p>
+          </div>
+          <Link
+            to="/admin/reviews"
+            className="flex items-center gap-1.5 text-sm font-medium text-primary-600 hover:text-primary-700 transition-colors"
+          >
+            <span>Quản lý tất cả đánh giá</span>
+            <ArrowRightIcon />
+          </Link>
+        </div>
+
+        {reviewStats?.reviews?.length > 0 ? (
+          <div className="p-5 grid grid-cols-1 md:grid-cols-2 gap-4">
+            {reviewStats.reviews.map((rev) => {
+              const statusInfo = reviewStatusMap[rev.status] || {
+                label: rev.status,
+                badgeClass: 'bg-gray-100 text-gray-700 border-gray-200',
+              };
+
+              const prod = rev.productId || {};
+              const prodImg = prod.image || (Array.isArray(prod.images) && prod.images[0]) || '';
+              const prodName = prod.name || 'Sản phẩm';
+              const userObj = rev.userId || {};
+              const orderObj = rev.orderId || {};
+
+              return (
+                <div
+                  key={rev._id}
+                  className="p-4 rounded-xl border border-gray-200 bg-white hover:border-gray-300 transition-all shadow-2xs flex flex-col justify-between"
+                >
+                  <div className="space-y-3">
+                    {/* Top: Product thumbnail & name + Order + Status Badge */}
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-center gap-3 min-w-0">
+                        {prodImg ? (
+                          <img
+                            src={prodImg}
+                            alt={prodName}
+                            className="w-12 h-12 rounded-lg object-cover bg-neutral-100 border border-neutral-200 shrink-0"
+                          />
+                        ) : (
+                          <div className="w-12 h-12 rounded-lg bg-neutral-100 border border-neutral-200 flex items-center justify-center text-xs font-bold text-neutral-400 shrink-0">
+                            MBBC
+                          </div>
+                        )}
+                        <div className="min-w-0">
+                          <p className="text-xs font-bold text-gray-900 truncate" title={prodName}>
+                            {prodName}
+                          </p>
+                          <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-gray-500 mt-0.5">
+                            {rev.variant?.color || rev.variant?.size ? (
+                              <span className="font-medium text-gray-700">
+                                {rev.variant.color && `${rev.variant.color}`}
+                                {rev.variant.size && ` • Size ${rev.variant.size}`}
+                              </span>
+                            ) : null}
+                            {orderObj.orderCode && (
+                              <span className="text-gray-400 font-mono">
+                                (Đơn: {orderObj.orderCode})
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                      <span className={`inline-flex items-center px-2 py-0.5 text-[11px] font-semibold rounded-full border shrink-0 ${statusInfo.badgeClass}`}>
+                        {statusInfo.label}
+                      </span>
+                    </div>
+
+                    {/* Middle: Rating + Time + Real Customer Content */}
+                    <div>
+                      <div className="flex items-center gap-2 mb-1.5">
+                        <StarRatingDisplay rating={rev.rating} size="sm" />
+                        <span className="text-[11px] font-bold text-gray-800">{rev.rating}/5 sao</span>
+                        <span className="text-gray-300">•</span>
+                        <span className="text-[11px] text-gray-400">{formatDate(rev.createdAt)}</span>
+                      </div>
+
+                      {/* Nội dung đánh giá thật của khách */}
+                      <div className="p-2.5 rounded-lg bg-gray-50/80 border border-gray-100 text-xs text-gray-800 font-medium leading-relaxed">
+                        "{rev.content || 'Khách hàng không để lại nhận xét bằng chữ'}"
+                      </div>
+
+                      {/* Ảnh khách chụp thực tế đính kèm */}
+                      {Array.isArray(rev.images) && rev.images.length > 0 && (
+                        <div className="flex items-center gap-2 mt-2">
+                          {rev.images.map((imgUrl, imgIdx) => (
+                            <img
+                              key={imgIdx}
+                              src={imgUrl}
+                              alt="Ảnh khách đính kèm"
+                              onClick={() => setSelectedReviewForModal(rev)}
+                              className="w-11 h-11 object-cover rounded-md border border-gray-200 cursor-pointer hover:opacity-80 transition-opacity shrink-0"
+                              title="Bấm để xem ảnh phóng to"
+                            />
+                          ))}
+                          <span className="text-[10px] text-gray-400 font-medium">
+                            ({rev.images.length} ảnh thực tế)
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Bottom: Customer Info & Action buttons */}
+                  <div className="flex items-center justify-between pt-3 mt-3 border-t border-gray-100 text-xs">
+                    <div className="flex items-center gap-1.5 min-w-0 text-gray-600">
+                      <span className="font-medium text-gray-900 truncate">
+                        {userObj.fullName || 'Khách hàng'}
+                      </span>
+                      {userObj.phone && (
+                        <span className="text-[11px] text-gray-400 font-mono hidden sm:inline">
+                          ({userObj.phone})
+                        </span>
+                      )}
+                      <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-100 shrink-0">
+                        Đã mua
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-2 shrink-0">
+                      {rev.status === 'PENDING' && (
+                        <button
+                          type="button"
+                          onClick={() => handleQuickApprove(rev._id)}
+                          disabled={approvingId === rev._id}
+                          className="inline-flex items-center gap-1 px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-md text-[11px] transition-colors disabled:opacity-50 shadow-2xs"
+                          title="Duyệt công khai ngay lập tức"
+                        >
+                          {approvingId === rev._id ? (
+                            <span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                          ) : (
+                            <CheckSmallIcon />
+                          )}
+                          <span>Duyệt nhanh</span>
+                        </button>
+                      )}
+
+                      <button
+                        type="button"
+                        onClick={() => setSelectedReviewForModal(rev)}
+                        className="inline-flex items-center gap-1 px-2.5 py-1 text-primary-700 bg-primary-50 hover:bg-primary-100 border border-primary-200 font-semibold rounded-md text-[11px] transition-colors"
+                        title="Xem toàn bộ ảnh, từ chối hoặc phản hồi khách"
+                      >
+                        {rev.status === 'PENDING' ? 'Xem & duyệt' : 'Chi tiết'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="p-8 text-center text-sm text-gray-400">
+            Chưa có đánh giá nào từ khách hàng trong hệ thống.
+          </div>
+        )}
+      </div>
+
       {/* System Modules Quick Access */}
       <div>
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-base font-semibold text-gray-900">Quản lý hệ thống</h2>
           <span className="text-xs text-gray-400">{systemModules.length} phân hệ quản trị</span>
         </div>
-        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
           {systemModules.map((item) => {
             const Icon = item.icon;
             return (
@@ -523,6 +818,19 @@ const AdminDashboard = () => {
           })}
         </div>
       </div>
+
+      {/* Review Detail & Moderation Modal */}
+      {selectedReviewForModal && (
+        <ReviewDetailModal
+          isOpen={true}
+          onClose={() => setSelectedReviewForModal(null)}
+          review={selectedReviewForModal}
+          onActionCompleted={() => {
+            setSelectedReviewForModal(null);
+            fetchDashboardData();
+          }}
+        />
+      )}
     </div>
   );
 };

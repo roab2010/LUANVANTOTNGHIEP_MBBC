@@ -41,6 +41,30 @@ const CloseIcon = ({ className = 'w-6 h-6' }) => (
   </svg>
 );
 
+const OrderBoxIcon = ({ className = 'w-4 h-4' }) => (
+  <svg className={className} fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24" aria-hidden="true">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M21 7.5l-9-5.25L3 7.5m18 0l-9 5.25m9-5.25v9l-9 5.25M3 7.5l9 5.25M3 7.5v9l9 5.25m0-9v9" />
+  </svg>
+);
+
+const ReviewStarIcon = ({ className = 'w-4 h-4' }) => (
+  <svg className={className} fill="currentColor" stroke="currentColor" strokeWidth={1} viewBox="0 0 24 24" aria-hidden="true">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.563.563 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z" />
+  </svg>
+);
+
+const ShieldAdminIcon = ({ className = 'w-4 h-4' }) => (
+  <svg className={className} fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24" aria-hidden="true">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
+  </svg>
+);
+
+const ChevronRightMiniIcon = ({ className = 'w-3.5 h-3.5' }) => (
+  <svg className={className} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden="true">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+  </svg>
+);
+
 const StoreHeader = ({
   isSolid = true, // true: nền trắng chữ đen, false: trong suốt trên hero banner
   categories: propCategories,
@@ -48,7 +72,7 @@ const StoreHeader = ({
   onSearch,
 }) => {
   const { user, logout } = useAuth();
-  const { totalCartCount, setIsCartOpen, setIsMyOrdersOpen, showToast } = useCart();
+  const { totalCartCount, setIsCartOpen, setIsMyOrdersOpen, setIsMyReviewsOpen, showToast } = useCart();
   const navigate = useNavigate();
 
   const [isHovered, setIsHovered] = useState(false);
@@ -414,17 +438,39 @@ const StoreHeader = ({
                   <p className="text-xs font-black text-black truncate mb-2.5">
                     {user.fullName || user.email || 'Khách hàng'}
                   </p>
-                  <div className="space-y-1 mb-3 border-t border-neutral-100 pt-2">
+                  <div className="space-y-1 mb-3 border-t border-neutral-100 pt-2.5">
                     <button
                       type="button"
                       onClick={() => {
                         setIsMyOrdersOpen(true);
                         setUserDropdownOpen(false);
                       }}
-                      className="w-full text-left py-1.5 px-2 text-[11px] font-bold uppercase tracking-wider text-neutral-700 hover:text-black hover:bg-neutral-50 transition-colors flex items-center justify-between"
+                      className="w-full text-left py-2 px-2.5 text-[11px] font-bold uppercase tracking-wider text-neutral-800 hover:text-black hover:bg-neutral-50 transition-colors flex items-center justify-between group rounded"
                     >
-                      <span>Đơn hàng của tôi</span>
-                      <span className="text-[10px] text-neutral-400">→</span>
+                      <div className="flex items-center gap-2.5">
+                        <span className="w-6 h-6 rounded flex items-center justify-center bg-neutral-100 text-neutral-800 group-hover:bg-black group-hover:text-white transition-colors shrink-0">
+                          <OrderBoxIcon className="w-3.5 h-3.5" />
+                        </span>
+                        <span>Đơn hàng của tôi</span>
+                      </div>
+                      <ChevronRightMiniIcon className="w-3.5 h-3.5 text-neutral-400 group-hover:translate-x-0.5 group-hover:text-black transition-all" />
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsMyReviewsOpen(true);
+                        setUserDropdownOpen(false);
+                      }}
+                      className="w-full text-left py-2 px-2.5 text-[11px] font-bold uppercase tracking-wider text-neutral-800 hover:text-black hover:bg-neutral-50 transition-colors flex items-center justify-between group rounded"
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <span className="w-6 h-6 rounded flex items-center justify-center bg-amber-50 text-amber-600 border border-amber-200/60 group-hover:bg-amber-500 group-hover:text-white group-hover:border-amber-500 transition-colors shrink-0">
+                          <ReviewStarIcon className="w-3.5 h-3.5" />
+                        </span>
+                        <span>Đánh giá của tôi</span>
+                      </div>
+                      <ChevronRightMiniIcon className="w-3.5 h-3.5 text-neutral-400 group-hover:translate-x-0.5 group-hover:text-black transition-all" />
                     </button>
 
                     {user.role === 'admin' && (
@@ -434,10 +480,15 @@ const StoreHeader = ({
                           setUserDropdownOpen(false);
                           navigate('/admin');
                         }}
-                        className="w-full text-left py-1.5 px-2 text-[11px] font-bold uppercase tracking-wider text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 transition-colors flex items-center justify-between"
+                        className="w-full text-left py-2 px-2.5 text-[11px] font-bold uppercase tracking-wider text-indigo-700 hover:text-indigo-900 hover:bg-indigo-50/70 transition-colors flex items-center justify-between group rounded"
                       >
-                        <span>Trang quản trị</span>
-                        <span className="text-[10px] text-indigo-400">→</span>
+                        <div className="flex items-center gap-2.5">
+                          <span className="w-6 h-6 rounded flex items-center justify-center bg-indigo-50 text-indigo-600 border border-indigo-200/60 group-hover:bg-indigo-600 group-hover:text-white group-hover:border-indigo-600 transition-colors shrink-0">
+                            <ShieldAdminIcon className="w-3.5 h-3.5" />
+                          </span>
+                          <span>Trang quản trị</span>
+                        </div>
+                        <ChevronRightMiniIcon className="w-3.5 h-3.5 text-indigo-400 group-hover:translate-x-0.5 group-hover:text-indigo-700 transition-all" />
                       </button>
                     )}
                   </div>
@@ -614,16 +665,30 @@ const StoreHeader = ({
                         {user.fullName || user.email}
                       </p>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setMobileMenuOpen(false);
-                        setIsMyOrdersOpen(true);
-                      }}
-                      className="text-[11px] font-bold text-neutral-700 underline"
-                    >
-                      Đơn hàng
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setMobileMenuOpen(false);
+                          setIsMyOrdersOpen(true);
+                        }}
+                        className="flex items-center gap-1.5 px-2.5 py-1.5 bg-white border border-neutral-200 rounded text-[11px] font-bold text-neutral-800 hover:border-black transition-colors"
+                      >
+                        <OrderBoxIcon className="w-3.5 h-3.5 text-neutral-700" />
+                        <span>Đơn hàng</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setMobileMenuOpen(false);
+                          setIsMyReviewsOpen(true);
+                        }}
+                        className="flex items-center gap-1.5 px-2.5 py-1.5 bg-amber-50/70 border border-amber-200 rounded text-[11px] font-bold text-neutral-800 hover:border-amber-400 transition-colors"
+                      >
+                        <ReviewStarIcon className="w-3.5 h-3.5 text-amber-500" />
+                        <span>Đánh giá</span>
+                      </button>
+                    </div>
                   </div>
                   <button
                     type="button"

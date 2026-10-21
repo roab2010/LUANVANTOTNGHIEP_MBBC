@@ -9,6 +9,7 @@ import {
   calculateShippingFee,
 } from '../../services/shippingApi';
 import MyOrdersModal from '../../pages/customer/MyOrdersModal';
+import MyReviewsModal from '../customer/MyReviewsModal';
 import { getVariantColorHex } from '../VariantSelect';
 
 // Close Icon
@@ -223,6 +224,8 @@ const StoreModals = ({ onOrderCompleted }) => {
     setOrderSuccess,
     isMyOrdersOpen,
     setIsMyOrdersOpen,
+    isMyReviewsOpen,
+    setIsMyReviewsOpen,
     toastMessage,
     showToast,
   } = useCart();
@@ -1108,6 +1111,11 @@ const StoreModals = ({ onOrderCompleted }) => {
       {/* MODAL ĐƠN HÀNG CỦA TÔI */}
       {/* ========================================================= */}
       <MyOrdersModal isOpen={isMyOrdersOpen} onClose={() => setIsMyOrdersOpen(false)} />
+
+      {/* ========================================================= */}
+      {/* MODAL ĐÁNH GIÁ CỦA TÔI */}
+      {/* ========================================================= */}
+      <MyReviewsModal isOpen={isMyReviewsOpen} onClose={() => setIsMyReviewsOpen(false)} />
 
       {/* ========================================================= */}
       {/* TOAST THÔNG BÁO GÓC DƯỚI */}

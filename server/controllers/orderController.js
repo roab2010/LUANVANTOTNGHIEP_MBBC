@@ -1,5 +1,6 @@
 const Order = require('../models/Order');
 const Product = require('../models/Product');
+const Review = require('../models/Review');
 const ghnService = require('../services/ghnService');
 const { logActivity } = require('../services/activityLogService');
 
@@ -85,14 +86,57 @@ const getMyOrders = async (req, res) => {
         .populate('items.product', 'name image images')
         .sort({ createdAt: -1 })
         .skip(skip)
-        .limit(limitNum),
+        .limit(limitNum)
+        .lean(),
       Order.countDocuments(filter),
     ]);
+
+    // Lấy danh sách ID các đơn hàng có trạng thái 'delivered'
+    const deliveredOrderIds = orders
+      .filter((o) => o.status === 'delivered')
+      .map((o) => o._id);
+
+    const reviewMap = new Map();
+    if (deliveredOrderIds.length > 0) {
+      const existingReviews = await Review.find({
+        userId,
+        orderId: { $in: deliveredOrderIds },
+        status: { $ne: 'DELETED' },
+      })
+        .select('orderId productId status rating')
+        .lean();
+
+      existingReviews.forEach((r) => {
+        const key = `${r.orderId.toString()}_${r.productId.toString()}`;
+        reviewMap.set(key, r);
+      });
+    }
+
+    // Đính kèm trạng thái isReviewed vào từng sản phẩm trong đơn hàng
+    const formattedOrders = orders.map((ord) => {
+      const items = (ord.items || []).map((it) => {
+        const prodId = it.product?._id ? it.product._id.toString() : (it.product ? it.product.toString() : '');
+        const key = `${ord._id.toString()}_${prodId}`;
+        const matchedReview = reviewMap.get(key);
+
+        return {
+          ...it,
+          isReviewed: !!matchedReview,
+          reviewStatus: matchedReview?.status || null,
+          reviewRating: matchedReview?.rating || null,
+        };
+      });
+
+      return {
+        ...ord,
+        items,
+      };
+    });
 
     res.json({
       success: true,
       data: {
-        orders,
+        orders: formattedOrders,
         pagination: {
           page: pageNum,
           limit: limitNum,
