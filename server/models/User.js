@@ -35,6 +35,19 @@ const userSchema = new mongoose.Schema(
       enum: ['active', 'blocked', 'deleted'],
       default: 'active',
     },
+    // Xác minh email OTP
+    isEmailVerified: {
+      type: Boolean,
+      default: false,
+    },
+    emailOtp: {
+      type: String,
+      default: null,
+    },
+    emailOtpExpires: {
+      type: Date,
+      default: null,
+    },
   },
   {
     timestamps: true, // Tự động tạo createdAt và updatedAt

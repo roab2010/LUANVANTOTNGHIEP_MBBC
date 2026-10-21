@@ -41,33 +41,33 @@ function App() {
             <Route path="/category" element={<CategoryPage />} />
             <Route path="/shop" element={<CategoryPage />} />
 
-          {/* === Routes Admin (cần đăng nhập + role admin) === */}
-          <Route
-            path="/admin"
-            element={
-              <ProtectedRoute role="admin">
-                <AdminLayout />
-              </ProtectedRoute>
-            }
-          >
-            {/* Nested routes render trong <Outlet /> của AdminLayout */}
-            <Route index element={<AdminDashboard />} />
-            <Route path="products" element={<ProductsPage />} />
-            <Route path="categories" element={<CategoriesPage />} />
-            <Route path="suppliers" element={<SuppliersPage />} />
-            <Route path="import-receipts" element={<Navigate to="/admin/products" replace />} />
-            <Route path="import" element={<Navigate to="/admin/products" replace />} />
-            <Route path="warehouse" element={<Navigate to="/admin/products" replace />} />
-            <Route path="orders" element={<OrdersPage />} />
-            <Route path="customers" element={<CustomersPage />} />
-            <Route path="reviews" element={<ReviewsPage />} />
-            <Route path="statistics" element={<StatisticsPage />} />
-            <Route path="activity-logs" element={<ActivityLogsPage />} />
-          </Route>
+            {/* === Routes Admin (cần đăng nhập + role admin) === */}
+            <Route
+              path="/admin"
+              element={
+                <ProtectedRoute role="admin">
+                  <AdminLayout />
+                </ProtectedRoute>
+              }
+            >
+              {/* Nested routes render trong <Outlet /> của AdminLayout */}
+              <Route index element={<AdminDashboard />} />
+              <Route path="products" element={<ProductsPage />} />
+              <Route path="categories" element={<CategoriesPage />} />
+              <Route path="suppliers" element={<SuppliersPage />} />
+              <Route path="import-receipts" element={<Navigate to="/admin/products" replace />} />
+              <Route path="import" element={<Navigate to="/admin/products" replace />} />
+              <Route path="warehouse" element={<Navigate to="/admin/products" replace />} />
+              <Route path="orders" element={<OrdersPage />} />
+              <Route path="customers" element={<CustomersPage />} />
+              <Route path="reviews" element={<ReviewsPage />} />
+              <Route path="statistics" element={<StatisticsPage />} />
+              <Route path="activity-logs" element={<ActivityLogsPage />} />
+            </Route>
 
-          {/* === 404 → Về trang chủ === */}
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
+            {/* === 404 → Về trang chủ === */}
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
         </CartProvider>
       </AuthProvider>
     </Router>

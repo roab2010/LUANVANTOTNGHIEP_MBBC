@@ -108,7 +108,8 @@ body {
 }
 
 /* Caret */
-input, textarea {
+input,
+textarea {
   caret-color: var(--color-primary-600);
 }
 
@@ -136,48 +137,146 @@ input, textarea {
    ============================================ */
 
 @keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
 }
 
 @keyframes slideUp {
-  from { opacity: 0; transform: translateY(8px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 @keyframes slideDown {
-  from { opacity: 0; transform: translateY(-8px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 @keyframes scaleIn {
-  from { opacity: 0; transform: scale(0.97); }
-  to { opacity: 1; transform: scale(1); }
+  from {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 @keyframes shimmer {
-  0% { background-position: -200% 0; }
-  100% { background-position: 200% 0; }
+  0% {
+    background-position: -200% 0;
+  }
+
+  100% {
+    background-position: 200% 0;
+  }
 }
 
 @keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 @keyframes bannerScroll {
-  from { transform: translateX(0); }
-  to { transform: translateX(-50%); }
+  from {
+    transform: translateX(0);
+  }
+
+  to {
+    transform: translateX(-50%);
+  }
 }
 
 @keyframes countUp {
-  from { opacity: 0; transform: translateY(12px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 @keyframes pulse-soft {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.7; }
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.7;
+  }
+}
+
+@keyframes shake {
+
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+
+  20%,
+  60% {
+    transform: translateX(-6px);
+  }
+
+  40%,
+  80% {
+    transform: translateX(6px);
+  }
+}
+
+@keyframes rippleSuccess {
+  0% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.4);
+  }
+
+  70% {
+    transform: scale(1);
+    box-shadow: 0 0 0 12px rgba(34, 197, 94, 0);
+  }
+
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0);
+  }
+}
+
+.animate-shake {
+  animation: shake 0.4s ease-in-out both;
+}
+
+.animate-ripple {
+  animation: rippleSuccess 0.6s ease-out both;
 }
 
 .animate-fade-in {
@@ -201,17 +300,41 @@ input, textarea {
 }
 
 /* Staggered children */
-.stagger-children > * {
+.stagger-children>* {
   animation: slideUp 0.4s var(--ease-out-expo) both;
 }
-.stagger-children > *:nth-child(1) { animation-delay: 0s; }
-.stagger-children > *:nth-child(2) { animation-delay: 0.05s; }
-.stagger-children > *:nth-child(3) { animation-delay: 0.06s; }
-.stagger-children > *:nth-child(4) { animation-delay: 0.09s; }
-.stagger-children > *:nth-child(5) { animation-delay: 0.12s; }
-.stagger-children > *:nth-child(6) { animation-delay: 0.15s; }
-.stagger-children > *:nth-child(7) { animation-delay: 0.18s; }
-.stagger-children > *:nth-child(8) { animation-delay: 0.21s; }
+
+.stagger-children>*:nth-child(1) {
+  animation-delay: 0s;
+}
+
+.stagger-children>*:nth-child(2) {
+  animation-delay: 0.05s;
+}
+
+.stagger-children>*:nth-child(3) {
+  animation-delay: 0.06s;
+}
+
+.stagger-children>*:nth-child(4) {
+  animation-delay: 0.09s;
+}
+
+.stagger-children>*:nth-child(5) {
+  animation-delay: 0.12s;
+}
+
+.stagger-children>*:nth-child(6) {
+  animation-delay: 0.15s;
+}
+
+.stagger-children>*:nth-child(7) {
+  animation-delay: 0.18s;
+}
+
+.stagger-children>*:nth-child(8) {
+  animation-delay: 0.21s;
+}
 
 /* ============================================
    COMPONENT UTILITIES

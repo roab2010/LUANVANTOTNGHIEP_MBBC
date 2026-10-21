@@ -65,6 +65,12 @@ const ChevronRightMiniIcon = ({ className = 'w-3.5 h-3.5' }) => (
   </svg>
 );
 
+const LogoutIcon = ({ className = 'w-3.5 h-3.5' }) => (
+  <svg className={className} fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24" aria-hidden="true">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l-3 3m0 0l3 3m-3-3h12.75" />
+  </svg>
+);
+
 const StoreHeader = ({
   isSolid = true, // true: nền trắng chữ đen, false: trong suốt trên hero banner
   categories: propCategories,
@@ -180,11 +186,10 @@ const StoreHeader = ({
           setIsHovered(false);
           setDesktopShopOpen(false);
         }}
-        className={`fixed top-0 left-0 w-full z-50 font-['Montserrat',sans-serif] transition-all duration-300 ease-out ${
-          isHeaderActive
+        className={`fixed top-0 left-0 w-full z-50 font-['Montserrat',sans-serif] transition-all duration-300 ease-out ${isHeaderActive
             ? 'bg-white text-black shadow-[0_4px_20px_rgba(0,0,0,0.06)] border-b border-neutral-100'
             : 'bg-transparent text-white border-b border-transparent'
-        }`}
+          }`}
       >
         <div className="w-full px-4 sm:px-8 lg:px-14 xl:px-16 flex items-center justify-between h-18 sm:h-20 md:h-22">
           {/* CỘT TRÁI: MOBILE HAMBURGER & LOGO */}
@@ -193,9 +198,8 @@ const StoreHeader = ({
             <button
               type="button"
               onClick={() => setMobileMenuOpen(true)}
-              className={`p-2 md:hidden focus:outline-none transition-colors ${
-                isHeaderActive ? 'text-black hover:text-neutral-600' : 'text-white hover:text-white/80'
-              }`}
+              className={`p-2 md:hidden focus:outline-none transition-colors ${isHeaderActive ? 'text-black hover:text-neutral-600' : 'text-white hover:text-white/80'
+                }`}
               aria-label="Mở menu di động"
             >
               <MenuIcon className="w-6 h-6" />
@@ -209,9 +213,8 @@ const StoreHeader = ({
                 className="h-8 sm:h-10 md:h-12 w-auto object-contain transition-transform duration-300 hover:scale-105"
               />
               <span
-                className={`font-brand text-xl sm:text-2xl md:text-3xl uppercase transition-colors select-none tracking-wider ${
-                  isHeaderActive ? 'text-black' : 'text-white'
-                }`}
+                className={`font-brand text-xl sm:text-2xl md:text-3xl uppercase transition-colors select-none tracking-wider ${isHeaderActive ? 'text-black' : 'text-white'
+                  }`}
               >
                 M.B.B.C
               </span>
@@ -230,9 +233,8 @@ const StoreHeader = ({
                     document.getElementById('about-section')?.scrollIntoView({ behavior: 'smooth' });
                   }, 100);
                 }}
-                className={`text-[12px] lg:text-[13px] font-bold tracking-[0.14em] uppercase transition-colors flex items-center gap-1.5 focus:outline-none ${
-                  isHeaderActive ? 'text-black hover:text-neutral-600' : 'text-white hover:text-white/80'
-                }`}
+                className={`text-[12px] lg:text-[13px] font-bold tracking-[0.14em] uppercase transition-colors flex items-center gap-1.5 focus:outline-none ${isHeaderActive ? 'text-black hover:text-neutral-600' : 'text-white hover:text-white/80'
+                  }`}
               >
                 <span>ABOUT US</span>
                 <ChevronDownIcon className="w-3 h-3 transition-transform duration-200 group-hover:rotate-180" />
@@ -264,23 +266,20 @@ const StoreHeader = ({
               <button
                 type="button"
                 onClick={() => setDesktopShopOpen(!desktopShopOpen)}
-                className={`text-[12px] lg:text-[13px] font-bold tracking-[0.14em] uppercase transition-colors flex items-center gap-1.5 focus:outline-none ${
-                  isHeaderActive ? 'text-black hover:text-neutral-600' : 'text-white hover:text-white/80'
-                }`}
+                className={`text-[12px] lg:text-[13px] font-bold tracking-[0.14em] uppercase transition-colors flex items-center gap-1.5 focus:outline-none ${isHeaderActive ? 'text-black hover:text-neutral-600' : 'text-white hover:text-white/80'
+                  }`}
               >
                 <span>SHOP</span>
                 <ChevronDownIcon
-                  className={`w-3 h-3 transition-transform duration-200 ${
-                    desktopShopOpen ? 'rotate-180' : 'group-hover:rotate-180'
-                  }`}
+                  className={`w-3 h-3 transition-transform duration-200 ${desktopShopOpen ? 'rotate-180' : 'group-hover:rotate-180'
+                    }`}
                 />
               </button>
               <div
-                className={`absolute top-full left-0 pt-2 z-50 transition-all duration-200 ease-out ${
-                  desktopShopOpen
+                className={`absolute top-full left-0 pt-2 z-50 transition-all duration-200 ease-out ${desktopShopOpen
                     ? 'opacity-100 visible pointer-events-auto translate-y-0'
                     : 'opacity-0 invisible pointer-events-none -translate-y-1.5 group-hover:opacity-100 group-hover:visible group-hover:pointer-events-auto group-hover:translate-y-0'
-                }`}
+                  }`}
               >
                 <div className="absolute -top-3 left-0 right-0 h-4 bg-transparent" />
                 <div className="bg-white text-black shadow-[0_14px_40px_rgba(0,0,0,0.14)] border border-neutral-100 py-3 px-5 min-w-[220px]">
@@ -289,11 +288,10 @@ const StoreHeader = ({
                       key={cat}
                       type="button"
                       onClick={() => handleCategoryClick(cat)}
-                      className={`block w-full text-left py-2.5 text-[12px] font-bold tracking-[0.14em] uppercase border-b border-neutral-50 last:border-b-0 transition-all flex items-center justify-between ${
-                        cat === 'NEW ARRIVALS'
+                      className={`block w-full text-left py-2.5 text-[12px] font-bold tracking-[0.14em] uppercase border-b border-neutral-50 last:border-b-0 transition-all flex items-center justify-between ${cat === 'NEW ARRIVALS'
                           ? 'text-[#b91c1c] hover:text-[#991b1b] hover:translate-x-1'
                           : 'text-neutral-800 hover:text-black hover:translate-x-1'
-                      }`}
+                        }`}
                     >
                       <span>{cat}</span>
                       {cat === 'NEW ARRIVALS' && (
@@ -317,9 +315,8 @@ const StoreHeader = ({
                     document.getElementById('hero-banner')?.scrollIntoView({ behavior: 'smooth' });
                   }, 100);
                 }}
-                className={`text-[12px] lg:text-[13px] font-bold tracking-[0.14em] uppercase transition-colors flex items-center gap-1.5 focus:outline-none ${
-                  isHeaderActive ? 'text-black hover:text-neutral-600' : 'text-white hover:text-white/80'
-                }`}
+                className={`text-[12px] lg:text-[13px] font-bold tracking-[0.14em] uppercase transition-colors flex items-center gap-1.5 focus:outline-none ${isHeaderActive ? 'text-black hover:text-neutral-600' : 'text-white hover:text-white/80'
+                  }`}
               >
                 <span>CAMPAIGN</span>
                 <ChevronDownIcon className="w-3 h-3 transition-transform duration-200 group-hover:rotate-180" />
@@ -351,9 +348,8 @@ const StoreHeader = ({
                     document.getElementById('shipping-section')?.scrollIntoView({ behavior: 'smooth' });
                   }, 100);
                 }}
-                className={`text-[12px] lg:text-[13px] font-bold tracking-[0.14em] uppercase transition-colors flex items-center gap-1.5 focus:outline-none ${
-                  isHeaderActive ? 'text-black hover:text-neutral-600' : 'text-white hover:text-white/80'
-                }`}
+                className={`text-[12px] lg:text-[13px] font-bold tracking-[0.14em] uppercase transition-colors flex items-center gap-1.5 focus:outline-none ${isHeaderActive ? 'text-black hover:text-neutral-600' : 'text-white hover:text-white/80'
+                  }`}
               >
                 <span>WOLRWIDE SHIPPING</span>
                 <ChevronDownIcon className="w-3 h-3 transition-transform duration-200 group-hover:rotate-180" />
@@ -382,9 +378,8 @@ const StoreHeader = ({
             <button
               type="button"
               onClick={() => setSearchOpen(!searchOpen)}
-              className={`p-1.5 transition-colors focus:outline-none ${
-                isHeaderActive ? 'text-black hover:text-neutral-600' : 'text-white hover:text-white/80'
-              }`}
+              className={`p-1.5 transition-colors focus:outline-none ${isHeaderActive ? 'text-black hover:text-neutral-600' : 'text-white hover:text-white/80'
+                }`}
               aria-label="Tìm kiếm sản phẩm"
             >
               <SearchIcon className="w-5 h-5 sm:w-5.5 sm:h-5.5" />
@@ -424,36 +419,31 @@ const StoreHeader = ({
                     navigate('/login');
                   }
                 }}
-                className={`p-1.5 transition-colors focus:outline-none ${
-                  isHeaderActive ? 'text-black hover:text-neutral-600' : 'text-white hover:text-white/80'
-                }`}
+                className={`p-1.5 transition-colors focus:outline-none ${isHeaderActive ? 'text-black hover:text-neutral-600' : 'text-white hover:text-white/80'
+                  }`}
                 aria-label="Tài khoản"
               >
                 <UserIcon className="w-5 h-5 sm:w-5.5 sm:h-5.5" />
               </button>
 
               {user && userDropdownOpen && (
-                <div className="absolute top-full right-0 mt-2 bg-white text-black shadow-xl border border-neutral-100 p-4 min-w-[210px] z-50 animate-slide-down">
+                <div className="absolute top-full right-0 mt-2 bg-white text-black shadow-xl border border-neutral-100 p-4 min-w-[240px] z-50 animate-slide-down">
                   <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider mb-0.5">Xin chào,</p>
-                  <p className="text-xs font-black text-black truncate mb-2.5">
-                    {user.fullName || user.email || 'Khách hàng'}
-                  </p>
-                  <div className="space-y-1 mb-3 border-t border-neutral-100 pt-2.5">
+                  <p className="text-xs font-black text-black truncate mb-3">{user.fullName || user.email || 'Khách hàng'}</p>
+
+                  <div className="space-y-1 mb-3 border-t border-neutral-100 pt-2">
                     <button
                       type="button"
                       onClick={() => {
                         setIsMyOrdersOpen(true);
                         setUserDropdownOpen(false);
                       }}
-                      className="w-full text-left py-2 px-2.5 text-[11px] font-bold uppercase tracking-wider text-neutral-800 hover:text-black hover:bg-neutral-50 transition-colors flex items-center justify-between group rounded"
+                      className="w-full text-left py-2 px-2 text-[11px] font-bold uppercase tracking-wider text-neutral-800 hover:text-black hover:bg-neutral-50 transition-colors flex items-center gap-3 whitespace-nowrap rounded group"
                     >
-                      <div className="flex items-center gap-2.5">
-                        <span className="w-6 h-6 rounded flex items-center justify-center bg-neutral-100 text-neutral-800 group-hover:bg-black group-hover:text-white transition-colors shrink-0">
-                          <OrderBoxIcon className="w-3.5 h-3.5" />
-                        </span>
-                        <span>Đơn hàng của tôi</span>
-                      </div>
-                      <ChevronRightMiniIcon className="w-3.5 h-3.5 text-neutral-400 group-hover:translate-x-0.5 group-hover:text-black transition-all" />
+                      <span className="w-8 h-8 rounded-lg bg-white border border-neutral-200 text-neutral-700 flex items-center justify-center shrink-0 transition-all duration-200 group-hover:bg-neutral-200 group-hover:border-neutral-300 group-hover:text-black shadow-xs">
+                        <OrderBoxIcon className="w-4 h-4" />
+                      </span>
+                      <span>Đơn hàng của tôi</span>
                     </button>
 
                     <button
@@ -462,15 +452,12 @@ const StoreHeader = ({
                         setIsMyReviewsOpen(true);
                         setUserDropdownOpen(false);
                       }}
-                      className="w-full text-left py-2 px-2.5 text-[11px] font-bold uppercase tracking-wider text-neutral-800 hover:text-black hover:bg-neutral-50 transition-colors flex items-center justify-between group rounded"
+                      className="w-full text-left py-2 px-2 text-[11px] font-bold uppercase tracking-wider text-neutral-800 hover:text-black hover:bg-neutral-50 transition-colors flex items-center gap-3 whitespace-nowrap rounded group"
                     >
-                      <div className="flex items-center gap-2.5">
-                        <span className="w-6 h-6 rounded flex items-center justify-center bg-amber-50 text-amber-600 border border-amber-200/60 group-hover:bg-amber-500 group-hover:text-white group-hover:border-amber-500 transition-colors shrink-0">
-                          <ReviewStarIcon className="w-3.5 h-3.5" />
-                        </span>
-                        <span>Đánh giá của tôi</span>
-                      </div>
-                      <ChevronRightMiniIcon className="w-3.5 h-3.5 text-neutral-400 group-hover:translate-x-0.5 group-hover:text-black transition-all" />
+                      <span className="w-8 h-8 rounded-lg bg-amber-50 border border-amber-200/60 text-amber-500 flex items-center justify-center shrink-0 transition-all duration-200 group-hover:bg-amber-200 group-hover:border-amber-400 group-hover:text-amber-800 shadow-xs">
+                        <ReviewStarIcon className="w-4 h-4" />
+                      </span>
+                      <span>Đánh giá của tôi</span>
                     </button>
 
                     {user.role === 'admin' && (
@@ -480,15 +467,12 @@ const StoreHeader = ({
                           setUserDropdownOpen(false);
                           navigate('/admin');
                         }}
-                        className="w-full text-left py-2 px-2.5 text-[11px] font-bold uppercase tracking-wider text-indigo-700 hover:text-indigo-900 hover:bg-indigo-50/70 transition-colors flex items-center justify-between group rounded"
+                        className="w-full text-left py-2 px-2 text-[11px] font-bold uppercase tracking-wider text-indigo-700 hover:text-indigo-900 hover:bg-indigo-50 transition-colors flex items-center gap-3 whitespace-nowrap rounded group"
                       >
-                        <div className="flex items-center gap-2.5">
-                          <span className="w-6 h-6 rounded flex items-center justify-center bg-indigo-50 text-indigo-600 border border-indigo-200/60 group-hover:bg-indigo-600 group-hover:text-white group-hover:border-indigo-600 transition-colors shrink-0">
-                            <ShieldAdminIcon className="w-3.5 h-3.5" />
-                          </span>
-                          <span>Trang quản trị</span>
-                        </div>
-                        <ChevronRightMiniIcon className="w-3.5 h-3.5 text-indigo-400 group-hover:translate-x-0.5 group-hover:text-indigo-700 transition-all" />
+                        <span className="w-8 h-8 rounded-lg bg-indigo-50 border border-indigo-200/60 text-indigo-600 flex items-center justify-center shrink-0 transition-all duration-200 group-hover:bg-indigo-100 group-hover:border-indigo-300 group-hover:text-indigo-800 shadow-xs">
+                          <ShieldAdminIcon className="w-4 h-4" />
+                        </span>
+                        <span>Trang quản trị</span>
                       </button>
                     )}
                   </div>
@@ -496,7 +480,7 @@ const StoreHeader = ({
                   <button
                     type="button"
                     onClick={handleLogout}
-                    className="w-full py-1.5 text-center bg-black text-white text-[11px] font-bold uppercase tracking-wider hover:bg-neutral-800 transition-colors"
+                    className="w-full py-2 text-center bg-black text-white text-[11px] font-bold uppercase tracking-wider hover:bg-neutral-800 transition-colors"
                   >
                     Đăng xuất
                   </button>
@@ -508,9 +492,8 @@ const StoreHeader = ({
             <button
               type="button"
               onClick={() => setIsCartOpen(true)}
-              className={`relative p-1.5 transition-colors focus:outline-none ${
-                isHeaderActive ? 'text-black hover:text-neutral-600' : 'text-white hover:text-white/80'
-              }`}
+              className={`relative p-1.5 transition-colors focus:outline-none ${isHeaderActive ? 'text-black hover:text-neutral-600' : 'text-white hover:text-white/80'
+                }`}
               aria-label="Giỏ hàng"
             >
               <CartWireIcon className="w-5 h-5 sm:w-5.5 sm:h-5.5" />
@@ -581,9 +564,8 @@ const StoreHeader = ({
                     </span>
                   </span>
                   <ChevronDownIcon
-                    className={`w-4 h-4 transition-transform duration-200 ${
-                      mobileShopExpanded ? 'rotate-180' : ''
-                    }`}
+                    className={`w-4 h-4 transition-transform duration-200 ${mobileShopExpanded ? 'rotate-180' : ''
+                      }`}
                   />
                 </button>
 
@@ -594,9 +576,8 @@ const StoreHeader = ({
                         key={cat}
                         type="button"
                         onClick={() => handleCategoryClick(cat)}
-                        className={`block w-full text-left py-1.5 text-[12px] font-bold tracking-[0.12em] uppercase transition-colors ${
-                          cat === 'NEW ARRIVALS' ? 'text-[#b91c1c]' : 'text-neutral-700 hover:text-black'
-                        }`}
+                        className={`block w-full text-left py-1.5 text-[12px] font-bold tracking-[0.12em] uppercase transition-colors ${cat === 'NEW ARRIVALS' ? 'text-[#b91c1c]' : 'text-neutral-700 hover:text-black'
+                          }`}
                       >
                         {cat}
                       </button>

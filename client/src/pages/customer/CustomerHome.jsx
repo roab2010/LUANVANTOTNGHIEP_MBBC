@@ -57,6 +57,30 @@ const CloseIcon = () => (
   </svg>
 );
 
+const OrderBoxIcon = ({ className = 'w-3.5 h-3.5' }) => (
+  <svg className={className} fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24" aria-hidden="true">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M21 7.5l-9-5.25L3 7.5m18 0l-9 5.25m9-5.25v9l-9 5.25M3 7.5l9 5.25M3 7.5v9l9 5.25m0-9v9" />
+  </svg>
+);
+
+const ReviewStarIcon = ({ className = 'w-3.5 h-3.5' }) => (
+  <svg className={className} fill="currentColor" stroke="currentColor" strokeWidth={1} viewBox="0 0 24 24" aria-hidden="true">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.563.563 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z" />
+  </svg>
+);
+
+const ShieldAdminIcon = ({ className = 'w-3.5 h-3.5' }) => (
+  <svg className={className} fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24" aria-hidden="true">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
+  </svg>
+);
+
+const LogoutIcon = ({ className = 'w-3.5 h-3.5' }) => (
+  <svg className={className} fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24" aria-hidden="true">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l-3 3m0 0l3 3m-3-3h12.75" />
+  </svg>
+);
+
 // Format VND currency
 const formatPrice = (val) => {
   return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(val);
@@ -85,6 +109,7 @@ const CustomerHome = () => {
     totalCartCount,
     setIsCartOpen,
     setIsMyOrdersOpen,
+    setIsMyReviewsOpen,
     showToast,
   } = useCart();
 
@@ -269,14 +294,13 @@ const CustomerHome = () => {
       <header
         onMouseEnter={() => setIsHeaderHovered(true)}
         onMouseLeave={() => setIsHeaderHovered(false)}
-        className={`fixed top-0 left-0 w-full z-50 transition-all duration-300 ease-out ${
-          isHeaderActive
+        className={`fixed top-0 left-0 w-full z-50 transition-all duration-300 ease-out ${isHeaderActive
             ? 'bg-white text-black shadow-[0_4px_20px_rgba(0,0,0,0.06)] border-b border-neutral-100 translate-y-0'
             : 'bg-transparent text-white border-b border-transparent'
-        }`}
+          }`}
       >
         <div className="w-full px-6 sm:px-10 lg:px-14 xl:px-16 flex items-center justify-between h-20 sm:h-22">
-          
+
           {/* CỘT TRÁI: LOGO BÊN TRÁI (KHÔNG CÒN KHUNG NỀN ĐEN, TĂNG KÍCH THƯỚC TO ĐẸP) */}
           <div
             className="flex items-center gap-3 cursor-pointer shrink-0 py-1"
@@ -288,9 +312,8 @@ const CustomerHome = () => {
               className="h-9 sm:h-11 md:h-12 w-auto object-contain transition-transform duration-300 hover:scale-105"
             />
             <span
-              className={`font-brand text-2xl sm:text-[26px] md:text-3xl uppercase transition-colors select-none ${
-                isHeaderActive ? 'text-black' : 'text-white'
-              }`}
+              className={`font-brand text-2xl sm:text-[26px] md:text-3xl uppercase transition-colors select-none ${isHeaderActive ? 'text-black' : 'text-white'
+                }`}
             >
               M.B.B.C
             </span>
@@ -298,16 +321,15 @@ const CustomerHome = () => {
 
           {/* CỘT GIỮA: MENU NAVIGATION (ABOUT US ⌵, SHOP ⌵, CAMPAIGN ⌵, WOLRWIDE SHIPPING ⌵) */}
           <nav className="hidden md:flex items-center gap-8 lg:gap-12" aria-label="Menu chính">
-            
+
             {/* ABOUT US */}
             <div className="group relative py-2">
               <button
                 onClick={() => {
                   document.getElementById('about-section')?.scrollIntoView({ behavior: 'smooth' });
                 }}
-                className={`text-[12px] sm:text-[13px] font-bold tracking-[0.12em] uppercase transition-colors flex items-center gap-1 focus:outline-none ${
-                  isHeaderActive ? 'text-black hover:text-neutral-600' : 'text-white hover:text-white/80'
-                }`}
+                className={`text-[12px] sm:text-[13px] font-bold tracking-[0.12em] uppercase transition-colors flex items-center gap-1 focus:outline-none ${isHeaderActive ? 'text-black hover:text-neutral-600' : 'text-white hover:text-white/80'
+                  }`}
               >
                 <span>ABOUT US</span>
                 <ChevronDownIcon className="w-3 h-3 transition-transform duration-200 group-hover:rotate-180" />
@@ -338,9 +360,8 @@ const CustomerHome = () => {
                 onClick={() => {
                   document.getElementById('products-section')?.scrollIntoView({ behavior: 'smooth' });
                 }}
-                className={`text-[12px] sm:text-[13px] font-bold tracking-[0.12em] uppercase transition-colors flex items-center gap-1 focus:outline-none ${
-                  isHeaderActive ? 'text-black hover:text-neutral-600' : 'text-white hover:text-white/80'
-                }`}
+                className={`text-[12px] sm:text-[13px] font-bold tracking-[0.12em] uppercase transition-colors flex items-center gap-1 focus:outline-none ${isHeaderActive ? 'text-black hover:text-neutral-600' : 'text-white hover:text-white/80'
+                  }`}
               >
                 <span>SHOP</span>
                 <ChevronDownIcon className="w-3 h-3 transition-transform duration-200 group-hover:rotate-180" />
@@ -357,11 +378,10 @@ const CustomerHome = () => {
                       onClick={() => {
                         navigate(`/category/${encodeURIComponent(item.filter)}`);
                       }}
-                      className={`block w-full text-left py-2 text-[12px] font-bold tracking-[0.14em] uppercase hover:translate-x-1.5 transition-all flex items-center justify-between ${
-                        item.label === 'NEW ARRIVALS'
+                      className={`block w-full text-left py-2 text-[12px] font-bold tracking-[0.14em] uppercase hover:translate-x-1.5 transition-all flex items-center justify-between ${item.label === 'NEW ARRIVALS'
                           ? 'text-[#b91c1c] hover:text-[#991b1b]'
                           : 'text-neutral-800 hover:text-black'
-                      }`}
+                        }`}
                     >
                       <span>{item.label}</span>
                       {item.label === 'NEW ARRIVALS' && (
@@ -381,9 +401,8 @@ const CustomerHome = () => {
                 onClick={() => {
                   document.getElementById('hero-banner')?.scrollIntoView({ behavior: 'smooth' });
                 }}
-                className={`text-[12px] sm:text-[13px] font-bold tracking-[0.12em] uppercase transition-colors flex items-center gap-1 focus:outline-none ${
-                  isHeaderActive ? 'text-black hover:text-neutral-600' : 'text-white hover:text-white/80'
-                }`}
+                className={`text-[12px] sm:text-[13px] font-bold tracking-[0.12em] uppercase transition-colors flex items-center gap-1 focus:outline-none ${isHeaderActive ? 'text-black hover:text-neutral-600' : 'text-white hover:text-white/80'
+                  }`}
               >
                 <span>CAMPAIGN</span>
                 <ChevronDownIcon className="w-3 h-3 transition-transform duration-200 group-hover:rotate-180" />
@@ -414,9 +433,8 @@ const CustomerHome = () => {
                 onClick={() => {
                   document.getElementById('shipping-section')?.scrollIntoView({ behavior: 'smooth' });
                 }}
-                className={`text-[12px] sm:text-[13px] font-bold tracking-[0.12em] uppercase transition-colors flex items-center gap-1 focus:outline-none ${
-                  isHeaderActive ? 'text-black hover:text-neutral-600' : 'text-white hover:text-white/80'
-                }`}
+                className={`text-[12px] sm:text-[13px] font-bold tracking-[0.12em] uppercase transition-colors flex items-center gap-1 focus:outline-none ${isHeaderActive ? 'text-black hover:text-neutral-600' : 'text-white hover:text-white/80'
+                  }`}
               >
                 <span>WOLRWIDE SHIPPING</span>
                 <ChevronDownIcon className="w-3 h-3 transition-transform duration-200 group-hover:rotate-180" />
@@ -444,13 +462,12 @@ const CustomerHome = () => {
 
           {/* CỘT PHẢI: CHỈ 3 ICON TỐI GIẢN (KÍNH LÚP, USER, GIỎ HÀNG CHẤM ĐỎ) - KHÔNG CHỮ, KHÔNG TIẾNG VIỆT */}
           <div className="flex items-center gap-5 sm:gap-6 shrink-0 relative" ref={searchBoxRef}>
-            
+
             {/* 1. NÚT SEARCH (MỞ POPOVER CHUẨN HÌNH 1) */}
             <button
               onClick={() => setSearchOpen(!searchOpen)}
-              className={`p-1.5 transition-colors focus:outline-none ${
-                isHeaderActive ? 'text-black hover:text-neutral-600' : 'text-white hover:text-white/80'
-              }`}
+              className={`p-1.5 transition-colors focus:outline-none ${isHeaderActive ? 'text-black hover:text-neutral-600' : 'text-white hover:text-white/80'
+                }`}
               aria-label="Tìm kiếm sản phẩm"
             >
               <SearchIcon className="w-5 h-5 sm:w-5.5 sm:h-5.5" />
@@ -505,9 +522,8 @@ const CustomerHome = () => {
                     navigate('/login');
                   }
                 }}
-                className={`p-1.5 transition-colors focus:outline-none ${
-                  isHeaderActive ? 'text-black hover:text-neutral-600' : 'text-white hover:text-white/80'
-                }`}
+                className={`p-1.5 transition-colors focus:outline-none ${isHeaderActive ? 'text-black hover:text-neutral-600' : 'text-white hover:text-white/80'
+                  }`}
                 aria-label="Tài khoản"
               >
                 <UserIcon className="w-5 h-5 sm:w-5.5 sm:h-5.5" />
@@ -515,39 +531,60 @@ const CustomerHome = () => {
 
               {/* Menu tài khoản nhỏ khi user đã đăng nhập */}
               {user && userDropdownOpen && (
-                <div className="absolute top-full right-0 mt-2 bg-white text-black shadow-xl border border-neutral-100 p-4 min-w-[200px] z-50 animate-slide-down">
+                <div className="absolute top-full right-0 mt-2 bg-white text-black shadow-xl border border-neutral-100 p-4 min-w-[240px] z-50 animate-slide-down">
                   <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider mb-0.5">Xin chào,</p>
-                  <p className="text-xs font-black text-black truncate mb-2.5">{user.fullName || user.email || 'Khách hàng'}</p>
-                  
+                  <p className="text-xs font-black text-black truncate mb-3">{user.fullName || user.email || 'Khách hàng'}</p>
+
                   <div className="space-y-1 mb-3 border-t border-neutral-100 pt-2">
                     <button
+                      type="button"
                       onClick={() => {
                         setIsMyOrdersOpen(true);
                         setUserDropdownOpen(false);
                       }}
-                      className="w-full text-left py-1.5 px-2 text-[11px] font-bold uppercase tracking-wider text-neutral-700 hover:text-black hover:bg-neutral-50 transition-colors flex items-center justify-between"
+                      className="w-full text-left py-2 px-2 text-[11px] font-bold uppercase tracking-wider text-neutral-800 hover:text-black hover:bg-neutral-50 transition-colors flex items-center gap-3 whitespace-nowrap rounded group"
                     >
+                      <span className="w-8 h-8 rounded-lg bg-white border border-neutral-200 text-neutral-700 flex items-center justify-center shrink-0 transition-all duration-200 group-hover:bg-neutral-200 group-hover:border-neutral-300 group-hover:text-black shadow-xs">
+                        <OrderBoxIcon className="w-4 h-4" />
+                      </span>
                       <span>Đơn hàng của tôi</span>
-                      <span className="text-[10px] text-neutral-400">→</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsMyReviewsOpen(true);
+                        setUserDropdownOpen(false);
+                      }}
+                      className="w-full text-left py-2 px-2 text-[11px] font-bold uppercase tracking-wider text-neutral-800 hover:text-black hover:bg-neutral-50 transition-colors flex items-center gap-3 whitespace-nowrap rounded group"
+                    >
+                      <span className="w-8 h-8 rounded-lg bg-amber-50 border border-amber-200/60 text-amber-500 flex items-center justify-center shrink-0 transition-all duration-200 group-hover:bg-amber-200 group-hover:border-amber-400 group-hover:text-amber-800 shadow-xs">
+                        <ReviewStarIcon className="w-4 h-4" />
+                      </span>
+                      <span>Đánh giá của tôi</span>
                     </button>
 
                     {user.role === 'admin' && (
                       <button
+                        type="button"
                         onClick={() => {
                           setUserDropdownOpen(false);
                           navigate('/admin');
                         }}
-                        className="w-full text-left py-1.5 px-2 text-[11px] font-bold uppercase tracking-wider text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 transition-colors flex items-center justify-between"
+                        className="w-full text-left py-2 px-2 text-[11px] font-bold uppercase tracking-wider text-indigo-700 hover:text-indigo-900 hover:bg-indigo-50 transition-colors flex items-center gap-3 whitespace-nowrap rounded group"
                       >
+                        <span className="w-8 h-8 rounded-lg bg-indigo-50 border border-indigo-200/60 text-indigo-600 flex items-center justify-center shrink-0 transition-all duration-200 group-hover:bg-indigo-100 group-hover:border-indigo-300 group-hover:text-indigo-800 shadow-xs">
+                          <ShieldAdminIcon className="w-4 h-4" />
+                        </span>
                         <span>Trang quản trị</span>
-                        <span className="text-[10px] text-indigo-400">→</span>
                       </button>
                     )}
                   </div>
 
                   <button
+                    type="button"
                     onClick={handleLogout}
-                    className="w-full py-1.5 text-center bg-black text-white text-[11px] font-bold uppercase tracking-wider hover:bg-neutral-800 transition-colors"
+                    className="w-full py-2 text-center bg-black text-white text-[11px] font-bold uppercase tracking-wider hover:bg-neutral-800 transition-colors"
                   >
                     Đăng xuất
                   </button>
@@ -558,9 +595,8 @@ const CustomerHome = () => {
             {/* 3. NÚT GIỎ HÀNG (CHỈ ICON XE ĐẨY VỚI CHẤM ĐỎ '0' NHƯ HÌNH 2) */}
             <button
               onClick={() => setIsCartOpen(true)}
-              className={`relative p-1.5 transition-colors focus:outline-none ${
-                isHeaderActive ? 'text-black hover:text-neutral-600' : 'text-white hover:text-white/80'
-              }`}
+              className={`relative p-1.5 transition-colors focus:outline-none ${isHeaderActive ? 'text-black hover:text-neutral-600' : 'text-white hover:text-white/80'
+                }`}
               aria-label="Giỏ hàng"
             >
               <CartWireIcon className="w-5 h-5 sm:w-5.5 sm:h-5.5" />
@@ -596,9 +632,8 @@ const CustomerHome = () => {
                   setMobileMenuOpen(false);
                   navigate(`/category/${encodeURIComponent(item.filter)}`);
                 }}
-                className={`block w-full text-left py-2 text-xs font-black tracking-widest uppercase flex items-center justify-between ${
-                  item.label === 'NEW ARRIVALS' ? 'text-[#b91c1c]' : 'text-neutral-900'
-                }`}
+                className={`block w-full text-left py-2 text-xs font-black tracking-widest uppercase flex items-center justify-between ${item.label === 'NEW ARRIVALS' ? 'text-[#b91c1c]' : 'text-neutral-900'
+                  }`}
               >
                 <span>{item.label}</span>
                 {item.label === 'NEW ARRIVALS' && (
@@ -622,10 +657,25 @@ const CustomerHome = () => {
                       setMobileMenuOpen(false);
                       setIsMyOrdersOpen(true);
                     }}
-                    className="w-full text-left py-2 text-xs font-black uppercase tracking-wider text-neutral-900 hover:text-black flex items-center justify-between"
+                    className="w-full text-left py-2 px-2.5 text-xs font-black uppercase tracking-[0.08em] text-neutral-900 hover:text-black flex items-center gap-2.5 rounded-lg hover:bg-neutral-50"
                   >
+                    <span className="w-6 h-6 rounded-md bg-neutral-100 text-neutral-700 flex items-center justify-center shrink-0">
+                      <OrderBoxIcon className="w-3.5 h-3.5" />
+                    </span>
                     <span>Đơn hàng của tôi</span>
-                    <span>→</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMobileMenuOpen(false);
+                      setIsMyReviewsOpen(true);
+                    }}
+                    className="w-full text-left py-2 px-2.5 text-xs font-black uppercase tracking-[0.08em] text-neutral-900 hover:text-black flex items-center gap-2.5 rounded-lg hover:bg-neutral-50"
+                  >
+                    <span className="w-6 h-6 rounded-md bg-amber-50 text-amber-600 border border-amber-200/50 flex items-center justify-center shrink-0">
+                      <ReviewStarIcon className="w-3.5 h-3.5" />
+                    </span>
+                    <span>Đánh giá của tôi</span>
                   </button>
                   <button
                     type="button"
@@ -700,11 +750,10 @@ const CustomerHome = () => {
               <button
                 key={cat}
                 onClick={() => setSelectedCategory(cat)}
-                className={`text-[12px] sm:text-[13px] font-bold tracking-[0.14em] uppercase transition-colors relative pb-1 ${
-                  selectedCategory === cat
+                className={`text-[12px] sm:text-[13px] font-bold tracking-[0.14em] uppercase transition-colors relative pb-1 ${selectedCategory === cat
                     ? 'text-black font-black'
                     : 'text-neutral-400 hover:text-black'
-                }`}
+                  }`}
               >
                 {cat}
                 {selectedCategory === cat && (
@@ -957,13 +1006,12 @@ const CustomerHome = () => {
                                   }
                                 }
                               }}
-                              className={`px-3.5 py-2 text-xs font-extrabold border transition-all ${
-                                quickViewSize === sz
+                              className={`px-3.5 py-2 text-xs font-extrabold border transition-all ${quickViewSize === sz
                                   ? 'bg-black text-white border-black shadow-xs'
                                   : isSizeEmpty
-                                  ? 'border-neutral-200 text-neutral-300 bg-neutral-50 line-through'
-                                  : 'border-neutral-300 text-black hover:border-black'
-                              }`}
+                                    ? 'border-neutral-200 text-neutral-300 bg-neutral-50 line-through'
+                                    : 'border-neutral-300 text-black hover:border-black'
+                                }`}
                             >
                               {sz}
                             </button>
@@ -990,13 +1038,12 @@ const CustomerHome = () => {
                               <button
                                 key={cl}
                                 onClick={() => setQuickViewColor(cl)}
-                                className={`px-3 py-1.5 text-xs font-bold border transition-all ${
-                                  quickViewColor === cl
+                                className={`px-3 py-1.5 text-xs font-bold border transition-all ${quickViewColor === cl
                                     ? 'bg-black text-white border-black shadow-xs'
                                     : isColorEmpty
-                                    ? 'border-neutral-200 text-neutral-300 bg-neutral-50 line-through'
-                                    : 'border-neutral-300 text-black hover:border-black'
-                                }`}
+                                      ? 'border-neutral-200 text-neutral-300 bg-neutral-50 line-through'
+                                      : 'border-neutral-300 text-black hover:border-black'
+                                  }`}
                               >
                                 {cl}
                                 {isColorEmpty && <span className="text-[10px] ml-1 text-red-500 font-normal">(Hết)</span>}

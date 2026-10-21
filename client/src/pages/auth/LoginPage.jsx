@@ -1,6 +1,7 @@
-import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import OtpVerificationModal from '../../components/auth/OtpVerificationModal';
 import mbbcLogo from '../../assets/logo MBBC.png';
 import sharkBg from '../../assets/camapne.jpg';
 
@@ -31,8 +32,15 @@ const AlertIcon = () => (
   </svg>
 );
 
+const CheckIcon = () => (
+  <svg className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+  </svg>
+);
+
 const LoginPage = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { login } = useAuth();
 
   // State
@@ -40,12 +48,26 @@ const LoginPage = () => {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
+  const [successNotice, setSuccessNotice] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showOtpModal, setShowOtpModal] = useState(false);
+  const [unverifiedEmail, setUnverifiedEmail] = useState('');
+
+  // Đọc thông báo hoặc email từ trang đăng ký chuyển sang
+  useEffect(() => {
+    if (location.state?.successMessage) {
+      setSuccessNotice(location.state.successMessage);
+    }
+    if (location.state?.prefillEmail) {
+      setEmail(location.state.prefillEmail);
+    }
+  }, [location.state]);
 
   // Xử lý submit form
   const handleSubmit = async (e) => {
-    e.preventDefault();
+    e?.preventDefault();
     setError('');
+    setSuccessNotice('');
 
     // Validate
     if (!email.trim()) {
@@ -69,10 +91,43 @@ const LoginPage = () => {
         navigate('/customer');
       }
     } catch (err) {
+      // Trường hợp tài khoản chưa xác minh email (403 với requireOtp = true)
+      if (err.response?.data?.requireOtp) {
+        setUnverifiedEmail(err.response.data.email || email);
+        setShowOtpModal(true);
+        return;
+      }
+
       const message = err.response?.data?.message || 'Đăng nhập thất bại, vui lòng thử lại';
       setError(message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Xử lý khi xác minh OTP thành công
+  const handleOtpSuccess = async () => {
+    setShowOtpModal(false);
+    setSuccessNotice('Xác minh email thành công! Đang tiến hành đăng nhập...');
+
+    // Tự động đăng nhập lại nếu đã có sẵn password
+    if (password) {
+      try {
+        setLoading(true);
+        const response = await login(email, password);
+        const userRole = response.data.user.role;
+        if (userRole === 'admin') {
+          navigate('/admin');
+        } else {
+          navigate('/customer');
+        }
+      } catch (loginErr) {
+        setSuccessNotice('Xác minh email thành công! Vui lòng nhấn Đăng nhập lại.');
+      } finally {
+        setLoading(false);
+      }
+    } else {
+      setSuccessNotice('Xác minh email thành công! Mời bạn nhập mật khẩu để đăng nhập.');
     }
   };
 
@@ -144,6 +199,14 @@ const LoginPage = () => {
             <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Đăng nhập</h1>
             <p className="text-gray-500 mt-1.5 text-[0.9375rem]">Nhập thông tin tài khoản để tiếp tục</p>
           </div>
+
+          {/* Success Notice */}
+          {successNotice && (
+            <div className="mb-6 flex items-start gap-2.5 p-3.5 bg-emerald-50 border border-emerald-200 rounded-[var(--radius-sm)] animate-slide-down" role="status">
+              <CheckIcon />
+              <p className="text-sm text-emerald-800 font-medium leading-relaxed">{successNotice}</p>
+            </div>
+          )}
 
           {/* Error */}
           {error && (
@@ -238,6 +301,15 @@ const LoginPage = () => {
           </p>
         </div>
       </div>
+
+      {/* Modal xác minh OTP */}
+      {showOtpModal && (
+        <OtpVerificationModal
+          email={unverifiedEmail || email}
+          onSuccess={handleOtpSuccess}
+          onClose={() => setShowOtpModal(false)}
+        />
+      )}
     </div>
   );
 };

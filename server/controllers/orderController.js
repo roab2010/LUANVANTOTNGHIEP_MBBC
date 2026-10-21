@@ -1,8 +1,11 @@
 const Order = require('../models/Order');
 const Product = require('../models/Product');
 const Review = require('../models/Review');
+const User = require('../models/User');
 const ghnService = require('../services/ghnService');
 const { logActivity } = require('../services/activityLogService');
+const { sendOrderConfirmationEmail } = require('../services/emailService');
+const { generateOrderPDF } = require('../services/pdfService');
 
 // ============================================
 // LẤY DANH SÁCH ĐƠN HÀNG (ADMIN) - GET /api/orders
@@ -375,6 +378,25 @@ const createOrder = async (req, res) => {
       message: 'Đặt hàng thành công',
       data: { order },
     });
+
+    // Gửi email xác nhận đơn hàng kèm PDF (không block response)
+    try {
+      const loggedInUser = req.user?.userId ? await User.findById(req.user.userId) : null;
+      const recipientEmail = loggedInUser?.email;
+      if (recipientEmail) {
+        const pdfBuffer = await generateOrderPDF(order);
+        await sendOrderConfirmationEmail(
+          recipientEmail,
+          customer.fullName,
+          order.orderCode,
+          pdfBuffer
+        );
+        console.log(`Email xác nhận đơn hàng ${order.orderCode} đã gửi tới ${recipientEmail}`);
+      }
+    } catch (emailErr) {
+      // Lỗi gửi email không ảnh hưởng đến đơn hàng đã tạo thành công
+      console.error('Lỗi gửi email xác nhận đơn hàng:', emailErr.message);
+    }
   } catch (error) {
     console.error('Lỗi tạo đơn hàng:', error);
     res.status(500).json({
