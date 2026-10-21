@@ -1,5 +1,7 @@
 const Order = require('../models/Order');
 const Product = require('../models/Product');
+const ghnService = require('../services/ghnService');
+const { logActivity } = require('../services/activityLogService');
 
 // ============================================
 // LẤY DANH SÁCH ĐƠN HÀNG (ADMIN) - GET /api/orders
@@ -32,6 +34,7 @@ const getOrders = async (req, res) => {
 
     const [orders, total] = await Promise.all([
       Order.find(filter)
+        .populate('items.product', 'name image images')
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limitNum),
@@ -79,6 +82,7 @@ const getMyOrders = async (req, res) => {
 
     const [orders, total] = await Promise.all([
       Order.find(filter)
+        .populate('items.product', 'name image images')
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limitNum),
@@ -111,7 +115,7 @@ const getMyOrders = async (req, res) => {
 // ============================================
 const getOrderById = async (req, res) => {
   try {
-    const order = await Order.findById(req.params.id);
+    const order = await Order.findById(req.params.id).populate('items.product', 'name image images');
     if (!order) {
       return res.status(404).json({
         success: false,
@@ -249,9 +253,12 @@ const createOrder = async (req, res) => {
       const itemTotal = product.price * qty;
       totalAmount += itemTotal;
 
+      const itemImg = product.image || (Array.isArray(product.images) && product.images[0]) || '';
+
       validatedItems.push({
         product: product._id,
         name: product.name,
+        image: itemImg,
         size: itemSize,
         color: itemColor,
         price: product.price,
@@ -262,6 +269,27 @@ const createOrder = async (req, res) => {
       // Lưu product (pre-save hook tính tổng stock nếu có variants)
       await product.save();
     }
+
+    // Xác thực phí vận chuyển GHN tại backend nếu có thông tin quận/huyện và phường/xã
+    let shippingFee = 0;
+    if (customer.districtId && customer.wardCode) {
+      try {
+        const feeResult = await ghnService.calculateShippingFee({
+          toDistrictId: customer.districtId,
+          toWardCode: customer.wardCode,
+          items: validatedItems,
+          insuranceValue: totalAmount,
+        });
+        shippingFee = feeResult.total || 0;
+      } catch (ghnErr) {
+        return res.status(400).json({
+          success: false,
+          message: `Lỗi tính phí vận chuyển từ GHN: ${ghnErr.message}`,
+        });
+      }
+    }
+
+    const grandTotal = totalAmount + shippingFee;
 
     // Sinh mã đơn hàng tự động DH-xxxx
     const randomSuffix = Math.floor(1000 + Math.random() * 9000);
@@ -276,10 +304,22 @@ const createOrder = async (req, res) => {
         customerId,
         fullName: customer.fullName.trim(),
         phone: customer.phone.trim(),
-        address: customer.address?.trim() || '',
+        address:
+          customer.address?.trim() ||
+          [customer.streetAddress, customer.ward, customer.district, customer.province]
+            .filter(Boolean)
+            .join(', '),
+        streetAddress: customer.streetAddress?.trim() || '',
+        province: customer.province?.trim() || '',
+        provinceId: customer.provinceId ? Number(customer.provinceId) : undefined,
+        district: customer.district?.trim() || '',
+        districtId: customer.districtId ? Number(customer.districtId) : undefined,
+        ward: customer.ward?.trim() || '',
+        wardCode: customer.wardCode ? String(customer.wardCode) : '',
       },
       items: validatedItems,
-      totalAmount,
+      shippingFee,
+      totalAmount: grandTotal,
       paymentMethod: paymentMethod || 'cod',
       paymentStatus: paymentMethod === 'banking' ? 'paid' : 'unpaid',
       status: 'pending',
@@ -316,6 +356,7 @@ const updateOrderStatus = async (req, res) => {
     }
 
     const oldStatus = order.status;
+    const oldPaymentStatus = order.paymentStatus;
 
     // Nếu đơn hàng bị hủy -> hoàn lại số lượng tồn kho cho các sản phẩm
     if (status === 'cancelled' && oldStatus !== 'cancelled') {
@@ -379,6 +420,35 @@ const updateOrderStatus = async (req, res) => {
 
     await order.save();
 
+    const orderChanges = [];
+    if (status && status !== oldStatus) {
+      orderChanges.push({
+        field: 'status',
+        fieldNameVi: 'Trạng thái đơn hàng',
+        oldValue: oldStatus,
+        newValue: order.status,
+      });
+    }
+    if (paymentStatus && paymentStatus !== oldPaymentStatus) {
+      orderChanges.push({
+        field: 'paymentStatus',
+        fieldNameVi: 'Trạng thái thanh toán',
+        oldValue: oldPaymentStatus,
+        newValue: order.paymentStatus,
+      });
+    }
+
+    logActivity({
+      req,
+      action: 'STATUS_CHANGE',
+      module: 'ORDER',
+      targetType: 'Order',
+      targetId: order._id,
+      targetName: order.orderCode,
+      description: `Cập nhật đơn hàng "${order.orderCode}": Trạng thái [${oldStatus} → ${order.status}], Thanh toán [${oldPaymentStatus} → ${order.paymentStatus}]`,
+      changes: orderChanges,
+    });
+
     res.json({
       success: true,
       message: 'Cập nhật trạng thái đơn hàng thành công',
@@ -415,6 +485,20 @@ const deleteOrder = async (req, res) => {
     }
 
     await Order.findByIdAndDelete(req.params.id);
+
+    logActivity({
+      req,
+      action: 'DELETE',
+      module: 'ORDER',
+      targetType: 'Order',
+      targetId: order._id,
+      targetName: order.orderCode,
+      description: `Xóa vĩnh viễn đơn hàng đã hủy "${order.orderCode}" của khách hàng ${order.customer?.fullName || ''}`,
+      metadata: {
+        orderCode: order.orderCode,
+        totalAmount: order.totalAmount,
+      },
+    });
 
     res.json({
       success: true,

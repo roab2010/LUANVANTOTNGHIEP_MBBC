@@ -16,6 +16,7 @@ import SuppliersPage from './pages/admin/suppliers/SuppliersPage';
 import CustomersPage from './pages/admin/customers/CustomersPage';
 import OrdersPage from './pages/admin/orders/OrdersPage';
 import StatisticsPage from './pages/admin/statistics/StatisticsPage';
+import ActivityLogsPage from './pages/admin/activityLogs/ActivityLogsPage';
 import CustomerHome from './pages/customer/CustomerHome';
 import ProductDetailPage from './pages/customer/ProductDetailPage';
 import CategoryPage from './pages/customer/CategoryPage';
@@ -59,6 +60,7 @@ function App() {
             <Route path="orders" element={<OrdersPage />} />
             <Route path="customers" element={<CustomersPage />} />
             <Route path="statistics" element={<StatisticsPage />} />
+            <Route path="activity-logs" element={<ActivityLogsPage />} />
           </Route>
 
           {/* === 404 → Về trang chủ === */}

@@ -7,6 +7,7 @@ const StockHistory = require('../models/StockHistory');
 const User = require('../models/User');
 const Order = require('../models/Order');
 const { uploadToCloudinary } = require('../config/cloudinary');
+const { logActivity, diffObjects } = require('../services/activityLogService');
 
 // Helper: Kiểm tra request có phải từ Admin có token hợp lệ không
 const checkIsAdmin = async (req) => {
@@ -73,13 +74,15 @@ const getProducts = async (req, res) => {
     }
 
     // Lọc theo khoảng giá (minPrice, maxPrice)
-    if ((minPrice !== undefined && minPrice !== '') || (maxPrice !== undefined && maxPrice !== '')) {
+    const isCleanMinPrice = minPrice !== undefined && minPrice !== '' && minPrice !== 'null' && minPrice !== 'undefined';
+    const isCleanMaxPrice = maxPrice !== undefined && maxPrice !== '' && maxPrice !== 'null' && maxPrice !== 'undefined';
+    if (isCleanMinPrice || isCleanMaxPrice) {
       filter.price = {};
-      if (minPrice !== undefined && minPrice !== '') {
+      if (isCleanMinPrice) {
         const numMin = Number(minPrice);
         if (!isNaN(numMin)) filter.price.$gte = numMin;
       }
-      if (maxPrice !== undefined && maxPrice !== '') {
+      if (isCleanMaxPrice) {
         const numMax = Number(maxPrice);
         if (!isNaN(numMax)) filter.price.$lte = numMax;
       }
@@ -89,10 +92,10 @@ const getProducts = async (req, res) => {
     }
 
     // Lọc theo màu sắc biến thể (hỗ trợ một hoặc nhiều màu)
-    if (colors) {
+    if (colors && colors !== 'null' && colors !== 'undefined') {
       const colorList = (Array.isArray(colors) ? colors : String(colors).split(','))
         .map((c) => c.trim())
-        .filter(Boolean);
+        .filter((c) => Boolean(c) && c !== 'null' && c !== 'undefined');
       if (colorList.length > 0) {
         filter['variants.color'] = {
           $in: colorList.map((c) => new RegExp(`^${c.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i')),
@@ -101,10 +104,10 @@ const getProducts = async (req, res) => {
     }
 
     // Lọc theo kích thước biến thể (hỗ trợ một hoặc nhiều size)
-    if (sizes) {
+    if (sizes && sizes !== 'null' && sizes !== 'undefined') {
       const sizeList = (Array.isArray(sizes) ? sizes : String(sizes).split(','))
         .map((s) => s.trim())
-        .filter(Boolean);
+        .filter((s) => Boolean(s) && s !== 'null' && s !== 'undefined');
       if (sizeList.length > 0) {
         filter['variants.size'] = {
           $in: sizeList.map((s) => new RegExp(`^${s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i')),
@@ -567,6 +570,22 @@ const createProduct = async (req, res) => {
 
     const product = await Product.create(productPayload);
 
+    logActivity({
+      req,
+      action: 'CREATE',
+      module: 'PRODUCT',
+      targetType: 'Product',
+      targetId: product._id,
+      targetName: product.name,
+      description: `Thêm mới sản phẩm: "${product.name}" (${product.category || 'Chưa phân loại'}) - Giá: ${product.price?.toLocaleString('vi-VN')}₫`,
+      metadata: {
+        price: product.price,
+        costPrice: product.costPrice,
+        stock: product.stock,
+        category: product.category,
+      },
+    });
+
     // Ghi nhận lưu vết lịch sử kho ban đầu (nếu có tồn kho)
     try {
       if (product.variants && product.variants.length > 0) {
@@ -733,6 +752,17 @@ const updateProduct = async (req, res) => {
         message: 'Không tìm thấy sản phẩm',
       });
     }
+
+    // Lưu snapshot dữ liệu cũ để tính toán thay đổi trước / sau cho Activity Log
+    const oldProductSnapshot = {
+      name: existingProduct.name,
+      price: existingProduct.price,
+      costPrice: existingProduct.costPrice,
+      category: existingProduct.category,
+      status: existingProduct.status,
+      stock: existingProduct.stock,
+      unit: existingProduct.unit,
+    };
 
     // --- Kiểm tra quy tắc khi danh mục bị khóa khi chỉnh sửa ---
     if (existingProduct.category) {
@@ -948,6 +978,28 @@ const updateProduct = async (req, res) => {
       console.warn('Lỗi ghi nhận lịch sử kho khi cập nhật sản phẩm:', historyErr);
     }
 
+    // Ghi nhận Activity Log chi tiết thay đổi sản phẩm
+    const productChanges = diffObjects(oldProductSnapshot, existingProduct, {
+      name: 'Tên sản phẩm',
+      price: 'Giá bán',
+      costPrice: 'Giá vốn',
+      category: 'Danh mục',
+      status: 'Trạng thái kinh doanh',
+      stock: 'Tổng tồn kho',
+      unit: 'Đơn vị tính',
+    });
+
+    logActivity({
+      req,
+      action: 'UPDATE',
+      module: 'PRODUCT',
+      targetType: 'Product',
+      targetId: existingProduct._id,
+      targetName: existingProduct.name,
+      description: `Cập nhật thông tin sản phẩm: "${existingProduct.name}"`,
+      changes: productChanges,
+    });
+
     res.json({
       success: true,
       message: 'Cập nhật sản phẩm thành công',
@@ -981,6 +1033,21 @@ const deleteProduct = async (req, res) => {
         message: 'Không tìm thấy sản phẩm',
       });
     }
+
+    logActivity({
+      req,
+      action: 'DELETE',
+      module: 'PRODUCT',
+      targetType: 'Product',
+      targetId: product._id,
+      targetName: product.name,
+      description: `Xóa sản phẩm: "${product.name}" khỏi hệ thống`,
+      metadata: {
+        price: product.price,
+        stock: product.stock,
+        category: product.category,
+      },
+    });
 
     res.json({
       success: true,

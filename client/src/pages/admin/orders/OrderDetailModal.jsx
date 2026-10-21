@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { updateOrderStatus } from '../../../services/orderApi';
+import { getVariantColorHex } from '../../../components/VariantSelect';
 
 // ============================================
 // ICONS
@@ -99,7 +100,7 @@ const OrderDetailModal = ({ order, onClose, onStatusUpdated }) => {
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/30 animate-fade-in" onClick={() => !loading && onClose()} />
 
-      <div className="relative bg-white rounded-[var(--radius-md)] shadow-[var(--shadow-modal)] w-full max-w-2xl max-h-[90vh] overflow-y-auto animate-scale-in">
+      <div className="relative bg-white rounded-[var(--radius-md)] shadow-[var(--shadow-modal)] w-full max-w-3xl max-h-[90vh] overflow-y-auto animate-scale-in">
         {/* Header */}
         <div className="sticky top-0 bg-white z-10 flex items-center justify-between px-6 py-4 border-b border-gray-100">
           <div className="flex items-center gap-3">
@@ -163,43 +164,94 @@ const OrderDetailModal = ({ order, onClose, onStatusUpdated }) => {
           {/* Danh sách sản phẩm */}
           <div>
             <h3 className="text-sm font-semibold text-gray-900 mb-2">Chi tiết sản phẩm</h3>
-            <div className="border border-gray-200 rounded-lg overflow-hidden">
+            <div className="border border-gray-200 rounded-lg overflow-hidden shadow-2xs">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="bg-gray-50 border-b border-gray-200 text-gray-500 text-xs">
-                    <th className="py-2.5 px-4 text-left font-semibold">Tên sản phẩm</th>
+                    <th className="py-2.5 px-4 text-left font-semibold">Sản phẩm</th>
                     <th className="py-2.5 px-4 text-right font-semibold">Đơn giá</th>
                     <th className="py-2.5 px-4 text-center font-semibold">Số lượng</th>
                     <th className="py-2.5 px-4 text-right font-semibold">Thành tiền</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
-                  {order.items?.map((item, idx) => (
-                    <tr key={idx}>
-                      <td className="py-3 px-4 font-medium text-gray-900">
-                        <div>{item.name}</div>
-                        {(item.size || item.color) && (
-                          <div className="flex flex-wrap items-center gap-1.5 mt-1">
-                            {item.size && (
-                              <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold bg-gray-100 text-gray-800 border border-gray-200">
-                                Size: {item.size}
-                              </span>
-                            )}
-                            {item.color && (
-                              <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold bg-teal-50 text-teal-800 border border-teal-200">
-                                Màu: {item.color}
-                              </span>
-                            )}
+                  {order.items?.map((item, idx) => {
+                    const itemImg =
+                      item.image ||
+                      item.product?.image ||
+                      (Array.isArray(item.product?.images) && item.product.images[0]) ||
+                      '';
+
+                    return (
+                      <tr key={idx} className="hover:bg-gray-50/50 transition-colors">
+                        <td className="py-3 px-4 text-gray-900">
+                          <div className="flex items-center gap-3">
+                            {/* Ảnh đại diện sản phẩm */}
+                            <div className="w-12 h-12 rounded-lg bg-gray-100 border border-gray-200 shrink-0 overflow-hidden flex items-center justify-center">
+                              {itemImg ? (
+                                <img
+                                  src={itemImg}
+                                  alt={item.name}
+                                  className="w-full h-full object-cover"
+                                  onError={(e) => {
+                                    e.target.style.display = 'none';
+                                  }}
+                                />
+                              ) : (
+                                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">MBBC</span>
+                              )}
+                            </div>
+
+                            {/* Tên & biến thể */}
+                            <div className="min-w-0">
+                              <p className="font-semibold text-gray-900 text-sm leading-snug">
+                                {item.name || item.product?.name || 'Sản phẩm'}
+                              </p>
+                              {(item.size || item.color) && (
+                                <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
+                                  {item.size && (
+                                    <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold bg-gray-100 text-gray-700 border border-gray-200">
+                                      Size: {item.size}
+                                    </span>
+                                  )}
+                                  {item.color && (
+                                    <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-bold bg-gray-50 text-gray-800 border border-gray-200">
+                                      <span
+                                        className="w-2.5 h-2.5 rounded-full border border-gray-300 shadow-2xs shrink-0"
+                                        style={{ backgroundColor: getVariantColorHex(item.color) }}
+                                      />
+                                      <span>Màu: {item.color}</span>
+                                    </span>
+                                  )}
+                                </div>
+                              )}
+                            </div>
                           </div>
-                        )}
-                      </td>
-                      <td className="py-3 px-4 text-right text-gray-600 tabular-nums">{formatPrice(item.price)}</td>
-                      <td className="py-3 px-4 text-center font-semibold text-gray-900 tabular-nums">{item.quantity}</td>
-                      <td className="py-3 px-4 text-right font-semibold text-gray-900 tabular-nums">{formatPrice(item.total)}</td>
-                    </tr>
-                  ))}
+                        </td>
+                        <td className="py-3 px-4 text-right text-gray-600 tabular-nums">{formatPrice(item.price)}</td>
+                        <td className="py-3 px-4 text-center font-semibold text-gray-900 tabular-nums">{item.quantity}</td>
+                        <td className="py-3 px-4 text-right font-semibold text-gray-900 tabular-nums">{formatPrice(item.total || item.price * item.quantity)}</td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
                 <tfoot>
+                  {order.shippingFee !== undefined && order.shippingFee !== null && order.shippingFee > 0 && (
+                    <>
+                      <tr className="bg-gray-50/60 text-gray-600 text-xs border-t border-gray-200">
+                        <td colSpan={3} className="py-2.5 px-4 text-right font-medium">Tiền hàng:</td>
+                        <td className="py-2.5 px-4 text-right font-medium text-gray-800 tabular-nums">
+                          {formatPrice(order.items?.reduce((s, it) => s + (it.total || it.price * it.quantity), 0))}
+                        </td>
+                      </tr>
+                      <tr className="bg-gray-50/60 text-gray-600 text-xs border-b border-gray-200">
+                        <td colSpan={3} className="py-2.5 px-4 text-right font-medium">Phí vận chuyển (GHN):</td>
+                        <td className="py-2.5 px-4 text-right font-medium text-indigo-600 tabular-nums">
+                          +{formatPrice(order.shippingFee)}
+                        </td>
+                      </tr>
+                    </>
+                  )}
                   <tr className="bg-gray-50 font-bold text-gray-900">
                     <td colSpan={3} className="py-3 px-4 text-right">Tổng thanh toán:</td>
                     <td className="py-3 px-4 text-right text-base text-teal-600 tabular-nums">

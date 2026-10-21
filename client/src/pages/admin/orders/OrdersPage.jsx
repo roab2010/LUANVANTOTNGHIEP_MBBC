@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { getOrders, deleteOrder } from '../../../services/orderApi';
 import OrderDetailModal from './OrderDetailModal';
+import { getVariantColorHex } from '../../../components/VariantSelect';
 
 // ============================================
 // ICONS
@@ -229,7 +230,7 @@ const OrdersPage = () => {
                 <th className="w-10">#</th>
                 <th>Mã đơn</th>
                 <th>Khách hàng</th>
-                <th>Số lượng SP</th>
+                <th className="min-w-[190px]">Sản phẩm</th>
                 <th>Tổng tiền</th>
                 <th>Thanh toán</th>
                 <th>Trạng thái</th>
@@ -246,16 +247,70 @@ const OrdersPage = () => {
                     </span>
                   </td>
                   <td>
-                    <span className="font-semibold text-gray-900">{order.orderCode}</span>
+                    <span className="font-semibold text-gray-900 font-mono">{order.orderCode}</span>
                   </td>
                   <td>
                     <p className="font-medium text-gray-900">{order.customer?.fullName}</p>
-                    <p className="text-xs text-gray-400">{order.customer?.phone}</p>
+                    <p className="text-xs text-gray-400 font-mono">{order.customer?.phone}</p>
                   </td>
-                  <td>
-                    <span className="text-sm text-gray-600 tabular-nums">
-                      {order.items?.reduce((s, it) => s + it.quantity, 0)} cái
-                    </span>
+                  <td className="py-2.5">
+                    <div className="flex items-center gap-2.5">
+                      {/* Avatar preview stack */}
+                      <div className="flex -space-x-2 overflow-hidden py-0.5 shrink-0">
+                        {order.items?.slice(0, 3).map((it, idx) => {
+                          const img =
+                            it.image ||
+                            it.product?.image ||
+                            (Array.isArray(it.product?.images) && it.product.images[0]) ||
+                            '';
+                          return (
+                            <div
+                              key={idx}
+                              className="w-9 h-9 rounded-lg bg-gray-100 border-2 border-white shadow-2xs overflow-hidden shrink-0 flex items-center justify-center relative group"
+                              title={`${it.name || 'Sản phẩm'} - SL: ${it.quantity}${it.size ? ` - Size: ${it.size}` : ''}${it.color ? ` - Màu: ${it.color}` : ''}`}
+                            >
+                              {img ? (
+                                <img src={img} alt={it.name} className="w-full h-full object-cover" />
+                              ) : (
+                                <span className="text-[9px] font-bold text-gray-400">MBBC</span>
+                              )}
+                              {it.color && (
+                                <span
+                                  className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border border-white shadow-2xs"
+                                  style={{ backgroundColor: getVariantColorHex(it.color) }}
+                                />
+                              )}
+                            </div>
+                          );
+                        })}
+                        {order.items?.length > 3 && (
+                          <div className="w-9 h-9 rounded-lg bg-gray-100 border-2 border-white text-gray-600 text-[10px] font-bold flex items-center justify-center shrink-0">
+                            +{order.items.length - 3}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Tên & biến thể ngắn gọn */}
+                      <div className="min-w-0">
+                        <p className="text-xs font-semibold text-gray-900 truncate max-w-[150px]" title={order.items?.[0]?.name}>
+                          {order.items?.[0]?.name || 'Sản phẩm'}
+                        </p>
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          <span className="text-[11px] text-gray-500 font-medium">
+                            <strong className="text-gray-800">{order.items?.reduce((s, it) => s + it.quantity, 0)}</strong> cái
+                          </span>
+                          {order.items?.[0]?.color && (
+                            <span className="inline-flex items-center gap-1 text-[10px] text-gray-600 font-medium bg-gray-100 px-1.5 py-0.2 rounded border border-gray-200">
+                              <span
+                                className="w-2 h-2 rounded-full border border-gray-300 shrink-0"
+                                style={{ backgroundColor: getVariantColorHex(order.items[0].color) }}
+                              />
+                              <span className="truncate max-w-[55px]">{order.items[0].color}</span>
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
                   </td>
                   <td>
                     <span className="text-sm font-bold text-gray-900 tabular-nums">

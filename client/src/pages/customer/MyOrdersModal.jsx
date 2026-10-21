@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { getMyOrders } from '../../services/orderApi';
+import { getVariantColorHex } from '../../components/VariantSelect';
 
 // ============================================
 // ICONS
@@ -85,7 +86,7 @@ const MyOrdersModal = ({ isOpen, onClose, onExploreClick }) => {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 md:p-6">
+    <div className="fixed inset-0 z-[70] flex items-center justify-center p-3 sm:p-4 md:p-6">
       {/* Backdrop */}
       <div
         className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-fade-in"
@@ -202,39 +203,69 @@ const MyOrdersModal = ({ isOpen, onClose, onExploreClick }) => {
 
                   {/* Danh sách sản phẩm của đơn */}
                   <div className="py-3 divide-y divide-neutral-100">
-                    {ord.items?.map((it, idx) => (
-                      <div key={idx} className="py-2.5 flex items-center justify-between gap-3 text-xs">
-                        <div className="flex-1 min-w-0">
-                          <p className="font-bold text-neutral-900 truncate">
-                            {it.name || it.product?.name || 'Sản phẩm'}
-                          </p>
-                          <div className="flex items-center gap-2 mt-1">
-                            {it.size && (
-                              <span className="inline-block px-1.5 py-0.5 bg-neutral-100 text-neutral-800 text-[10px] font-bold tracking-wider">
-                                Size: {it.size}
-                              </span>
+                    {ord.items?.map((it, idx) => {
+                      const itemImg =
+                        it.image ||
+                        it.product?.image ||
+                        (Array.isArray(it.product?.images) && it.product.images[0]) ||
+                        '';
+
+                      return (
+                        <div key={idx} className="py-2.5 flex items-center justify-between gap-3 text-xs">
+                          {/* Hình ảnh mặt hàng */}
+                          <div className="w-13 h-13 sm:w-14 sm:h-14 bg-neutral-100 border border-neutral-200 rounded shrink-0 overflow-hidden flex items-center justify-center">
+                            {itemImg ? (
+                              <img
+                                src={itemImg}
+                                alt={it.name || 'Sản phẩm'}
+                                className="w-full h-full object-cover"
+                                onError={(e) => {
+                                  e.target.style.display = 'none';
+                                }}
+                              />
+                            ) : (
+                              <div className="text-[10px] text-neutral-400 font-bold uppercase">MBBC</div>
                             )}
-                            {it.color && (
-                              <span className="inline-block px-1.5 py-0.5 bg-neutral-100 text-neutral-800 text-[10px] font-bold tracking-wider">
-                                Màu: {it.color}
+                          </div>
+
+                          {/* Thông tin sản phẩm & Biến thể */}
+                          <div className="flex-1 min-w-0">
+                            <p className="font-bold text-neutral-900 truncate uppercase tracking-tight">
+                              {it.name || it.product?.name || 'Sản phẩm'}
+                            </p>
+                            <div className="flex flex-wrap items-center gap-2 mt-1.5">
+                              {it.size && (
+                                <span className="inline-block px-2 py-0.5 bg-neutral-100 text-neutral-800 text-[10px] font-bold tracking-wider rounded border border-neutral-200">
+                                  Size: {it.size}
+                                </span>
+                              )}
+                              {it.color && (
+                                <span className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-neutral-100 text-neutral-800 text-[10px] font-bold tracking-wider rounded border border-neutral-200">
+                                  <span
+                                    className="w-2.5 h-2.5 rounded-full border border-neutral-300 shadow-2xs shrink-0"
+                                    style={{ backgroundColor: getVariantColorHex(it.color) }}
+                                  />
+                                  <span>Màu: {it.color}</span>
+                                </span>
+                              )}
+                              <span className="text-[11px] font-semibold text-neutral-500">
+                                SL: x{it.quantity}
                               </span>
-                            )}
-                            <span className="text-[11px] text-neutral-500">
-                              SL: x{it.quantity}
-                            </span>
+                            </div>
+                          </div>
+
+                          {/* Giá tiền */}
+                          <div className="text-right shrink-0">
+                            <p className="font-mono font-bold text-neutral-900 text-sm">
+                              {formatPrice(it.total || it.price * it.quantity)}
+                            </p>
+                            <p className="text-[10px] text-neutral-400">
+                              {formatPrice(it.price)}/cái
+                            </p>
                           </div>
                         </div>
-
-                        <div className="text-right shrink-0">
-                          <p className="font-mono font-bold text-neutral-900">
-                            {formatPrice(it.total || it.price * it.quantity)}
-                          </p>
-                          <p className="text-[10px] text-neutral-400">
-                            {formatPrice(it.price)}/cái
-                          </p>
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
 
                   {/* Thông tin nhận hàng & Tổng thanh toán */}
@@ -262,6 +293,11 @@ const MyOrdersModal = ({ isOpen, onClose, onExploreClick }) => {
                       <p className="font-mono text-base font-black text-black">
                         {formatPrice(ord.totalAmount)}
                       </p>
+                      {ord.shippingFee > 0 && (
+                        <p className="text-[10px] text-neutral-400">
+                          (Đã gồm phí ship GHN: {formatPrice(ord.shippingFee)})
+                        </p>
+                      )}
                     </div>
                   </div>
                 </div>

@@ -1,4 +1,5 @@
 const User = require('../models/User');
+const { logActivity, diffObjects } = require('../services/activityLogService');
 
 // ============================================
 // LẤY DANH SÁCH KHÁCH HÀNG - GET /api/customers
@@ -118,18 +119,44 @@ const updateCustomer = async (req, res) => {
     if (phone !== undefined) updateData.phone = phone.trim();
     if (status !== undefined) updateData.status = status;
 
+    const oldCustomer = await User.findOne({
+      _id: req.params.id,
+      role: 'customer',
+      status: { $ne: 'deleted' },
+    });
+
+    if (!oldCustomer) {
+      return res.status(404).json({
+        success: false,
+        message: 'Không tìm thấy tài khoản khách hàng',
+      });
+    }
+
     const customer = await User.findOneAndUpdate(
       { _id: req.params.id, role: 'customer', status: { $ne: 'deleted' } },
       updateData,
       { new: true, runValidators: true }
     ).select('-password');
 
-    if (!customer) {
-      return res.status(404).json({
-        success: false,
-        message: 'Không tìm thấy tài khoản khách hàng',
-      });
-    }
+    const changes = diffObjects(oldCustomer, customer, {
+      fullName: 'Họ và tên',
+      phone: 'Số điện thoại',
+      status: 'Trạng thái tài khoản',
+    });
+
+    const isStatusChange = status !== undefined && status !== oldCustomer.status;
+    logActivity({
+      req,
+      action: isStatusChange ? 'STATUS_CHANGE' : 'UPDATE',
+      module: 'USER',
+      targetType: 'User',
+      targetId: customer._id,
+      targetName: customer.fullName,
+      description: isStatusChange
+        ? `${status === 'blocked' ? 'Khóa' : 'Kích hoạt/Mở khóa'} tài khoản khách hàng: ${customer.fullName} (${customer.email})`
+        : `Cập nhật thông tin khách hàng: ${customer.fullName}`,
+      changes,
+    });
 
     const actionMessage =
       status === 'blocked'
@@ -171,7 +198,7 @@ const deleteCustomer = async (req, res) => {
         status: { $ne: 'deleted' },
       },
       { status: 'deleted' },
-      { new: true }
+      { new: false }
     );
 
     if (!customer) {
@@ -180,6 +207,24 @@ const deleteCustomer = async (req, res) => {
         message: 'Không tìm thấy tài khoản khách hàng',
       });
     }
+
+    logActivity({
+      req,
+      action: 'DELETE',
+      module: 'USER',
+      targetType: 'User',
+      targetId: customer._id,
+      targetName: customer.fullName,
+      description: `Xóa mềm tài khoản khách hàng: ${customer.fullName} (${customer.email})`,
+      changes: [
+        {
+          field: 'status',
+          fieldNameVi: 'Trạng thái',
+          oldValue: customer.status,
+          newValue: 'deleted',
+        },
+      ],
+    });
 
     res.json({
       success: true,

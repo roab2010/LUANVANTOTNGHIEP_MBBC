@@ -1,4 +1,5 @@
 const Supplier = require('../models/Supplier');
+const { logActivity, diffObjects } = require('../services/activityLogService');
 
 // ============================================
 // LẤY DANH SÁCH NHÀ CUNG CẤP - GET /api/suppliers
@@ -156,6 +157,16 @@ const createSupplier = async (req, res) => {
       status: status || 'active',
     });
 
+    logActivity({
+      req,
+      action: 'CREATE',
+      module: 'SUPPLIER',
+      targetType: 'Supplier',
+      targetId: supplier._id,
+      targetName: supplier.name,
+      description: `Tạo mới nhà cung cấp đối tác: "${supplier.name}" - SĐT: ${supplier.phone || 'Chưa có'}`,
+    });
+
     res.status(201).json({
       success: true,
       message: 'Tạo nhà cung cấp thành công',
@@ -241,6 +252,14 @@ const updateSupplier = async (req, res) => {
       }
     }
 
+    const oldSupplierSnapshot = {
+      name: existingSupplier.name,
+      phone: existingSupplier.phone,
+      address: existingSupplier.address,
+      note: existingSupplier.note,
+      status: existingSupplier.status,
+    };
+
     const updateData = {};
     if (name !== undefined) updateData.name = name.trim();
     if (phone !== undefined) updateData.phone = phone.trim();
@@ -253,6 +272,25 @@ const updateSupplier = async (req, res) => {
       updateData,
       { new: true, runValidators: true }
     );
+
+    const supplierChanges = diffObjects(oldSupplierSnapshot, supplier, {
+      name: 'Tên nhà cung cấp',
+      phone: 'Số điện thoại',
+      address: 'Địa chỉ',
+      note: 'Ghi chú',
+      status: 'Trạng thái',
+    });
+
+    logActivity({
+      req,
+      action: 'UPDATE',
+      module: 'SUPPLIER',
+      targetType: 'Supplier',
+      targetId: supplier._id,
+      targetName: supplier.name,
+      description: `Cập nhật thông tin nhà cung cấp: "${supplier.name}"`,
+      changes: supplierChanges,
+    });
 
     res.json({
       success: true,
@@ -287,6 +325,20 @@ const deleteSupplier = async (req, res) => {
         message: 'Không tìm thấy nhà cung cấp',
       });
     }
+
+    logActivity({
+      req,
+      action: 'DELETE',
+      module: 'SUPPLIER',
+      targetType: 'Supplier',
+      targetId: supplier._id,
+      targetName: supplier.name,
+      description: `Xóa nhà cung cấp: "${supplier.name}" khỏi hệ thống`,
+      metadata: {
+        phone: supplier.phone,
+        address: supplier.address,
+      },
+    });
 
     res.json({
       success: true,

@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 const Product = require('../models/Product');
 const Supplier = require('../models/Supplier');
 const StockHistory = require('../models/StockHistory');
+const { logActivity } = require('../services/activityLogService');
 
 // ============================================
 // LẤY DANH SÁCH TỒN KHO - GET /api/warehouse
@@ -306,6 +307,30 @@ const importStock = async (req, res) => {
       throw historyErr;
     }
 
+    logActivity({
+      req,
+      action: 'STOCK_IN',
+      module: 'INVENTORY',
+      targetType: 'Product',
+      targetId: product._id,
+      targetName: product.name,
+      description: `Nhập kho +${qty} ${product.unit || 'cái'} cho sản phẩm "${product.name}"${variantSize && variantColor ? ` (Size: ${variantSize}, Màu: ${variantColor})` : ''} - Tồn kho: ${stockBefore} → ${product.stock}`,
+      changes: [
+        {
+          field: 'stock',
+          fieldNameVi: 'Số lượng tồn kho',
+          oldValue: stockBefore,
+          newValue: product.stock,
+        },
+      ],
+      metadata: {
+        quantity: qty,
+        variantSize: variantSize || undefined,
+        variantColor: variantColor || undefined,
+        unitPrice: validatedUnitPrice,
+      },
+    });
+
     res.status(200).json({
       success: true,
       message: `Đã nhập kho thành công ${qty} ${product.unit || 'sản phẩm'}. Tồn kho hiện tại: ${product.stock}`,
@@ -457,6 +482,30 @@ const exportStock = async (req, res) => {
       throw historyErr;
     }
 
+    logActivity({
+      req,
+      action: 'STOCK_OUT',
+      module: 'INVENTORY',
+      targetType: 'Product',
+      targetId: product._id,
+      targetName: product.name,
+      description: `Xuất kho -${qty} ${product.unit || 'cái'} cho sản phẩm "${product.name}"${variantSize && variantColor ? ` (Size: ${variantSize}, Màu: ${variantColor})` : ''} - Lý do: ${reason} - Tồn kho: ${stockBefore} → ${product.stock}`,
+      changes: [
+        {
+          field: 'stock',
+          fieldNameVi: 'Số lượng tồn kho',
+          oldValue: stockBefore,
+          newValue: product.stock,
+        },
+      ],
+      metadata: {
+        quantity: qty,
+        variantSize: variantSize || undefined,
+        variantColor: variantColor || undefined,
+        reason,
+      },
+    });
+
     res.status(200).json({
       success: true,
       message: `Đã xuất kho thành công ${qty} ${product.unit || 'sản phẩm'}. Tồn kho còn lại: ${product.stock}`,
@@ -598,6 +647,28 @@ const adjustStock = async (req, res) => {
     } catch (e) {
       console.warn('Không thể ghi nhận history cho adjustStock:', e.message);
     }
+
+    logActivity({
+      req,
+      action: historyType === 'import' ? 'STOCK_IN' : 'STOCK_OUT',
+      module: 'INVENTORY',
+      targetType: 'Product',
+      targetId: product._id,
+      targetName: product.name,
+      description: `Điều chỉnh tồn kho sản phẩm "${product.name}" (${actionType}): ${stockBefore} → ${newStock} - Lý do: ${reason || 'Kiểm kê kho'}`,
+      changes: [
+        {
+          field: 'stock',
+          fieldNameVi: 'Số lượng tồn kho',
+          oldValue: stockBefore,
+          newValue: newStock,
+        },
+      ],
+      metadata: {
+        actionType,
+        reason: reason || 'Kiểm kê kho',
+      },
+    });
 
     res.json({
       success: true,

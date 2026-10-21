@@ -11,6 +11,11 @@ const orderItemSchema = new mongoose.Schema({
     required: true,
     trim: true,
   },
+  image: {
+    type: String,
+    default: '',
+    trim: true,
+  },
   // Size và màu tại thời điểm mua (có thể rỗng cho đơn hàng cũ / sản phẩm chưa có biến thể)
   size: {
     type: String,
@@ -67,8 +72,44 @@ const orderSchema = new mongoose.Schema(
         default: '',
         trim: true,
       },
+      streetAddress: {
+        type: String,
+        default: '',
+        trim: true,
+      },
+      province: {
+        type: String,
+        default: '',
+        trim: true,
+      },
+      provinceId: {
+        type: Number,
+      },
+      district: {
+        type: String,
+        default: '',
+        trim: true,
+      },
+      districtId: {
+        type: Number,
+      },
+      ward: {
+        type: String,
+        default: '',
+        trim: true,
+      },
+      wardCode: {
+        type: String,
+        default: '',
+        trim: true,
+      },
     },
     items: [orderItemSchema],
+    shippingFee: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
     totalAmount: {
       type: Number,
       required: true,

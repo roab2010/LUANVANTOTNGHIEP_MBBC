@@ -138,7 +138,13 @@ QuanLyBanHangBC/
 | GET | /api/auth/me | Token | Lấy thông tin user |
 | POST | /api/auth/logout | Token | Đăng xuất |
 
-### (Các module khác sẽ bổ sung sau)
+### Vận chuyển & Giao Hàng Nhanh (GHN Staging - Module 10)
+| Method | Endpoint | Auth | Mô tả |
+|--------|----------|------|--------|
+| GET | /api/shipping/provinces | Public | Lấy danh sách Tỉnh/Thành từ Master Data GHN |
+| GET | /api/shipping/districts?province_id=... | Public | Lấy danh sách Quận/Huyện theo Tỉnh/Thành từ GHN |
+| GET | /api/shipping/wards?district_id=... | Public | Lấy danh sách Phường/Xã theo Quận/Huyện từ GHN |
+| POST | /api/shipping/calculate-fee | Public | Tính phí vận chuyển thực tế qua cổng GHN Staging |
 
 ---
 
@@ -154,6 +160,35 @@ QuanLyBanHangBC/
   role: 'admin' | 'customer' (default: 'customer'),
   status: 'active' | 'blocked' | 'deleted' (default: 'active'),
   timestamps: true
+}
+```
+
+### ActivityLog (Nhật ký hoạt động hệ thống)
+```
+{
+  actorId: ObjectId (ref: 'User', optional - null nếu đăng nhập sai),
+  actorName: String (tên người thực hiện),
+  actorRole: 'admin' | 'system' (chỉ ghi nhận thao tác của Quản trị viên và Hệ thống, không ghi nhận khách hàng),
+  action: 'LOGIN' | 'LOGOUT' | 'CREATE' | 'UPDATE' | 'DELETE' | 'STATUS_CHANGE' | 'STOCK_IN' | 'STOCK_OUT' | 'STOCK_ADJUST' | 'BLOCK' | 'UNBLOCK' | 'EXPORT',
+  module: 'AUTH' | 'PRODUCT' | 'CATEGORY' | 'SUPPLIER' | 'ORDER' | 'CUSTOMER' | 'INVENTORY' | 'SYSTEM',
+  targetType: String ('User', 'Product', 'Category', 'Order', ...),
+  targetId: String (ID đối tượng bị tác động),
+  targetName: String (Tên/Mã đối tượng),
+  description: String (Mô tả hành động tiếng Việt rõ ràng),
+  changes: [
+    {
+      field: String,
+      fieldNameVi: String,
+      oldValue: Mixed,
+      newValue: Mixed
+    }
+  ],
+  status: 'SUCCESS' | 'FAILED' (mặc định: 'SUCCESS'),
+  errorMessage: String (optional),
+  ipAddress: String (IP thực hiện thao tác),
+  userAgent: String (Trình duyệt / Thiết bị),
+  metadata: Mixed,
+  createdAt: Date (tự động)
 }
 ```
 
@@ -187,11 +222,25 @@ npm run dev                # Chạy frontend port 5173
 ### Cấu hình .env (server/.env) - KHÔNG COMMIT
 - Copy file `.env.example` thành `.env`
 - Điền chuỗi kết nối MongoDB Atlas của nhóm vào biến `MONGODB_URI`
+- Cấu hình Cloudinary (lưu trữ ảnh)
+- Cấu hình GHN Staging (Tính phí vận chuyển thử nghiệm - Sandbox giả lập, không tạo vận đơn thật, không trừ tiền)
 
-```
+```env
 PORT=5000
 MONGODB_URI=mongodb+srv://<username>:<password>@cluster0.xxx.mongodb.net/quanlybanhang?retryWrites=true&w=majority
 JWT_SECRET=chuoi_bi_mat_bat_ky_tu_chon
+
+# Cloudinary
+CLOUDINARY_CLOUD_NAME=your_cloud_name
+CLOUDINARY_API_KEY=your_api_key
+CLOUDINARY_API_SECRET=your_api_secret
+
+# Giao Hàng Nhanh (GHN Staging - Sandbox Thử nghiệm cho Đồ án)
+GHN_API_URL=https://dev-online-gateway.ghn.vn/shiip/public-api
+GHN_TOKEN=your_ghn_staging_token
+GHN_SHOP_ID=232043
+GHN_FROM_DISTRICT_ID=1446
+GHN_FROM_WARD_CODE=20415
 ```
 
 ---
@@ -215,7 +264,7 @@ JWT_SECRET=chuoi_bi_mat_bat_ky_tu_chon
 - /customer, /cart, /checkout, /orders, /profile
 
 ### Admin (cần đăng nhập + role admin)
-- /admin, /admin/dashboard, /admin/products, ...
+- /admin, /admin/dashboard, /admin/products, /admin/categories, /admin/suppliers, /admin/orders, /admin/customers, /admin/statistics, /admin/activity-logs
 
 ---
 
@@ -231,11 +280,12 @@ JWT_SECRET=chuoi_bi_mat_bat_ky_tu_chon
 | 6 | Quản lý kho | ✅ Đã gộp vào Module Sản phẩm |
 | 7 | Nhập hàng | ✅ Đã tinh gọn & tích hợp trực tiếp vào Module Sản phẩm |
 | 8 | Quản lý khách hàng | ✅ Hoàn thành |
-| 9 | Giỏ hàng | ⬜ Chưa bắt đầu |
-| 10 | Đặt hàng / Checkout | ⬜ Chưa bắt đầu |
+| 9 | Giỏ hàng & Danh mục sản phẩm (Storefront) | ✅ Hoàn thành |
+| 10 | Đặt hàng / Checkout & Tích hợp GHN Staging | ✅ Hoàn thành |
 | 11 | Quản lý đơn hàng | ✅ Hoàn thành |
 | 12 | Thống kê doanh thu | ✅ Hoàn thành |
 | 13 | Quản lý tài khoản | ⬜ Chưa bắt đầu |
+| 14 | Nhật ký hoạt động (Activity Log / Audit Log) | ✅ Hoàn thành |
 
 ---
 
@@ -309,3 +359,11 @@ JWT_SECRET=chuoi_bi_mat_bat_ky_tu_chon
 | 19/10/2026 | Tinh gọn chức năng kho cho dự án MBBC: Chuyển toàn bộ quy trình nhập kho & xuất kho trực tiếp vào từng sản phẩm tại trang Quản lý sản phẩm; Thêm nút và modal Xem chi tiết (ProductDetailModal) kèm bảng lịch sử giao dịch kho thực tế của riêng sản phẩm đó; Tinh gọn nút Nhập kho (StockAdjustModal) tăng tồn và ghi nhận lịch sử; Thêm nút và modal Xuất kho (StockExportModal) giảm tồn với 4 lý do (hàng lỗi/hư hỏng, sử dụng nội bộ, điều chỉnh tồn kho, khác) và chặn xuất vượt tồn; Tạo model StockHistory hợp nhất; Ẩn giá vốn nội bộ costPrice đối với tài khoản Customer |
 | 19/10/2026 | Dọn dẹp triệt để hệ thống phiếu nhập cũ: Xóa toàn bộ dữ liệu 3 phiếu nhập cũ trong collection importreceipts trên Atlas, trừ lại số lượng tồn kho đã nhập thử (LOGO MOB CAP trừ 5 cái từ 10 xuống 5; ADDICT FLARED WASHED PANTS trừ 15 cái từ 25 xuống 10); Gỡ bỏ hoàn toàn nút xem lịch sử phiếu nhập (icon đồng hồ), modal lịch sử cung cấp (SupplierHistoryModal) và modal tạo phiếu nhập (CreateImportReceiptModal) khỏi trang Quản lý nhà cung cấp (SuppliersPage); Xóa bỏ toàn bộ controller, routes, API và model ImportReceipt.js không còn sử dụng |
 | 19/10/2026 | Cập nhật Module 5 (Nhà cung cấp): Giới hạn ký tự và chặn nhập trực tiếp theo thời gian thực (real-time blocking) cho form Thêm & Sửa nhà cung cấp: Tên nhà cung cấp tối đa 100 ký tự; Số điện thoại tối đa 11 số (chỉ cho phép nhập số); Địa chỉ tối đa 200 ký tự; Ghi chú tối đa 300 ký tự; Bổ sung bộ đếm ký tự hiển thị trực quan và validate chặt chẽ cả frontend và backend |
+| 21/10/2026 | Xây dựng Trang Chi tiết sản phẩm dành cho khách hàng (Customer Product Detail Page - ProductDetailPage.jsx): Layout chuẩn streetwear MBBC, bộ sưu tập ảnh thumbnail đổi ảnh mượt mà, chọn biến thể size/màu sắc trực quan kèm chấm màu trạng thái tồn kho, thanh sticky bar thêm vào giỏ hàng dưới đáy màn hình tự động hiển thị/ẩn theo cuộn trang, danh sách sản phẩm cùng danh mục và sản phẩm đã xem gần đây (lưu trữ localStorage) |
+| 21/10/2026 | Xây dựng Trang Danh mục sản phẩm (CategoryPage.jsx): Breadcrumb điều hướng, tiêu đề danh mục lớn, toolbar bộ lọc drawer, lưới sản phẩm 3:4 chuẩn thời trang; Tích hợp 9 tiêu chí sắp xếp thực tế từ MongoDB (giá tăng/giảm, tên A-Z/Z-A, mới/cũ nhất, tồn kho giảm dần, sản phẩm nổi bật isFeatured, bán chạy nhất best_seller tổng hợp từ Order aggregation); Tự động đổi bảng màu/size và khoảng giá theo danh mục trong Drawer thời gian thực (0ms cache); Đồng bộ URL search params và phân trang "Xem thêm" |
+| 21/10/2026 | Nâng cấp StoreHeader.jsx: Dropdown menu SHOP hỗ trợ cả hover & click (TOPS, OUTWEAR, BOTTOMS, ACCESSORIES, NEW ARRIVALS); Menu hamburger mở slide drawer trên điện thoại di động hỗ trợ cảm ứng 100%; Nhận diện scroll tự động chuyển nền trắng khi cuộn qua hero banner |
+| 21/10/2026 | Tích hợp tính phí vận chuyển tự động Giao Hàng Nhanh (GHN Staging API - Module 10): Tạo ghnService.js kết nối Master Data GHN (Tỉnh/Thành, Quận/Huyện, Phường/Xã) và endpoint tính phí chính thức POST /v2/shipping-order/fee; Xác nhận môi trường Staging/Sandbox hoàn toàn giả lập, an toàn tuyệt đối cho đồ án (chỉ gọi tính cước tham khảo, không tạo vận đơn thực tế, không trừ tiền tài khoản); Cấu hình kho xuất phát giả lập Quận 4, TP.HCM (from_district_id: 1446, from_ward_code: '20415'); Cấu hình gói hàng demo 250g/sản phẩm; Nâng cấp modal Checkout với 3 dropdown Tỉnh -> Huyện -> Xã chuẩn mã GHN; Tự động tính phí ship theo thời gian thực; Xác thực phí ship độc lập tại Backend khi tạo đơn hàng (createOrder); Bổ sung shippingFee và lưu địa chỉ cấu trúc trong Order.js; Cập nhật .env.example và bảo mật an toàn qua .gitignore |
+| 21/10/2026 | Nâng cấp Checkout & Đơn hàng của tôi (StoreModals.jsx & MyOrdersModal.jsx): Tự động lưu và điền sẵn địa chỉ nhận hàng từ lần đặt trước (Họ tên, SĐT, Tỉnh, Huyện, Xã, Số nhà và tự tính phí GHN ngay khi mở modal); Thay thế dropdown Tỉnh/Huyện/Xã thành SearchableSelect có ô tìm kiếm gợi ý thời gian thực (hỗ trợ gõ không dấu/có dấu); Hiển thị hình ảnh thumbnail sản phẩm và chip màu sắc kèm chấm màu (color dot) trực quan trong cả modal Checkout và modal Đơn hàng của tôi; Bổ sung trường image cho items trong Order model và cơ chế tự động retry khi GHN Staging bị gián đoạn mạng tạm thời |
+| 21/10/2026 | Sửa lỗi nút "Đơn hàng của tôi" (CustomerHome.jsx & MyOrdersModal.jsx): Khắc phục lỗi thiếu `setIsMyOrdersOpen` trong hook `useCart` tại trang chủ khiến nút không mở được modal; Nâng `z-index` của MyOrdersModal lên `z-[70]` đảm bảo hiển thị nổi trên Header; Bổ sung mục "Đơn hàng của tôi" vào Mobile menu trên trang chủ |
+| 21/10/2026 | Nâng cấp trang Quản lý đơn hàng Admin (OrdersPage.jsx & OrderDetailModal.jsx): Bổ sung hình ảnh thumbnail sản phẩm và chip màu sắc kèm chấm màu (color dot) trực quan trong cả bảng danh sách đơn hàng và modal Chi tiết đơn hàng; Mở rộng kích thước modal (max-w-3xl) thoáng đẹp; Bổ sung dòng phân tách chi tiết cước phí vận chuyển GHN và tiền hàng trong bảng chi tiết |
+| 21/10/2026 | Triển khai Hệ thống Nhật ký hoạt động toàn diện (Activity Log / Audit Log - Module 14): Xây dựng model ActivityLog với đầy đủ indexes tối ưu tìm kiếm; Tạo activityLogService an toàn (fail-safe không chặn luồng chính, tự so sánh diffObjects trước/sau, tự sanitizeData loại bỏ mật khẩu/token, trích xuất IP và UserAgent); Tích hợp ghi log tự động trên toàn bộ hệ thống (Đăng nhập/Đăng xuất/Đăng ký/Khóa tài khoản, CRUD Sản phẩm kèm diff giá & tồn kho, Danh mục, Nhà cung cấp, Xuất nhập tồn kho, Đổi trạng thái đơn hàng); Bảo vệ endpoint API bằng authenticateToken và requireAdmin (401/403); Xây dựng giao diện Quản trị ActivityLogsPage.jsx với 3 thẻ KPI, bộ lọc đa năng (tìm kiếm, module, hành động, trạng thái, khoảng ngày), phân trang và modal ActivityLogDetailModal.jsx soi chi tiết biến động dữ liệu trực quan |

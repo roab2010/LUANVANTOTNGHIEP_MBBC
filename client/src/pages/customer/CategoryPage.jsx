@@ -112,11 +112,21 @@ const CategoryPage = () => {
   const activeMaxPrice = searchParams.get('maxPrice') || '';
   const activeColors = useMemo(() => {
     const c = searchParams.get('colors');
-    return c ? c.split(',').filter(Boolean) : [];
+    return c
+      ? c
+          .split(',')
+          .map((x) => x.trim())
+          .filter((x) => Boolean(x) && x !== 'null' && x !== 'undefined')
+      : [];
   }, [searchParams]);
   const activeSizes = useMemo(() => {
     const s = searchParams.get('sizes');
-    return s ? s.split(',').filter(Boolean) : [];
+    return s
+      ? s
+          .split(',')
+          .map((x) => x.trim())
+          .filter((x) => Boolean(x) && x !== 'null' && x !== 'undefined')
+      : [];
   }, [searchParams]);
   const activeInStock = searchParams.get('inStock') === 'true';
   const searchQuery = searchParams.get('search') || '';
@@ -285,20 +295,45 @@ const CategoryPage = () => {
     return count;
   }, [activeMinPrice, activeMaxPrice, activeColors, activeSizes, activeInStock]);
 
-  // Cập nhật URL Query Params
-  const updateQueryParams = (updates) => {
+  // Helper: Tạo URLSearchParams sạch, loại bỏ các giá trị null / undefined / 'null' / rỗng
+  const computeNextSearchParams = (updates) => {
     const nextParams = new URLSearchParams(searchParams);
 
     Object.entries(updates).forEach(([key, value]) => {
-      if (value === null || value === undefined || value === '' || (Array.isArray(value) && value.length === 0)) {
+      if (
+        value === null ||
+        value === undefined ||
+        value === '' ||
+        value === 'null' ||
+        value === 'undefined' ||
+        (Array.isArray(value) && value.length === 0)
+      ) {
         nextParams.delete(key);
       } else if (Array.isArray(value)) {
-        nextParams.set(key, value.join(','));
+        const cleanArr = value
+          .map((v) => (typeof v === 'string' ? v.trim() : v))
+          .filter((v) => Boolean(v) && v !== 'null' && v !== 'undefined');
+        if (cleanArr.length > 0) {
+          nextParams.set(key, cleanArr.join(','));
+        } else {
+          nextParams.delete(key);
+        }
       } else {
-        nextParams.set(key, String(value));
+        const strVal = String(value).trim();
+        if (strVal === '' || strVal === 'null' || strVal === 'undefined') {
+          nextParams.delete(key);
+        } else {
+          nextParams.set(key, strVal);
+        }
       }
     });
 
+    return nextParams;
+  };
+
+  // Cập nhật URL Query Params
+  const updateQueryParams = (updates) => {
+    const nextParams = computeNextSearchParams(updates);
     setSearchParams(nextParams);
   };
 
@@ -309,28 +344,32 @@ const CategoryPage = () => {
 
   // Áp dụng bộ lọc từ Filter Drawer
   const handleApplyFilterDrawer = () => {
+    const cleanColors = draftColors.filter((c) => Boolean(c) && c !== 'null' && c !== 'undefined');
+    const cleanSizes = draftSizes.filter((s) => Boolean(s) && s !== 'null' && s !== 'undefined');
+
     const updates = {
       minPrice: draftMinPrice || null,
       maxPrice: draftMaxPrice || null,
-      colors: draftColors.length > 0 ? draftColors : null,
-      sizes: draftSizes.length > 0 ? draftSizes : null,
+      colors: cleanColors.length > 0 ? cleanColors : null,
+      sizes: cleanSizes.length > 0 ? cleanSizes : null,
       inStock: draftInStock ? 'true' : null,
     };
 
     setIsFilterDrawerOpen(false);
 
+    const nextParams = computeNextSearchParams(updates);
+    const searchString = nextParams.toString();
+    const targetSearch = searchString ? `?${searchString}` : '';
+
     // Nếu người dùng chọn đổi danh mục bên trong bộ lọc
     if (draftCategory !== currentCategory) {
       if (draftCategory === 'ALL') {
-        navigate({ pathname: '/category', search: new URLSearchParams(updates).toString() });
+        navigate(`/category${targetSearch}`);
       } else {
-        navigate({
-          pathname: `/category/${encodeURIComponent(draftCategory)}`,
-          search: new URLSearchParams(updates).toString(),
-        });
+        navigate(`/category/${encodeURIComponent(draftCategory)}${targetSearch}`);
       }
     } else {
-      updateQueryParams(updates);
+      setSearchParams(nextParams);
     }
 
     showToast('Đã áp dụng bộ lọc');

@@ -84,6 +84,7 @@ const CustomerHome = () => {
     addToCart,
     totalCartCount,
     setIsCartOpen,
+    setIsMyOrdersOpen,
     showToast,
   } = useCart();
 
@@ -607,6 +608,49 @@ const CustomerHome = () => {
                 )}
               </button>
             ))}
+
+            {/* Mobile Account Section */}
+            <div className="pt-3 border-t border-neutral-100">
+              {user ? (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between py-1 text-xs font-bold text-neutral-600">
+                    <span className="truncate max-w-[200px]">Xin chào, {user.fullName || user.email}</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMobileMenuOpen(false);
+                      setIsMyOrdersOpen(true);
+                    }}
+                    className="w-full text-left py-2 text-xs font-black uppercase tracking-wider text-neutral-900 hover:text-black flex items-center justify-between"
+                  >
+                    <span>Đơn hàng của tôi</span>
+                    <span>→</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMobileMenuOpen(false);
+                      handleLogout();
+                    }}
+                    className="w-full text-center py-2 bg-black text-white text-xs font-bold uppercase tracking-wider mt-2"
+                  >
+                    Đăng xuất
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    navigate('/login');
+                  }}
+                  className="w-full text-center py-2 bg-black text-white text-xs font-bold uppercase tracking-wider"
+                >
+                  Đăng nhập
+                </button>
+              )}
+            </div>
           </div>
         )}
       </header>

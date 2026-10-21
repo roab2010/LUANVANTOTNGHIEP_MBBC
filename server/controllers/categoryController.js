@@ -1,5 +1,6 @@
 const Category = require('../models/Category');
 const Product = require('../models/Product');
+const { logActivity, diffObjects } = require('../services/activityLogService');
 
 // ============================================
 // LẤY DANH SÁCH DANH MỤC - GET /api/categories
@@ -152,6 +153,16 @@ const createCategory = async (req, res) => {
       status: 'active',
     });
 
+    logActivity({
+      req,
+      action: 'CREATE',
+      module: 'CATEGORY',
+      targetType: 'Category',
+      targetId: category._id,
+      targetName: category.name,
+      description: `Tạo mới danh mục sản phẩm: "${category.name}"`,
+    });
+
     res.status(201).json({
       success: true,
       message: 'Tạo danh mục thành công',
@@ -187,6 +198,11 @@ const updateCategory = async (req, res) => {
         message: 'Không tìm thấy danh mục',
       });
     }
+
+    const oldCategorySnapshot = {
+      name: category.name,
+      description: category.description,
+    };
 
     const oldName = category.name;
     let isNameChanged = false;
@@ -248,6 +264,22 @@ const updateCategory = async (req, res) => {
       );
     }
 
+    const categoryChanges = diffObjects(oldCategorySnapshot, category, {
+      name: 'Tên danh mục',
+      description: 'Mô tả danh mục',
+    });
+
+    logActivity({
+      req,
+      action: 'UPDATE',
+      module: 'CATEGORY',
+      targetType: 'Category',
+      targetId: category._id,
+      targetName: category.name,
+      description: `Cập nhật thông tin danh mục: "${category.name}"`,
+      changes: categoryChanges,
+    });
+
     res.json({
       success: true,
       message: 'Cập nhật danh mục thành công',
@@ -288,11 +320,30 @@ const toggleCategoryStatus = async (req, res) => {
       });
     }
 
-    const nextStatus = category.status === 'active' ? 'inactive' : 'active';
+    const oldStatus = category.status;
+    const nextStatus = oldStatus === 'active' ? 'inactive' : 'active';
     category.status = nextStatus;
     await category.save();
 
     const actionText = nextStatus === 'active' ? 'Mở khóa' : 'Khóa';
+
+    logActivity({
+      req,
+      action: 'STATUS_CHANGE',
+      module: 'CATEGORY',
+      targetType: 'Category',
+      targetId: category._id,
+      targetName: category.name,
+      description: `${actionText} danh mục sản phẩm: "${category.name}"`,
+      changes: [
+        {
+          field: 'status',
+          fieldNameVi: 'Trạng thái hoạt động',
+          oldValue: oldStatus,
+          newValue: nextStatus,
+        },
+      ],
+    });
 
     res.json({
       success: true,
@@ -331,6 +382,24 @@ const deleteCategory = async (req, res) => {
         message: 'Không tìm thấy danh mục',
       });
     }
+
+    logActivity({
+      req,
+      action: 'STATUS_CHANGE',
+      module: 'CATEGORY',
+      targetType: 'Category',
+      targetId: category._id,
+      targetName: category.name,
+      description: `Khóa danh mục: "${category.name}" (Bảo toàn dữ liệu sản phẩm)`,
+      changes: [
+        {
+          field: 'status',
+          fieldNameVi: 'Trạng thái',
+          oldValue: 'active',
+          newValue: 'inactive',
+        },
+      ],
+    });
 
     res.json({
       success: true,
