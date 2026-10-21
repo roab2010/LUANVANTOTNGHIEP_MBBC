@@ -11,6 +11,17 @@ const orderItemSchema = new mongoose.Schema({
     required: true,
     trim: true,
   },
+  // Size và màu tại thời điểm mua (có thể rỗng cho đơn hàng cũ / sản phẩm chưa có biến thể)
+  size: {
+    type: String,
+    default: '',
+    trim: true,
+  },
+  color: {
+    type: String,
+    default: '',
+    trim: true,
+  },
   price: {
     type: Number,
     required: true,

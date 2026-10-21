@@ -176,7 +176,23 @@ const OrderDetailModal = ({ order, onClose, onStatusUpdated }) => {
                 <tbody className="divide-y divide-gray-100">
                   {order.items?.map((item, idx) => (
                     <tr key={idx}>
-                      <td className="py-3 px-4 font-medium text-gray-900">{item.name}</td>
+                      <td className="py-3 px-4 font-medium text-gray-900">
+                        <div>{item.name}</div>
+                        {(item.size || item.color) && (
+                          <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                            {item.size && (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold bg-gray-100 text-gray-800 border border-gray-200">
+                                Size: {item.size}
+                              </span>
+                            )}
+                            {item.color && (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold bg-teal-50 text-teal-800 border border-teal-200">
+                                Màu: {item.color}
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      </td>
                       <td className="py-3 px-4 text-right text-gray-600 tabular-nums">{formatPrice(item.price)}</td>
                       <td className="py-3 px-4 text-center font-semibold text-gray-900 tabular-nums">{item.quantity}</td>
                       <td className="py-3 px-4 text-right font-semibold text-gray-900 tabular-nums">{formatPrice(item.total)}</td>

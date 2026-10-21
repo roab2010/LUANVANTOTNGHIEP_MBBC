@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { getSuppliers } from '../../../services/supplierApi';
 import { importStock } from '../../../services/warehouseApi';
+import VariantSelect, { getVariantColorHex } from '../../../components/VariantSelect';
 
 // ============================================
 // ICONS
@@ -25,6 +26,8 @@ const ImportIcon = () => (
 );
 
 const StockAdjustModal = ({ item, onClose, onSuccess }) => {
+  const hasVariants = Boolean(item?.variants && item.variants.length > 0);
+  const [selectedVariantIndex, setSelectedVariantIndex] = useState(0);
   const [suppliers, setSuppliers] = useState([]);
   const [suppliersLoading, setSuppliersLoading] = useState(true);
   const [supplierId, setSupplierId] = useState('');
@@ -35,6 +38,8 @@ const StockAdjustModal = ({ item, onClose, onSuccess }) => {
   const [priceError, setPriceError] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  const selectedVariant = hasVariants ? item.variants[selectedVariantIndex] : null;
 
   // Tải danh sách nhà cung cấp
   useEffect(() => {
@@ -61,7 +66,7 @@ const StockAdjustModal = ({ item, onClose, onSuccess }) => {
     fetchSupplierList();
   }, [item]);
 
-  const currentStock = item?.stock || 0;
+  const currentStock = hasVariants ? (selectedVariant?.stock || 0) : (item?.stock || 0);
   const numQty = parseInt(quantity, 10) || 0;
   const previewStock = currentStock + numQty;
   const productCode = item?._id ? `#MBBC-${item._id.slice(-6).toUpperCase()}` : '—';
@@ -141,13 +146,15 @@ const StockAdjustModal = ({ item, onClose, onSuccess }) => {
 
     setLoading(true);
     try {
-      // Gọi API nhập kho trực tiếp tại sản phẩm (Lưu StockHistory thực tế)
+      // Gọi API nhập kho trực tiếp tại sản phẩm (Lưu StockHistory thực tế và theo biến thể nếu có)
       await importStock({
         productId: item._id,
         quantity: numQty,
         supplierId: supplierId || undefined,
         unitPrice: priceNum,
         note: note.trim() || undefined,
+        variantSize: selectedVariant ? selectedVariant.size : undefined,
+        variantColor: selectedVariant ? selectedVariant.color : undefined,
       });
 
       onSuccess();
@@ -212,12 +219,67 @@ const StockAdjustModal = ({ item, onClose, onSuccess }) => {
             </div>
 
             <div className="flex items-center justify-between pt-2 border-t border-gray-200/60 text-xs">
-              <span className="text-gray-500">Tồn kho hiện tại:</span>
-              <span className="font-bold text-gray-900 tabular-nums text-sm">
-                {currentStock} <span className="font-normal text-gray-500">{item?.unit || 'cái'}</span>
-              </span>
+              <div className="flex items-center gap-1.5 text-gray-500">
+                {hasVariants && (
+                  <span
+                    className="w-2.5 h-2.5 rounded-full inline-block border border-black/15 shrink-0"
+                    style={{ backgroundColor: getVariantColorHex(selectedVariant?.color) }}
+                  />
+                )}
+                <span>
+                  {hasVariants ? `Tồn biến thể (${selectedVariant?.size} / ${selectedVariant?.color}):` : 'Tồn kho hiện tại:'}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="font-bold text-gray-900 tabular-nums text-sm">
+                  {currentStock} <span className="font-normal text-gray-500">{item?.unit || 'cái'}</span>
+                </span>
+                {hasVariants && (
+                  currentStock <= 0 ? (
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-50 text-red-600 border border-red-200">
+                      Hết hàng
+                    </span>
+                  ) : (
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                      Còn hàng
+                    </span>
+                  )
+                )}
+              </div>
             </div>
+            {hasVariants ? (
+              <div className="flex items-center justify-between pt-1 text-[11px] text-gray-500">
+                <span>Tổng tồn toàn bộ biến thể:</span>
+                <span className="font-semibold text-gray-700">{item?.stock || 0} {item?.unit || 'cái'}</span>
+              </div>
+            ) : (
+              <div className="mt-1.5 text-[11px] text-amber-800 bg-amber-50/80 p-2 rounded border border-amber-200/70">
+                ℹ️ Sản phẩm này chưa chia Size/Màu nên áp dụng nhập trực tiếp vào <strong>Tồn kho chung</strong>. (Vào mục "Sửa sản phẩm" nếu bạn muốn chia tồn kho theo từng Size/Màu).
+              </div>
+            )}
           </div>
+
+          {/* Chọn Biến thể (nếu sản phẩm có biến thể) */}
+          {hasVariants && (
+            <div>
+              <div className="text-xs font-semibold text-gray-700 mb-1.5 flex items-center justify-between">
+                <span>Chọn biến thể nhập <span className="text-red-500">*</span></span>
+                <span className="text-[10px] text-teal-600 font-semibold">{item.variants.length} biến thể</span>
+              </div>
+              <VariantSelect
+                variants={item.variants}
+                selectedIndex={selectedVariantIndex}
+                onSelect={(idx) => {
+                  setSelectedVariantIndex(idx);
+                  setQuantity('');
+                  setQtyError('');
+                }}
+                unit={item?.unit || 'cái'}
+                disabled={loading}
+                accent="teal"
+              />
+            </div>
+          )}
 
           {/* Chọn Nhà cung cấp */}
           <div>

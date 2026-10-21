@@ -62,7 +62,7 @@ const formatDate = (dateString) => {
   });
 };
 
-const ProductDetailModal = ({ product, onClose, onOpenImport, onOpenExport }) => {
+const ProductDetailModal = ({ product, onClose, onOpenImport, onOpenExport, onOpenEdit }) => {
   const [history, setHistory] = useState([]);
   const [loadingHistory, setLoadingHistory] = useState(true);
   const [historyError, setHistoryError] = useState('');
@@ -270,6 +270,110 @@ const ProductDetailModal = ({ product, onClose, onOpenImport, onOpenExport }) =>
             </div>
           </div>
 
+          {/* Section: Danh sách biến thể (Size + Màu sắc + Tồn kho) */}
+          {product.variants && product.variants.length > 0 ? (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h4 className="text-sm font-bold text-gray-900 tracking-tight flex items-center gap-2">
+                  <span>Biến thể sản phẩm (Size & Màu sắc)</span>
+                  <span className="text-xs font-semibold px-2 py-0.5 bg-teal-50 text-teal-700 rounded-full border border-teal-200">
+                    {product.variants.length} biến thể
+                  </span>
+                </h4>
+                <div className="flex items-center gap-3">
+                  <span className="text-xs text-gray-500">
+                    Tổng tồn: <strong className="text-gray-900">{product.stock}</strong> {product.unit || 'cái'}
+                  </span>
+                  {onOpenEdit && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onClose();
+                        onOpenEdit(product);
+                      }}
+                      className="text-xs text-primary-600 hover:text-primary-800 font-semibold hover:underline"
+                    >
+                      Sửa biến thể
+                    </button>
+                  )}
+                </div>
+              </div>
+              <div className="border border-gray-200 rounded-xl overflow-hidden bg-white shadow-2xs">
+                <table className="w-full text-xs">
+                  <thead className="bg-gray-50 border-b border-gray-200 text-gray-600">
+                    <tr>
+                      <th className="py-2.5 px-4 text-left font-semibold">Size</th>
+                      <th className="py-2.5 px-4 text-left font-semibold">Màu sắc</th>
+                      <th className="py-2.5 px-4 text-right font-semibold">Số lượng tồn</th>
+                      <th className="py-2.5 px-4 text-center font-semibold">Trạng thái</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {product.variants.map((v, i) => (
+                      <tr key={i} className="hover:bg-gray-50/60 transition-colors">
+                        <td className="py-2.5 px-4 font-bold text-gray-900">
+                          <span className="px-2 py-0.5 bg-gray-100 rounded text-gray-800 font-mono">
+                            {v.size}
+                          </span>
+                        </td>
+                        <td className="py-2.5 px-4 font-medium text-gray-800">
+                          <span className="inline-flex items-center gap-1.5">
+                            <span className="w-2.5 h-2.5 rounded-full border border-gray-300 bg-gray-200 inline-block" />
+                            {v.color}
+                          </span>
+                        </td>
+                        <td className="py-2.5 px-4 text-right font-bold text-gray-900 tabular-nums">
+                          {v.stock} <span className="font-normal text-gray-400">{product.unit || 'cái'}</span>
+                        </td>
+                        <td className="py-2.5 px-4 text-center">
+                          {v.stock > 0 ? (
+                            <span className="inline-block px-2 py-0.5 text-[11px] font-semibold text-emerald-700 bg-emerald-50 rounded">
+                              Còn hàng
+                            </span>
+                          ) : (
+                            <span className="inline-block px-2 py-0.5 text-[11px] font-semibold text-red-600 bg-red-50 rounded">
+                              Hết hàng
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ) : (
+            <div className="p-4 bg-amber-50/60 border border-amber-200/80 rounded-xl flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center shrink-0">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+                  </svg>
+                </div>
+                <div>
+                  <h5 className="text-xs font-bold text-gray-900 uppercase tracking-wide">
+                    Sản phẩm chưa cấu hình biến thể (Size & Màu sắc)
+                  </h5>
+                  <p className="text-xs text-gray-600 mt-0.5">
+                    Sản phẩm đang dùng tồn kho chung là <strong className="text-gray-900">{product.stock} {product.unit || 'cái'}</strong>. Bấm nút bên cạnh để thêm các Size (S, M, L...) và Màu sắc.
+                  </p>
+                </div>
+              </div>
+              {onOpenEdit && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onClose();
+                    onOpenEdit(product);
+                  }}
+                  className="px-3.5 py-1.5 text-xs font-semibold text-amber-900 bg-white border border-amber-300 hover:bg-amber-100 rounded-lg transition-colors shadow-2xs"
+                >
+                  + Cấu hình Size & Màu
+                </button>
+              )}
+            </div>
+          )}
+
           {/* Section: Lịch sử nhập / xuất kho */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
@@ -328,14 +432,15 @@ const ProductDetailModal = ({ product, onClose, onOpenImport, onOpenExport }) =>
                   <table className="w-full text-left text-xs">
                     <thead className="bg-gray-50 border-b border-gray-200 text-gray-600 font-semibold uppercase tracking-wider text-[11px]">
                       <tr>
-                        <th className="px-4 py-3">Thời gian</th>
-                        <th className="px-4 py-3">Loại giao dịch</th>
-                        <th className="px-4 py-3 text-right">Số lượng</th>
-                        <th className="px-4 py-3 text-right">Tồn sau GD</th>
-                        <th className="px-4 py-3">Nhà cung cấp / Lý do</th>
-                        <th className="px-4 py-3 text-right">Đơn giá nhập</th>
-                        <th className="px-4 py-3">Người thực hiện</th>
-                        <th className="px-4 py-3">Ghi chú</th>
+                        <th className="px-3.5 py-3">Thời gian</th>
+                        <th className="px-3.5 py-3">Loại giao dịch</th>
+                        <th className="px-3.5 py-3">Biến thể</th>
+                        <th className="px-3.5 py-3 text-right">Số lượng</th>
+                        <th className="px-3.5 py-3 text-right">Tồn sau GD</th>
+                        <th className="px-3.5 py-3">Nhà cung cấp / Lý do</th>
+                        <th className="px-3.5 py-3 text-right">Đơn giá nhập</th>
+                        <th className="px-3.5 py-3">Người thực hiện</th>
+                        <th className="px-3.5 py-3">Ghi chú</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100">
@@ -344,12 +449,12 @@ const ProductDetailModal = ({ product, onClose, onOpenImport, onOpenExport }) =>
                         return (
                           <tr key={item._id} className="hover:bg-gray-50/80 transition-colors">
                             {/* Thời gian */}
-                            <td className="px-4 py-3 font-mono text-gray-600 whitespace-nowrap">
+                            <td className="px-3.5 py-3 font-mono text-gray-600 whitespace-nowrap">
                               {formatDate(item.createdAt)}
                             </td>
 
                             {/* Loại giao dịch */}
-                            <td className="px-4 py-3 whitespace-nowrap">
+                            <td className="px-3.5 py-3 whitespace-nowrap">
                               {isImport ? (
                                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-teal-50 text-teal-700 border border-teal-200">
                                   <ImportIcon />
@@ -363,8 +468,21 @@ const ProductDetailModal = ({ product, onClose, onOpenImport, onOpenExport }) =>
                               )}
                             </td>
 
+                            {/* Biến thể */}
+                            <td className="px-3.5 py-3 whitespace-nowrap">
+                              {item.variantSize || item.variantColor ? (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                                  Size {item.variantSize || '—'} / {item.variantColor || '—'}
+                                </span>
+                              ) : (
+                                <span className="text-[11px] text-gray-400 italic">
+                                  Tồn kho chung
+                                </span>
+                              )}
+                            </td>
+
                             {/* Số lượng */}
-                            <td className="px-4 py-3 text-right font-bold tabular-nums whitespace-nowrap">
+                            <td className="px-3.5 py-3 text-right font-bold tabular-nums whitespace-nowrap">
                               <span className={isImport ? 'text-teal-700' : 'text-amber-700'}>
                                 {isImport ? `+${item.quantity}` : `-${item.quantity}`}
                               </span>{' '}

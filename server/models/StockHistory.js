@@ -8,6 +8,17 @@ const stockHistorySchema = new mongoose.Schema(
       required: [true, 'Vui lòng chọn sản phẩm'],
       index: true,
     },
+    // Biến thể được nhập/xuất (rỗng nếu sản phẩm chưa có biến thể)
+    variantSize: {
+      type: String,
+      default: '',
+      trim: true,
+    },
+    variantColor: {
+      type: String,
+      default: '',
+      trim: true,
+    },
     type: {
       type: String,
       enum: {
@@ -48,10 +59,13 @@ const stockHistorySchema = new mongoose.Schema(
           'Hàng lỗi/hư hỏng',
           'Sử dụng nội bộ/chụp ảnh sản phẩm',
           'Điều chỉnh tồn kho',
+          'Khởi tạo tồn kho ban đầu',
+          'Cập nhật tồn kho sản phẩm',
+          'Xóa biến thể sản phẩm',
           'Khác',
           '',
         ],
-        message: 'Lý do xuất kho không hợp lệ',
+        message: 'Lý do xuất kho/điều chỉnh không hợp lệ',
       },
       default: '',
     },

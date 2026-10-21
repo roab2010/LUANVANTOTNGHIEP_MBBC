@@ -1,10 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { createProduct, updateProduct, getProducts } from '../../../services/productApi';
 import { getCategories } from '../../../services/categoryApi';
 import { getSuppliers } from '../../../services/supplierApi';
 
 // ============================================
-// ICON COMPONENTS
+// ICONS
 // ============================================
 const CloseIcon = () => (
   <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
@@ -12,15 +12,8 @@ const CloseIcon = () => (
   </svg>
 );
 
-const SpinnerIcon = () => (
-  <svg className="animate-spin h-5 w-5 text-white" fill="none" viewBox="0 0 24 24">
-    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-  </svg>
-);
-
 const ImageIcon = () => (
-  <svg className="w-6 h-6 text-gray-300" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
+  <svg className="w-8 h-8 text-gray-300" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
     <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
   </svg>
 );
@@ -43,6 +36,12 @@ const LockIcon = ({ className = 'w-4 h-4' }) => (
   </svg>
 );
 
+const LightningIcon = ({ className = 'w-4 h-4' }) => (
+  <svg className={className} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
+  </svg>
+);
+
 // Format currency
 const formatCurrency = (value) => {
   return new Intl.NumberFormat('vi-VN', {
@@ -54,15 +53,32 @@ const formatCurrency = (value) => {
 // Cấu hình giới hạn chuẩn của hệ thống
 const LIMITS = {
   COST_PRICE_MIN: 10000,
-  COST_PRICE_MAX: 10000000, // Giới hạn 10 triệu theo yêu cầu
+  COST_PRICE_MAX: 10000000, // 10 triệu
   PROFIT_MARGIN_MIN: 0,
-  PROFIT_MARGIN_MAX: 1000,   // Tối đa 1.000%
+  PROFIT_MARGIN_MAX: 1000,   // 1.000%
   STOCK_MIN: 0,
-  STOCK_MAX: 10000,         // Tối đa 10.000 sản phẩm
+  STOCK_MAX: 10000,         // 10.000 sản phẩm
+  NAME_MAX_LENGTH: 100,
+  DESC_MAX_LENGTH: 1000,
   UNIT_MAX_LENGTH: 15,
+  COLOR_MAX_LENGTH: 30,
+  SIZE_MAX_LENGTH: 15,
 };
 
 const COMMON_UNITS = ['cái', 'chiếc', 'bộ', 'đôi', 'hộp', 'gói'];
+
+// Preset màu sắc chuẩn (Hình 3)
+const DEFAULT_PRESET_COLORS = [
+  { name: 'Đen', hex: '#111111', textColor: '#ffffff' },
+  { name: 'Trắng', hex: '#FFFFFF', textColor: '#111111', border: true },
+  { name: 'Xám', hex: '#808080', textColor: '#ffffff' },
+  { name: 'Đỏ', hex: '#EF4444', textColor: '#ffffff' },
+  { name: 'Xanh navy', hex: '#1E3A8A', textColor: '#ffffff' },
+  { name: 'Be', hex: '#D4B996', textColor: '#111111' },
+];
+
+// Preset size chuẩn (Hình 3)
+const DEFAULT_PRESET_SIZES = ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL'];
 
 // ============================================
 // PRODUCT FORM MODAL COMPONENT
@@ -70,7 +86,7 @@ const COMMON_UNITS = ['cái', 'chiếc', 'bộ', 'đôi', 'hộp', 'gói'];
 const ProductFormModal = ({ product, onClose, onSuccess }) => {
   const isEditing = !!product;
 
-  // State form
+  // State form chính
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -83,7 +99,30 @@ const ProductFormModal = ({ product, onClose, onSuccess }) => {
     status: 'active',
   });
 
-  // State lỗi từng trường để cảnh báo ngay tại chỗ (inline error)
+  // State quản lý biến thể mới theo phong cách Hình 2 & Hình 3
+  const [customColors, setCustomColors] = useState([]);
+  const [selectedColors, setSelectedColors] = useState([]);
+  const [extraSizes, setExtraSizes] = useState([]);
+  const [selectedSizes, setSelectedSizes] = useState([]);
+  const [variantStocks, setVariantStocks] = useState({});
+  const [activeColorTab, setActiveColorTab] = useState('');
+
+  // Modal thêm màu mới
+  const [showAddColorModal, setShowAddColorModal] = useState(false);
+  const [newColorName, setNewColorName] = useState('');
+  const [newColorHex, setNewColorHex] = useState('#2563EB');
+
+  // Modal thêm size mới
+  const [showAddSizeModal, setShowAddSizeModal] = useState(false);
+  const [newSizeName, setNewSizeName] = useState('');
+
+  // Modal áp dụng nhanh số lượng tồn
+  const [showQuickApplyModal, setShowQuickApplyModal] = useState(false);
+  const [quickApplyStock, setQuickApplyStock] = useState('10');
+  const [quickApplyTargetColor, setQuickApplyTargetColor] = useState('');
+  const [quickApplyScope, setQuickApplyScope] = useState('color'); // 'color' | 'all'
+
+  // State lỗi từng trường
   const [fieldErrors, setFieldErrors] = useState({
     costPrice: '',
     profitMargin: '',
@@ -96,25 +135,22 @@ const ProductFormModal = ({ product, onClose, onSuccess }) => {
   const [imagePreview, setImagePreview] = useState('');
   const [removeImage, setRemoveImage] = useState(false);
 
-  // Categories list from Category module
+  // Categories & Suppliers
   const [categories, setCategories] = useState([]);
   const [categoriesLoading, setCategoriesLoading] = useState(true);
-
-  // Suppliers list from Supplier module
   const [suppliers, setSuppliers] = useState([]);
   const [suppliersLoading, setSuppliersLoading] = useState(true);
 
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // Tải danh sách tất cả danh mục từ Module Danh mục
+  // Tải danh mục
   useEffect(() => {
     const fetchCategoryList = async () => {
       try {
         setCategoriesLoading(true);
         const res = await getCategories({ limit: 100 });
-        const list = res.data?.data?.categories || [];
-        setCategories(list);
+        setCategories(res.data?.data?.categories || []);
       } catch (err) {
         console.error('Lỗi tải danh mục:', err);
       } finally {
@@ -124,14 +160,13 @@ const ProductFormModal = ({ product, onClose, onSuccess }) => {
     fetchCategoryList();
   }, []);
 
-  // Tải danh sách nhà cung cấp active từ Module Nhà cung cấp
+  // Tải nhà cung cấp
   useEffect(() => {
     const fetchSupplierList = async () => {
       try {
         setSuppliersLoading(true);
         const res = await getSuppliers({ limit: 100, status: 'active' });
-        const list = res.data?.data?.suppliers || [];
-        setSuppliers(list);
+        setSuppliers(res.data?.data?.suppliers || []);
       } catch (err) {
         console.error('Lỗi tải nhà cung cấp:', err);
       } finally {
@@ -141,7 +176,7 @@ const ProductFormModal = ({ product, onClose, onSuccess }) => {
     fetchSupplierList();
   }, []);
 
-  // Load dữ liệu khi chỉnh sửa
+  // Load dữ liệu khi sửa sản phẩm
   useEffect(() => {
     if (product) {
       const cost = product.costPrice || 0;
@@ -149,7 +184,6 @@ const ProductFormModal = ({ product, onClose, onSuccess }) => {
       let margin = '';
       if (cost > 0) {
         margin = (((price - cost) / cost) * 100).toFixed(2);
-        // Remove trailing zeroes if it's a whole number
         margin = parseFloat(margin).toString();
       } else if (cost === 0 && price > 0) {
         margin = '100'; 
@@ -167,11 +201,202 @@ const ProductFormModal = ({ product, onClose, onSuccess }) => {
         status: product.status || 'active',
       });
 
+      // Load biến thể theo cấu trúc mới
+      if (product.variants && Array.isArray(product.variants) && product.variants.length > 0) {
+        const colorsSet = new Set();
+        const sizesSet = new Set();
+        const stocksObj = {};
+        const extraC = [];
+        const extraS = [];
+
+        product.variants.forEach((v) => {
+          if (v.color) {
+            colorsSet.add(v.color);
+            if (!DEFAULT_PRESET_COLORS.some((c) => c.name.toLowerCase() === v.color.toLowerCase())) {
+              if (!extraC.some((c) => c.name.toLowerCase() === v.color.toLowerCase())) {
+                extraC.push({ name: v.color, hex: '#4B5563', textColor: '#ffffff' });
+              }
+            }
+          }
+          if (v.size) {
+            sizesSet.add(v.size);
+            if (!DEFAULT_PRESET_SIZES.includes(v.size) && !extraS.includes(v.size)) {
+              extraS.push(v.size);
+            }
+          }
+          if (v.color && v.size) {
+            stocksObj[`${v.color}__${v.size}`] = (v.stock !== undefined ? v.stock : 0).toString();
+          }
+        });
+
+        const colorsArr = Array.from(colorsSet);
+        const sizesArr = Array.from(sizesSet);
+        setCustomColors(extraC);
+        setExtraSizes(extraS);
+        setSelectedColors(colorsArr);
+        setSelectedSizes(sizesArr);
+        setVariantStocks(stocksObj);
+        setActiveColorTab(colorsArr[0] || '');
+      } else {
+        setSelectedColors([]);
+        setSelectedSizes([]);
+        setVariantStocks({});
+        setActiveColorTab('');
+      }
+
       setImagePreview(product.image || '');
       setImageFile(null);
       setRemoveImage(false);
     }
   }, [product]);
+
+  // Danh sách toàn bộ màu sắc khả dụng
+  const allAvailableColors = useMemo(() => {
+    return [...DEFAULT_PRESET_COLORS, ...customColors];
+  }, [customColors]);
+
+  // Danh sách toàn bộ size khả dụng
+  const allAvailableSizes = useMemo(() => {
+    return [...DEFAULT_PRESET_SIZES, ...extraSizes];
+  }, [extraSizes]);
+
+  // Tính tổng tồn kho tự động từ các biến thể đã chọn
+  const totalVariantStock = useMemo(() => {
+    if (selectedColors.length === 0 || selectedSizes.length === 0) return 0;
+    let total = 0;
+    for (const c of selectedColors) {
+      for (const s of selectedSizes) {
+        const val = parseInt(variantStocks[`${c}__${s}`], 10);
+        if (!isNaN(val) && val > 0) {
+          total += val;
+        }
+      }
+    }
+    return total;
+  }, [selectedColors, selectedSizes, variantStocks]);
+
+  // Toggle màu sắc (Hình 3)
+  const toggleColor = (colorName) => {
+    setError('');
+    if (selectedColors.includes(colorName)) {
+      const updated = selectedColors.filter((c) => c !== colorName);
+      setSelectedColors(updated);
+      if (activeColorTab === colorName) {
+        setActiveColorTab(updated[0] || '');
+      }
+    } else {
+      const updated = [...selectedColors, colorName];
+      setSelectedColors(updated);
+      if (!activeColorTab) {
+        setActiveColorTab(colorName);
+      }
+    }
+  };
+
+  // Toggle size (Hình 3)
+  const toggleSize = (sizeName) => {
+    setError('');
+    if (selectedSizes.includes(sizeName)) {
+      setSelectedSizes(selectedSizes.filter((s) => s !== sizeName));
+    } else {
+      setSelectedSizes([...selectedSizes, sizeName]);
+    }
+  };
+
+  // Thêm màu sắc tùy chỉnh bằng tay (nút + hình tròn)
+  const handleAddNewColor = (e) => {
+    e.preventDefault();
+    const trimmed = newColorName.trim();
+    if (!trimmed) return;
+    if (trimmed.length > LIMITS.COLOR_MAX_LENGTH) {
+      setError(`Tên màu sắc tối đa ${LIMITS.COLOR_MAX_LENGTH} ký tự`);
+      return;
+    }
+    const exists = allAvailableColors.some(
+      (c) => c.name.toLowerCase() === trimmed.toLowerCase()
+    );
+    if (!exists) {
+      const newObj = { name: trimmed, hex: newColorHex, textColor: '#ffffff' };
+      setCustomColors((prev) => [...prev, newObj]);
+    }
+    if (!selectedColors.includes(trimmed)) {
+      setSelectedColors((prev) => [...prev, trimmed]);
+      if (!activeColorTab) setActiveColorTab(trimmed);
+    }
+    setNewColorName('');
+    setShowAddColorModal(false);
+  };
+
+  // Thêm size tùy chỉnh bằng tay
+  const handleAddNewSize = (e) => {
+    e.preventDefault();
+    const trimmed = newSizeName.trim().toUpperCase();
+    if (!trimmed) return;
+    if (trimmed.length > LIMITS.SIZE_MAX_LENGTH) {
+      setError(`Tên size tối đa ${LIMITS.SIZE_MAX_LENGTH} ký tự`);
+      return;
+    }
+    if (!allAvailableSizes.includes(trimmed)) {
+      setExtraSizes((prev) => [...prev, trimmed]);
+    }
+    if (!selectedSizes.includes(trimmed)) {
+      setSelectedSizes((prev) => [...prev, trimmed]);
+    }
+    setNewSizeName('');
+    setShowAddSizeModal(false);
+  };
+
+  // Cập nhật số lượng tồn cho 1 biến thể cụ thể
+  const handleStockChangeForVariant = (color, size, rawValue) => {
+    setError('');
+    const clean = rawValue.replace(/[^0-9]/g, '');
+    if (clean.length > 5) return; // Chặn quá 5 ký tự
+    const num = Number(clean);
+    if (num > LIMITS.STOCK_MAX) return;
+    setVariantStocks((prev) => ({
+      ...prev,
+      [`${color}__${size}`]: clean,
+    }));
+  };
+
+  // Mở modal áp dụng nhanh số lượng tồn
+  const handleOpenQuickApply = (colorName) => {
+    const target = colorName || activeColorTab || selectedColors[0] || '';
+    setQuickApplyTargetColor(target);
+    setQuickApplyScope('color');
+    setQuickApplyStock('10');
+    setShowQuickApplyModal(true);
+  };
+
+  // Xác nhận áp dụng số lượng tồn nhanh cho các size
+  const handleExecuteQuickApply = (e) => {
+    e?.preventDefault();
+    const clean = quickApplyStock.replace(/[^0-9]/g, '');
+    const num = clean ? Number(clean) : 0;
+    if (num > LIMITS.STOCK_MAX) {
+      return;
+    }
+    const valToSet = clean || '0';
+
+    setVariantStocks((prev) => {
+      const updated = { ...prev };
+      if (quickApplyScope === 'all') {
+        selectedColors.forEach((colorName) => {
+          selectedSizes.forEach((s) => {
+            updated[`${colorName}__${s}`] = valToSet;
+          });
+        });
+      } else {
+        const targetColor = quickApplyTargetColor || activeColorTab;
+        selectedSizes.forEach((s) => {
+          updated[`${targetColor}__${s}`] = valToSet;
+        });
+      }
+      return updated;
+    });
+
+    setShowQuickApplyModal(false);
+  };
 
   // Kiểm tra danh mục hiện tại của sản phẩm có bị khóa không
   const currentCategoryObj = categories.find(
@@ -191,7 +416,7 @@ const ProductFormModal = ({ product, onClose, onSuccess }) => {
     setError('');
   };
 
-  // Xử lý giá nhập: Chặn không cho nhập quá 10 triệu và hiển thị lỗi ngay tại chỗ
+  // Xử lý giá nhập: Giới hạn 8 ký tự (10.000.000)
   const handleCostPriceChange = (e) => {
     const rawVal = e.target.value.replace(/[^0-9]/g, '');
     setError('');
@@ -202,14 +427,15 @@ const ProductFormModal = ({ product, onClose, onSuccess }) => {
       return;
     }
 
+    if (rawVal.length > 8) return; // Chặn ký tự thứ 9
+
     const num = Number(rawVal);
-    // CHẶN KHÔNG CHO NHẬP THÊM NẾU VƯỢT QUÁ 10 TRIỆU
     if (num > LIMITS.COST_PRICE_MAX) {
       setFieldErrors((prev) => ({
         ...prev,
         costPrice: `Giá nhập tối đa là ${formatCurrency(LIMITS.COST_PRICE_MAX)}`,
       }));
-      return; // Không nhận ký tự làm vượt quá 10 triệu
+      return;
     }
 
     setFormData((prev) => ({ ...prev, costPrice: rawVal }));
@@ -217,18 +443,17 @@ const ProductFormModal = ({ product, onClose, onSuccess }) => {
   };
 
   const handleCostPriceBlur = () => {
-    if (formData.costPrice !== '') {
-      const num = Number(formData.costPrice);
-      if (num < LIMITS.COST_PRICE_MIN) {
-        setFieldErrors((prev) => ({
-          ...prev,
-          costPrice: `Giá nhập tối thiểu là ${formatCurrency(LIMITS.COST_PRICE_MIN)}`,
-        }));
-      }
+    if (formData.costPrice === '') return;
+    const num = Number(formData.costPrice);
+    if (num < LIMITS.COST_PRICE_MIN) {
+      setFieldErrors((prev) => ({
+        ...prev,
+        costPrice: `Giá nhập tối thiểu là ${formatCurrency(LIMITS.COST_PRICE_MIN)}`,
+      }));
     }
   };
 
-  // Xử lý lợi nhuận: Chặn không cho nhập quá 1000% và báo lỗi ngay tại chỗ
+  // Xử lý % lợi nhuận
   const handleProfitMarginChange = (e) => {
     const rawVal = e.target.value;
     setError('');
@@ -239,23 +464,13 @@ const ProductFormModal = ({ product, onClose, onSuccess }) => {
       return;
     }
 
-    // Chỉ nhận số và tối đa 1 dấu chấm thập phân
-    if (!/^\d*\.?\d*$/.test(rawVal)) return;
+    if (!/^\d*\.?\d*$/.test(rawVal) || rawVal.length > 6) return;
 
     const num = Number(rawVal);
-    // CHẶN KHÔNG CHO NHẬP THÊM NẾU VƯỢT QUÁ 1000%
     if (num > LIMITS.PROFIT_MARGIN_MAX) {
       setFieldErrors((prev) => ({
         ...prev,
         profitMargin: `Lợi nhuận tối đa là ${LIMITS.PROFIT_MARGIN_MAX}%`,
-      }));
-      return; // Không nhận ký tự làm vượt quá 1000%
-    }
-
-    if (num < LIMITS.PROFIT_MARGIN_MIN) {
-      setFieldErrors((prev) => ({
-        ...prev,
-        profitMargin: 'Lợi nhuận không được âm',
       }));
       return;
     }
@@ -264,7 +479,7 @@ const ProductFormModal = ({ product, onClose, onSuccess }) => {
     setFieldErrors((prev) => ({ ...prev, profitMargin: '' }));
   };
 
-  // Xử lý số lượng tồn kho: Chặn không cho nhập quá 10,000 sản phẩm
+  // Xử lý số lượng tồn kho chung
   const handleStockChange = (e) => {
     const rawVal = e.target.value.replace(/[^0-9]/g, '');
     setError('');
@@ -275,14 +490,15 @@ const ProductFormModal = ({ product, onClose, onSuccess }) => {
       return;
     }
 
+    if (rawVal.length > 5) return;
+
     const num = Number(rawVal);
-    // CHẶN KHÔNG CHO NHẬP THÊM NẾU VƯỢT QUÁ 10.000 SẢN PHẨM
     if (num > LIMITS.STOCK_MAX) {
       setFieldErrors((prev) => ({
         ...prev,
         stock: `Số lượng tối đa là ${LIMITS.STOCK_MAX.toLocaleString()} sản phẩm`,
       }));
-      return; // Không nhận ký tự làm vượt quá 10.000
+      return;
     }
 
     setFormData((prev) => ({ ...prev, stock: rawVal }));
@@ -315,13 +531,11 @@ const ProductFormModal = ({ product, onClose, onSuccess }) => {
     const file = e.target.files[0];
     if (!file) return;
 
-    // Validate size (5MB)
     if (file.size > 5 * 1024 * 1024) {
       setError('Kích thước ảnh tối đa là 5MB');
       return;
     }
 
-    // Validate type
     const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
     if (!allowedTypes.includes(file.type)) {
       setError('Chỉ hỗ trợ các định dạng: JPG, JPEG, PNG, WEBP');
@@ -338,7 +552,6 @@ const ProductFormModal = ({ product, onClose, onSuccess }) => {
     setImageFile(null);
     setImagePreview('');
     setRemoveImage(true);
-    // Reset file input value
     const fileInput = document.getElementById('pf-image');
     if (fileInput) fileInput.value = '';
   };
@@ -366,7 +579,19 @@ const ProductFormModal = ({ product, onClose, onSuccess }) => {
       newFieldErrors.profitMargin = `Lợi nhuận phải từ ${LIMITS.PROFIT_MARGIN_MIN}% đến ${LIMITS.PROFIT_MARGIN_MAX}%`;
     }
 
-    if (!isEditing && formData.stock !== '') {
+    // Kiểm tra tính nhất quán giữa màu và size
+    if (selectedColors.length > 0 && selectedSizes.length === 0) {
+      setError('Bạn đã chọn màu sắc nhưng chưa chọn Size. Vui lòng chọn ít nhất 1 size.');
+      return false;
+    }
+    if (selectedSizes.length > 0 && selectedColors.length === 0) {
+      setError('Bạn đã chọn Size nhưng chưa chọn màu sắc. Vui lòng chọn ít nhất 1 màu sắc.');
+      return false;
+    }
+
+    // Nếu không quản lý theo biến thể thì kiểm tra stock chung khi tạo mới
+    const hasVariants = selectedColors.length > 0 && selectedSizes.length > 0;
+    if (!hasVariants && !isEditing && formData.stock !== '') {
       const stockNum = Number(formData.stock);
       if (isNaN(stockNum) || stockNum < LIMITS.STOCK_MIN || stockNum > LIMITS.STOCK_MAX) {
         newFieldErrors.stock = `Số lượng phải từ ${LIMITS.STOCK_MIN} đến ${LIMITS.STOCK_MAX.toLocaleString()}`;
@@ -406,7 +631,7 @@ const ProductFormModal = ({ product, onClose, onSuccess }) => {
     return true;
   };
 
-  // Xử lý submit form
+  // Submit form
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
@@ -415,7 +640,6 @@ const ProductFormModal = ({ product, onClose, onSuccess }) => {
 
     setLoading(true);
     try {
-      // --- Kiểm tra trùng tên sản phẩm phía frontend ---
       const trimmedName = formData.name.trim();
       const checkRes = await getProducts({ search: trimmedName, limit: 50 });
       const existingProducts = checkRes.data?.data?.products || [];
@@ -429,7 +653,7 @@ const ProductFormModal = ({ product, onClose, onSuccess }) => {
         return;
       }
 
-      // --- Kiểm tra trùng nội dung ảnh phía frontend ---
+      // Kiểm tra trùng ảnh
       if (imageFile) {
         try {
           const arrayBuffer = await imageFile.arrayBuffer();
@@ -450,7 +674,7 @@ const ProductFormModal = ({ product, onClose, onSuccess }) => {
             return;
           }
         } catch (hashErr) {
-          console.warn('Frontend image hash check error, delegating to backend:', hashErr);
+          console.warn('Frontend image hash check error:', hashErr);
         }
       }
 
@@ -459,9 +683,35 @@ const ProductFormModal = ({ product, onClose, onSuccess }) => {
       payload.append('description', formData.description.trim());
       payload.append('price', calculatedPrice);
       payload.append('costPrice', cost);
-      if (!isEditing) {
-        payload.append('stock', formData.stock ? Number(formData.stock) : 0);
+
+      // Thu thập biến thể từ giao diện mới
+      let variantsToSubmit = [];
+      if (selectedColors.length > 0 && selectedSizes.length > 0) {
+        for (const c of selectedColors) {
+          for (const s of selectedSizes) {
+            const rawVal = variantStocks[`${c}__${s}`];
+            const stk = parseInt(rawVal, 10);
+            variantsToSubmit.push({
+              color: c.trim(),
+              size: s.trim(),
+              stock: isNaN(stk) || stk < 0 ? 0 : stk,
+            });
+          }
+        }
       }
+
+      if (variantsToSubmit.length > 0) {
+        payload.append('variants', JSON.stringify(variantsToSubmit));
+        payload.append('stock', totalVariantStock);
+      } else {
+        payload.append('variants', JSON.stringify([]));
+        if (!isEditing || formData.stock !== '') {
+          payload.append('stock', formData.stock ? Number(formData.stock) : 0);
+        } else {
+          payload.append('stock', 0);
+        }
+      }
+
       payload.append('unit', formData.unit.trim() || 'cái');
       payload.append('category', formData.category.trim());
       payload.append('supplier', formData.supplier || '');
@@ -488,52 +738,60 @@ const ProductFormModal = ({ product, onClose, onSuccess }) => {
     }
   };
 
+  const hasVariantsConfigured = selectedColors.length > 0 && selectedSizes.length > 0;
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4">
       {/* Overlay */}
-      <div className="absolute inset-0 bg-black/30 animate-fade-in" onClick={() => !loading && onClose()} />
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-xs animate-fade-in" onClick={() => !loading && onClose()} />
 
       {/* Modal */}
-      <div className="relative bg-white rounded-[var(--radius-md)] shadow-[var(--shadow-modal)] w-full max-w-lg max-h-[90vh] overflow-y-auto animate-scale-in">
+      <div className="relative bg-white rounded-xl shadow-2xl w-full max-w-xl max-h-[92vh] overflow-y-auto animate-scale-in border border-gray-100">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-          <h2 className="text-lg font-semibold text-gray-900">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-gray-50/70">
+          <h2 className="text-base font-bold text-gray-900">
             {isEditing ? 'Sửa sản phẩm' : 'Thêm sản phẩm mới'}
           </h2>
           <button
             onClick={onClose}
             disabled={loading}
-            className="text-gray-400 hover:text-gray-600 transition-colors disabled:opacity-50"
+            className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
             aria-label="Đóng"
           >
             <CloseIcon />
           </button>
         </div>
 
-        {/* Error */}
+        {/* Global Error */}
         {error && (
-          <div className="mx-6 mt-4 p-3 bg-danger-50 border border-red-200 rounded-lg animate-slide-down" role="alert">
-            <p className="text-sm text-danger-700 font-medium">{error}</p>
+          <div className="mx-6 mt-4 p-3 bg-red-50 border border-red-200 rounded-lg animate-slide-down" role="alert">
+            <p className="text-sm text-red-700 font-medium">{error}</p>
           </div>
         )}
 
-        {/* Form */}
-        <form onSubmit={handleSubmit} noValidate className="p-6 space-y-5">
+        {/* Form Body */}
+        <form onSubmit={handleSubmit} noValidate className="p-6 space-y-4">
           
           {/* Tên sản phẩm */}
           <div>
-            <label htmlFor="pf-name" className="block text-sm font-medium text-gray-700 mb-1.5">
-              Tên sản phẩm <span className="text-danger-500">*</span>
-            </label>
+            <div className="flex items-center justify-between mb-1.5">
+              <label htmlFor="pf-name" className="block text-sm font-medium text-gray-700">
+                Tên sản phẩm <span className="text-danger-500">*</span>
+              </label>
+              <span className="text-[11px] text-gray-400 font-mono">
+                {formData.name.length}/{LIMITS.NAME_MAX_LENGTH}
+              </span>
+            </div>
             <input
               id="pf-name"
               name="name"
               type="text"
+              maxLength={LIMITS.NAME_MAX_LENGTH}
               value={formData.name}
               onChange={handleChange}
-              placeholder="Nhập tên sản phẩm"
+              placeholder="Ví dụ: ÁO THUN MBBC STREETWEAR"
               autoFocus
-              className="w-full h-10 px-3.5 bg-white border border-gray-300 rounded-lg text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-primary-500 focus:ring-[3px] focus:ring-primary-500/15 transition-all duration-200"
+              className="w-full h-10 px-3.5 bg-white border border-gray-300 rounded-lg text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-black transition-all duration-200"
             />
           </div>
 
@@ -543,7 +801,6 @@ const ProductFormModal = ({ product, onClose, onSuccess }) => {
               Ảnh sản phẩm
             </label>
             <div className="flex items-start gap-4">
-              {/* Preview Box */}
               <div className="shrink-0 w-24 h-24 border border-gray-200 rounded-lg overflow-hidden bg-gray-50 flex items-center justify-center relative group">
                 {imagePreview ? (
                   <>
@@ -562,7 +819,6 @@ const ProductFormModal = ({ product, onClose, onSuccess }) => {
                 )}
               </div>
               
-              {/* Upload Input */}
               <div className="flex-1 pt-1">
                 <input
                   type="file"
@@ -573,7 +829,7 @@ const ProductFormModal = ({ product, onClose, onSuccess }) => {
                 />
                 <label
                   htmlFor="pf-image"
-                  className="inline-flex items-center gap-2 h-9 px-3 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 cursor-pointer transition-colors"
+                  className="inline-flex items-center gap-2 h-9 px-3 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 cursor-pointer transition-colors shadow-2xs"
                 >
                   <UploadIcon />
                   Chọn ảnh từ máy tính
@@ -587,17 +843,23 @@ const ProductFormModal = ({ product, onClose, onSuccess }) => {
 
           {/* Mô tả */}
           <div>
-            <label htmlFor="pf-description" className="block text-sm font-medium text-gray-700 mb-1.5">
-              Mô tả
-            </label>
+            <div className="flex items-center justify-between mb-1.5">
+              <label htmlFor="pf-description" className="block text-sm font-medium text-gray-700">
+                Mô tả sản phẩm
+              </label>
+              <span className="text-[11px] text-gray-400 font-mono">
+                {formData.description.length}/{LIMITS.DESC_MAX_LENGTH}
+              </span>
+            </div>
             <textarea
               id="pf-description"
               name="description"
+              maxLength={LIMITS.DESC_MAX_LENGTH}
               value={formData.description}
               onChange={handleChange}
-              placeholder="Mô tả ngắn về sản phẩm"
+              placeholder="Chi tiết chất liệu, form dáng, cách bảo quản..."
               rows={3}
-              className="w-full px-3.5 py-2.5 bg-white border border-gray-300 rounded-lg text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-primary-500 focus:ring-[3px] focus:ring-primary-500/15 transition-all duration-200 resize-none"
+              className="w-full px-3.5 py-2.5 bg-white border border-gray-300 rounded-lg text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-black transition-all duration-200 resize-none"
             />
           </div>
 
@@ -606,71 +868,376 @@ const ProductFormModal = ({ product, onClose, onSuccess }) => {
             <div>
               <label htmlFor="pf-costPrice" className="block text-sm font-medium text-gray-700 mb-1.5 flex items-center justify-between">
                 <span>Giá nhập (₫) <span className="text-danger-500">*</span></span>
-                <span className="text-xs text-gray-400 font-normal">Tối đa 10 triệu</span>
+                <span className="text-[11px] text-gray-400">Tối đa 10 tr</span>
               </label>
               <input
                 id="pf-costPrice"
                 name="costPrice"
                 type="text"
                 inputMode="numeric"
+                maxLength={8}
                 value={formData.costPrice}
                 onChange={handleCostPriceChange}
                 onBlur={handleCostPriceBlur}
                 placeholder="10.000 - 10.000.000"
                 className={`w-full h-10 px-3.5 bg-white border rounded-lg text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none transition-all duration-200 ${
                   fieldErrors.costPrice
-                    ? 'border-danger-500 focus:border-danger-500 focus:ring-[3px] focus:ring-danger-500/15'
-                    : 'border-gray-300 focus:border-primary-500 focus:ring-[3px] focus:ring-primary-500/15'
+                    ? 'border-danger-500 focus:border-danger-500'
+                    : 'border-gray-300 focus:border-black'
                 }`}
               />
               {fieldErrors.costPrice && (
-                <p className="mt-1 text-xs text-danger-600 font-medium flex items-center gap-1">
-                  <svg className="w-3.5 h-3.5 shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                  </svg>
-                  {fieldErrors.costPrice}
-                </p>
+                <p className="mt-1 text-xs text-danger-600 font-medium">{fieldErrors.costPrice}</p>
               )}
             </div>
             <div>
               <label htmlFor="pf-profitMargin" className="block text-sm font-medium text-gray-700 mb-1.5 flex items-center justify-between">
                 <span>Lợi nhuận (%) <span className="text-danger-500">*</span></span>
-                <span className="text-xs text-gray-400 font-normal">0% - 1.000%</span>
+                <span className="text-[11px] text-gray-400">0% - 1.000%</span>
               </label>
               <input
                 id="pf-profitMargin"
                 name="profitMargin"
                 type="text"
                 inputMode="decimal"
+                maxLength={6}
                 value={formData.profitMargin}
                 onChange={handleProfitMarginChange}
-                placeholder="Ví dụ: 20"
+                placeholder="Ví dụ: 30"
                 className={`w-full h-10 px-3.5 bg-white border rounded-lg text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none transition-all duration-200 ${
                   fieldErrors.profitMargin
-                    ? 'border-danger-500 focus:border-danger-500 focus:ring-[3px] focus:ring-danger-500/15'
-                    : 'border-gray-300 focus:border-primary-500 focus:ring-[3px] focus:ring-primary-500/15'
+                    ? 'border-danger-500 focus:border-danger-500'
+                    : 'border-gray-300 focus:border-black'
                 }`}
               />
               {fieldErrors.profitMargin && (
-                <p className="mt-1 text-xs text-danger-600 font-medium flex items-center gap-1">
-                  <svg className="w-3.5 h-3.5 shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                  </svg>
-                  {fieldErrors.profitMargin}
-                </p>
+                <p className="mt-1 text-xs text-danger-600 font-medium">{fieldErrors.profitMargin}</p>
               )}
             </div>
           </div>
 
           {/* Giá bán preview */}
           <div className="p-3 bg-gray-50 border border-gray-200 rounded-lg flex items-center justify-between">
-            <span className="text-sm font-medium text-gray-600">Giá bán dự kiến:</span>
-            <span className="text-lg font-bold text-teal-600">{formatCurrency(calculatedPrice)}</span>
+            <span className="text-xs font-semibold text-gray-600 uppercase tracking-wider">Giá bán niêm yết dự kiến:</span>
+            <span className="text-base font-black text-black">{formatCurrency(calculatedPrice)}</span>
           </div>
 
-          {/* Đơn vị tính (và số lượng nếu tạo mới) */}
+          {/* ========================================================= */}
+          {/* KHU VỰC THIẾT LẬP BIẾN THỂ SIZE & MÀU (CHUẨN HÌNH 3 & HÌNH 2) */}
+          {/* ========================================================= */}
+          <div className="p-4 bg-neutral-50/80 border border-neutral-200 rounded-xl space-y-4">
+            
+            {/* Header Biến thể */}
+            <div className="flex items-center justify-between pb-2 border-b border-neutral-200">
+              <div>
+                <h4 className="text-xs font-black tracking-widest text-neutral-900 uppercase">
+                  BIẾN THỂ & TỒN KHO THEO SIZE / MÀU
+                </h4>
+                <p className="text-[11px] text-neutral-500 mt-0.5">
+                  Chọn màu sắc và size để hệ thống tự động sinh bảng tồn kho chi tiết
+                </p>
+              </div>
+
+              {hasVariantsConfigured && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (confirm('Bạn có chắc muốn xóa toàn bộ biến thể và quay về quản lý tồn kho chung?')) {
+                      setSelectedColors([]);
+                      setSelectedSizes([]);
+                      setVariantStocks({});
+                      setActiveColorTab('');
+                    }
+                  }}
+                  className="text-[11px] font-bold text-red-600 hover:text-red-800 hover:underline"
+                >
+                  Xóa tất cả biến thể
+                </button>
+              )}
+            </div>
+
+            {/* 1. CHỌN MÀU SẮC (CHUẨN HÌNH 3) */}
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-xs font-bold text-gray-900 tracking-wide flex items-center gap-1.5">
+                  <span>1. Chọn màu sắc</span>
+                  {selectedColors.length > 0 && (
+                    <span className="text-[11px] font-bold text-teal-600">({selectedColors.length} màu đã chọn)</span>
+                  )}
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setShowAddColorModal(true)}
+                  className="inline-flex items-center gap-1 text-[11px] font-bold text-neutral-800 bg-white hover:bg-neutral-100 px-2.5 py-0.5 rounded border border-neutral-300 transition-colors shadow-2xs"
+                >
+                  <span>+ Thêm màu mới</span>
+                </button>
+              </div>
+              <p className="text-[11px] text-gray-500 mb-2.5">
+                Hiển thị các màu dưới dạng ô màu có thể bấm chọn.
+              </p>
+
+              {/* Hàng các ô màu */}
+              <div className="flex flex-wrap items-center gap-2">
+                {allAvailableColors.map((c) => {
+                  const isSelected = selectedColors.includes(c.name);
+                  return (
+                    <button
+                      key={c.name}
+                      type="button"
+                      onClick={() => toggleColor(c.name)}
+                      className={`flex flex-col items-center justify-center min-w-[56px] py-2 px-2.5 rounded-xl border transition-all ${
+                        isSelected
+                          ? 'border-black bg-neutral-900 text-white shadow-xs scale-105'
+                          : 'border-gray-200 bg-white hover:border-gray-400 text-gray-800'
+                      }`}
+                    >
+                      <div
+                        className={`w-6 h-6 rounded-full flex items-center justify-center mb-1 relative shadow-2xs ${
+                          c.border ? 'border border-gray-300' : ''
+                        }`}
+                        style={{ backgroundColor: c.hex }}
+                      >
+                        {isSelected && (
+                          <svg
+                            className="w-3.5 h-3.5"
+                            fill="none"
+                            stroke={c.textColor || '#ffffff'}
+                            strokeWidth={2.5}
+                            viewBox="0 0 24 24"
+                          >
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                          </svg>
+                        )}
+                      </div>
+                      <span className="text-[11px] font-bold tracking-tight">{c.name}</span>
+                    </button>
+                  );
+                })}
+
+                {/* Nút dấu cộng tròn thêm màu */}
+                <button
+                  type="button"
+                  onClick={() => setShowAddColorModal(true)}
+                  title="Thêm màu mới"
+                  className="w-12 h-14 flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-300 hover:border-black hover:bg-white text-gray-400 hover:text-black transition-all"
+                >
+                  <div className="w-6 h-6 rounded-full border border-gray-300 flex items-center justify-center text-sm font-black mb-1">
+                    +
+                  </div>
+                  <span className="text-[10px] font-semibold">Khác</span>
+                </button>
+              </div>
+
+              <p className="text-[11px] text-gray-600 mt-2 font-medium">
+                Đang chọn:{' '}
+                <span className="font-bold text-gray-900">
+                  {selectedColors.length > 0 ? selectedColors.join(', ') : 'Chưa chọn màu nào'}
+                </span>
+              </p>
+            </div>
+
+            {/* 2. CHỌN SIZE (CHUẨN HÌNH 3) */}
+            <div className="pt-3 border-t border-gray-200">
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-xs font-bold text-gray-900 tracking-wide flex items-center gap-1.5">
+                  <span>2. Chọn size</span>
+                  {selectedSizes.length > 0 && (
+                    <span className="text-[11px] font-bold text-teal-600">({selectedSizes.length} size đã chọn)</span>
+                  )}
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setShowAddSizeModal(true)}
+                  className="inline-flex items-center gap-1 text-[11px] font-bold text-neutral-800 bg-white hover:bg-neutral-100 px-2.5 py-0.5 rounded border border-neutral-300 transition-colors shadow-2xs"
+                >
+                  <span>+ Thêm size khác</span>
+                </button>
+              </div>
+              <p className="text-[11px] text-gray-500 mb-2.5">
+                Có thể bấm chọn nhiều size, không cần tạo từng size riêng lẻ.
+              </p>
+
+              {/* Hàng các nút size */}
+              <div className="flex flex-wrap items-center gap-2">
+                {allAvailableSizes.map((s) => {
+                  const isSelected = selectedSizes.includes(s);
+                  return (
+                    <button
+                      key={s}
+                      type="button"
+                      onClick={() => toggleSize(s)}
+                      className={`min-w-[44px] h-9 px-3 rounded-lg text-xs font-bold font-mono transition-all border ${
+                        isSelected
+                          ? 'bg-neutral-900 text-white border-black shadow-xs scale-105'
+                          : 'bg-white text-gray-800 border-gray-200 hover:border-gray-400'
+                      }`}
+                    >
+                      {s}
+                    </button>
+                  );
+                })}
+
+                {/* Nút cộng size */}
+                <button
+                  type="button"
+                  onClick={() => setShowAddSizeModal(true)}
+                  className="h-9 px-3 rounded-lg text-xs font-bold border-2 border-dashed border-gray-300 hover:border-black hover:bg-white text-gray-500 transition-all flex items-center gap-1"
+                >
+                  <span>+ Size</span>
+                </button>
+              </div>
+
+              <p className="text-[11px] text-gray-600 mt-2 font-medium">
+                Đang chọn:{' '}
+                <span className="font-bold text-gray-900">
+                  {selectedSizes.length > 0 ? selectedSizes.join(', ') : 'Chưa chọn size nào'}
+                </span>
+              </p>
+            </div>
+
+            {/* 3. BẢNG TỒN KHO THEO TỪNG MÀU (CHUẨN HÌNH 2: CÁCH 2 - CHỌN MÀU RỒI MỚI HIỆN SIZE) */}
+            {hasVariantsConfigured ? (
+              <div className="pt-3 border-t border-gray-200 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-gray-900 uppercase tracking-wider">
+                    Tồn kho theo biến thể ({selectedColors.length * selectedSizes.length} biến thể)
+                  </span>
+                  <span className="text-xs font-semibold text-gray-600">
+                    Tổng tồn: <strong className="text-gray-900">{totalVariantStock}</strong> {formData.unit || 'cái'}
+                  </span>
+                </div>
+
+                {/* Hàng tabs chọn màu (như Ảnh 2) */}
+                <div className="flex flex-wrap gap-2 p-1.5 bg-gray-200/70 rounded-xl border border-gray-300">
+                  {selectedColors.map((colorName) => {
+                    const cObj = allAvailableColors.find((c) => c.name === colorName) || {
+                      name: colorName,
+                      hex: '#4B5563',
+                    };
+                    const isActive = activeColorTab === colorName;
+                    const colorTotal = selectedSizes.reduce(
+                      (sum, s) => sum + (parseInt(variantStocks[`${colorName}__${s}`], 10) || 0),
+                      0
+                    );
+
+                    return (
+                      <button
+                        key={colorName}
+                        type="button"
+                        onClick={() => setActiveColorTab(colorName)}
+                        className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                          isActive
+                            ? 'bg-neutral-900 text-white shadow-xs'
+                            : 'bg-white text-gray-800 hover:bg-gray-100 border border-gray-200'
+                        }`}
+                      >
+                        <span
+                          className={`w-3.5 h-3.5 rounded-full shrink-0 ${cObj.border ? 'border border-gray-300' : ''}`}
+                          style={{ backgroundColor: cObj.hex }}
+                        />
+                        <span>{colorName}</span>
+                        <span
+                          className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
+                            isActive ? 'bg-neutral-800 text-white' : 'bg-gray-100 text-gray-700'
+                          }`}
+                        >
+                          {colorTotal}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Bảng nhập số lượng tồn cho Màu đang chọn (Ảnh 2) */}
+                {activeColorTab && (
+                  <div className="border border-gray-200 rounded-xl p-4 bg-white space-y-3 shadow-2xs">
+                    <div className="flex items-center justify-between pb-2 border-b border-gray-100">
+                      <div className="flex items-center gap-2">
+                        <span
+                          className="w-3.5 h-3.5 rounded-full"
+                          style={{
+                            backgroundColor:
+                              allAvailableColors.find((c) => c.name === activeColorTab)?.hex || '#4B5563',
+                          }}
+                        />
+                        <h5 className="text-xs font-black text-gray-900 tracking-wider uppercase">
+                          Màu {activeColorTab} — số lượng tồn
+                        </h5>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleOpenQuickApply(activeColorTab)}
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-bold text-gray-700 bg-gray-100 hover:bg-neutral-900 hover:text-white rounded-lg transition-all border border-gray-200 shadow-2xs"
+                        title="Điền nhanh cùng một số lượng tồn cho các size"
+                      >
+                        <LightningIcon className="w-3.5 h-3.5 text-amber-500" />
+                        <span>Áp dụng nhanh cho tất cả size</span>
+                      </button>
+                    </div>
+
+                    {/* Danh sách các size của màu này */}
+                    <div className="divide-y divide-gray-100">
+                      {selectedSizes.map((s) => {
+                        const stockVal = variantStocks[`${activeColorTab}__${s}`] || '';
+                        return (
+                          <div key={s} className="py-2.5 flex items-center justify-between gap-3 text-xs">
+                            <span className="font-bold text-gray-900 font-mono w-24">Size {s}</span>
+                            <div className="flex items-center gap-2">
+                              <span className="text-[11px] text-gray-400">Tồn kho:</span>
+                              <input
+                                type="text"
+                                inputMode="numeric"
+                                maxLength={5}
+                                value={stockVal}
+                                onChange={(e) => handleStockChangeForVariant(activeColorTab, s, e.target.value)}
+                                placeholder="0"
+                                className="w-24 h-8 px-2.5 border border-gray-300 rounded-lg text-right font-bold font-mono text-xs text-gray-900 focus:border-black focus:outline-none"
+                              />
+                              <span className="text-gray-400 text-[11px] w-8">{formData.unit || 'cái'}</span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Banner tổng tồn kho tự động */}
+                <div className="flex items-center justify-between p-3 bg-teal-50 border border-teal-200 rounded-xl text-xs">
+                  <span className="font-semibold text-teal-800">Tổng tồn kho tự động tính (toàn bộ màu & size):</span>
+                  <span className="text-base font-black text-teal-900 tabular-nums">
+                    {totalVariantStock} <span className="font-normal text-xs text-teal-700">{formData.unit || 'cái'}</span>
+                  </span>
+                </div>
+              </div>
+            ) : (
+              <div className="text-center py-4 bg-white border border-dashed border-gray-300 rounded-lg">
+                <p className="text-xs text-gray-500">
+                  {selectedColors.length === 0 && selectedSizes.length === 0
+                    ? 'Chưa thiết lập biến thể. Bấm chọn màu sắc và size ở trên để kích hoạt quản lý kho theo Size / Màu.'
+                    : selectedColors.length === 0
+                    ? 'Bạn đã chọn Size, vui lòng chọn thêm Màu sắc để hiển thị bảng nhập tồn kho.'
+                    : 'Bạn đã chọn Màu sắc, vui lòng chọn thêm Size để hiển thị bảng nhập tồn kho.'}
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* Đơn vị tính và Tồn kho tổng (nếu không dùng biến thể) */}
           <div className="grid grid-cols-2 gap-4">
-            {!isEditing && (
+            {hasVariantsConfigured ? (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5 flex items-center justify-between">
+                  <span>Tổng tồn kho</span>
+                  <span className="text-xs text-teal-600 font-semibold">Khóa (tính từ biến thể)</span>
+                </label>
+                <div className="w-full h-10 px-3.5 bg-gray-100 border border-gray-200 rounded-lg text-sm font-bold text-gray-700 flex items-center justify-between">
+                  <span>{totalVariantStock}</span>
+                  <span className="text-xs text-gray-400 font-normal">{formData.unit || 'cái'}</span>
+                </div>
+              </div>
+            ) : !isEditing ? (
               <div>
                 <label htmlFor="pf-stock" className="block text-sm font-medium text-gray-700 mb-1.5 flex items-center justify-between">
                   <span>Số lượng</span>
@@ -681,42 +1248,54 @@ const ProductFormModal = ({ product, onClose, onSuccess }) => {
                   name="stock"
                   type="text"
                   inputMode="numeric"
+                  maxLength={5}
                   value={formData.stock}
                   onChange={handleStockChange}
                   placeholder="0"
                   className={`w-full h-10 px-3.5 bg-white border rounded-lg text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none transition-all duration-200 ${
                     fieldErrors.stock
-                      ? 'border-danger-500 focus:border-danger-500 focus:ring-[3px] focus:ring-danger-500/15'
-                      : 'border-gray-300 focus:border-primary-500 focus:ring-[3px] focus:ring-primary-500/15'
+                      ? 'border-danger-500 focus:border-danger-500'
+                      : 'border-gray-300 focus:border-black'
                   }`}
                 />
                 {fieldErrors.stock && (
-                  <p className="mt-1 text-xs text-danger-600 font-medium flex items-center gap-1">
-                    <svg className="w-3.5 h-3.5 shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                    </svg>
-                    {fieldErrors.stock}
-                  </p>
+                  <p className="mt-1 text-xs text-danger-600 font-medium">{fieldErrors.stock}</p>
                 )}
               </div>
+            ) : (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5 flex items-center justify-between">
+                  <span>Tồn kho hiện tại</span>
+                  <span className="text-xs text-gray-400 font-normal">Chung</span>
+                </label>
+                <div className="w-full h-10 px-3.5 bg-gray-100 border border-gray-200 rounded-lg text-sm font-bold text-gray-700 flex items-center justify-between">
+                  <span>{formData.stock || 0}</span>
+                  <span className="text-xs text-gray-400 font-normal">{formData.unit || 'cái'}</span>
+                </div>
+              </div>
             )}
-            <div className={isEditing ? "col-span-2" : ""}>
-              <label htmlFor="pf-unit" className="block text-sm font-medium text-gray-700 mb-1.5 flex items-center justify-between">
-                <span>Đơn vị tính</span>
-                <span className="text-xs text-gray-400 font-normal">Tối đa 15 ký tự</span>
-              </label>
+
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <label htmlFor="pf-unit" className="block text-sm font-medium text-gray-700">
+                  Đơn vị tính <span className="text-danger-500">*</span>
+                </label>
+                <span className="text-[11px] text-gray-400 font-mono">
+                  {formData.unit.length}/{LIMITS.UNIT_MAX_LENGTH}
+                </span>
+              </div>
               <input
                 id="pf-unit"
                 name="unit"
                 type="text"
-                maxLength={15}
+                maxLength={LIMITS.UNIT_MAX_LENGTH}
                 value={formData.unit}
                 onChange={handleUnitChange}
                 placeholder="cái, chiếc, bộ, đôi..."
                 className={`w-full h-10 px-3.5 bg-white border rounded-lg text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none transition-all duration-200 ${
                   fieldErrors.unit
-                    ? 'border-danger-500 focus:border-danger-500 focus:ring-[3px] focus:ring-danger-500/15'
-                    : 'border-gray-300 focus:border-primary-500 focus:ring-[3px] focus:ring-primary-500/15'
+                    ? 'border-danger-500 focus:border-danger-500'
+                    : 'border-gray-300 focus:border-black'
                 }`}
               />
               {/* Quick Select Badges */}
@@ -731,7 +1310,7 @@ const ProductFormModal = ({ product, onClose, onSuccess }) => {
                       onClick={() => handleSelectUnit(u)}
                       className={`text-xs px-2.5 py-1 rounded-md border transition-all ${
                         isSelected
-                          ? 'bg-primary-50 border-primary-500 text-primary-700 font-semibold shadow-xs'
+                          ? 'bg-neutral-900 border-black text-white font-semibold shadow-xs'
                           : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100 hover:border-gray-300'
                       }`}
                     >
@@ -741,12 +1320,7 @@ const ProductFormModal = ({ product, onClose, onSuccess }) => {
                 })}
               </div>
               {fieldErrors.unit && (
-                <p className="mt-1 text-xs text-danger-600 font-medium flex items-center gap-1">
-                  <svg className="w-3.5 h-3.5 shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                  </svg>
-                  {fieldErrors.unit}
-                </p>
+                <p className="mt-1 text-xs text-danger-600 font-medium">{fieldErrors.unit}</p>
               )}
             </div>
           </div>
@@ -771,30 +1345,19 @@ const ProductFormModal = ({ product, onClose, onSuccess }) => {
                 value={formData.category}
                 onChange={handleChange}
                 disabled={categoriesLoading || isCurrentCategoryLocked}
-                title={isCurrentCategoryLocked ? 'Danh mục hiện tại đang bị khóa, không thể chuyển sang danh mục khác' : undefined}
-                className="w-full h-10 px-3.5 bg-white border border-gray-300 rounded-lg text-sm text-gray-700 focus:outline-none focus:border-primary-500 focus:ring-[3px] focus:ring-primary-500/15 transition-all duration-200 disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed"
+                className="w-full h-10 px-3.5 bg-white border border-gray-300 rounded-lg text-sm text-gray-700 focus:outline-none focus:border-black transition-all duration-200 disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed"
               >
                 <option value="">-- Chọn danh mục --</option>
                 {categories.map((cat) => (
                   <option
                     key={cat._id}
                     value={cat.name}
-                    disabled={cat.status === 'inactive' && cat.name !== formData.category}
+                    disabled={cat.status === 'inactive' && (!isEditing || cat.name !== product?.category)}
                   >
-                    {cat.name} {cat.status === 'inactive' ? '(Đã khóa)' : ''}
+                    {cat.name} {cat.status === 'inactive' ? '(Đang bị khóa)' : ''}
                   </option>
                 ))}
               </select>
-              {isCurrentCategoryLocked && (
-                <p className="text-xs text-rose-600 mt-1.5 font-medium leading-tight">
-                  Danh mục "{product.category}" đang bị khóa. Không thể chuyển sang danh mục khác khi danh mục hiện tại đang bị khóa.
-                </p>
-              )}
-              {categories.length === 0 && !categoriesLoading && (
-                <p className="text-xs text-amber-600 mt-1">
-                  Chưa có danh mục nào.
-                </p>
-              )}
             </div>
 
             <div>
@@ -807,24 +1370,19 @@ const ProductFormModal = ({ product, onClose, onSuccess }) => {
                 value={formData.supplier}
                 onChange={handleChange}
                 disabled={suppliersLoading}
-                className="w-full h-10 px-3.5 bg-white border border-gray-300 rounded-lg text-sm text-gray-700 focus:outline-none focus:border-primary-500 focus:ring-[3px] focus:ring-primary-500/15 transition-all duration-200 disabled:opacity-60"
+                className="w-full h-10 px-3.5 bg-white border border-gray-300 rounded-lg text-sm text-gray-700 focus:outline-none focus:border-black transition-all duration-200 disabled:bg-gray-100"
               >
                 <option value="">-- Chọn nhà cung cấp --</option>
                 {suppliers.map((sup) => (
                   <option key={sup._id} value={sup._id}>
-                    {sup.name} {sup.phone ? `(${sup.phone})` : ''}
+                    {sup.name} ({sup.phone})
                   </option>
                 ))}
               </select>
-              {suppliers.length === 0 && !suppliersLoading && (
-                <p className="text-xs text-amber-600 mt-1">
-                  Chưa có nhà cung cấp nào.
-                </p>
-              )}
             </div>
           </div>
 
-          {/* Trạng thái kinh doanh (chỉ hiển thị khi sửa sản phẩm) */}
+          {/* Trạng thái hoạt động (chỉ hiện khi sửa) */}
           {isEditing && (
             <div>
               <label htmlFor="pf-status" className="block text-sm font-medium text-gray-700 mb-1.5">
@@ -835,43 +1393,355 @@ const ProductFormModal = ({ product, onClose, onSuccess }) => {
                 name="status"
                 value={formData.status}
                 onChange={handleChange}
-                className="w-full h-10 px-3.5 bg-white border border-gray-300 rounded-lg text-sm text-gray-700 focus:outline-none focus:border-primary-500 focus:ring-[3px] focus:ring-primary-500/15 transition-all duration-200"
+                className="w-full h-10 px-3.5 bg-white border border-gray-300 rounded-lg text-sm text-gray-700 focus:outline-none focus:border-black transition-all duration-200"
               >
-                <option value="active">Đang bán</option>
-                <option value="inactive">Ngừng bán</option>
+                <option value="active">Đang bán (Hiển thị cho khách hàng)</option>
+                <option value="inactive">Ngừng bán (Ẩn khỏi storefront)</option>
               </select>
             </div>
           )}
 
-          {/* Actions */}
-          <div className="flex items-center justify-end gap-3 pt-3 border-t border-gray-100">
+          {/* Form Actions */}
+          <div className="flex items-center justify-end gap-3 pt-4 border-t border-gray-100">
             <button
               type="button"
               onClick={onClose}
               disabled={loading}
-              className="h-10 px-4 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-all disabled:opacity-50"
+              className="px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
             >
               Hủy
             </button>
             <button
               type="submit"
               disabled={loading}
-              className="h-10 px-5 text-sm font-semibold text-white bg-primary-600 rounded-lg hover:bg-primary-700 active:scale-[0.98] transition-all disabled:opacity-60 disabled:pointer-events-none flex items-center gap-2"
+              className="px-5 py-2.5 bg-neutral-900 hover:bg-black text-white text-sm font-bold rounded-lg shadow-sm transition-all disabled:opacity-50 flex items-center gap-2"
             >
               {loading ? (
                 <>
-                  <SpinnerIcon />
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                   <span>Đang lưu...</span>
                 </>
-              ) : isEditing ? (
-                'Cập nhật'
               ) : (
-                'Tạo sản phẩm'
+                <span>{isEditing ? 'Lưu thay đổi' : 'Thêm sản phẩm'}</span>
               )}
             </button>
           </div>
         </form>
       </div>
+
+      {/* ========================================================= */}
+      {/* MODAL THÊM MÀU MỚI TÙY CHỈNH (Nút dấu cộng) */}
+      {/* ========================================================= */}
+      {showAddColorModal && (
+        <div className="fixed inset-0 z-60 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/50" onClick={() => setShowAddColorModal(false)} />
+          <div className="relative bg-white rounded-xl shadow-2xl p-5 w-full max-w-sm z-10 space-y-4 animate-scale-in border border-gray-200">
+            <div className="flex items-center justify-between pb-2 border-b border-gray-100">
+              <h4 className="text-sm font-bold text-gray-900">Thêm màu sắc mới</h4>
+              <button
+                type="button"
+                onClick={() => setShowAddColorModal(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <CloseIcon />
+              </button>
+            </div>
+
+            <form onSubmit={handleAddNewColor} className="space-y-3">
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1">
+                  Tên màu sắc (Tối đa 30 ký tự)
+                </label>
+                <input
+                  type="text"
+                  maxLength={LIMITS.COLOR_MAX_LENGTH}
+                  value={newColorName}
+                  onChange={(e) => setNewColorName(e.target.value)}
+                  placeholder="Ví dụ: Rêu olive, Nâu đất..."
+                  autoFocus
+                  className="w-full h-9 px-3 border border-gray-300 rounded-lg text-xs text-gray-900 focus:outline-none focus:border-black"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1">
+                  Chọn mã màu hiển thị
+                </label>
+                <div className="flex items-center gap-3">
+                  <input
+                    type="color"
+                    value={newColorHex}
+                    onChange={(e) => setNewColorHex(e.target.value)}
+                    className="w-10 h-10 p-0.5 rounded-lg border border-gray-300 cursor-pointer"
+                  />
+                  <span className="font-mono text-xs font-bold text-gray-700">{newColorHex}</span>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowAddColorModal(false)}
+                  className="px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-100 rounded-lg"
+                >
+                  Hủy
+                </button>
+                <button
+                  type="submit"
+                  disabled={!newColorName.trim()}
+                  className="px-4 py-1.5 bg-neutral-900 text-white text-xs font-bold rounded-lg hover:bg-black transition-colors disabled:opacity-50"
+                >
+                  Thêm màu
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================= */}
+      {/* MODAL THÊM SIZE MỚI TÙY CHỈNH */}
+      {/* ========================================================= */}
+      {showAddSizeModal && (
+        <div className="fixed inset-0 z-60 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/50" onClick={() => setShowAddSizeModal(false)} />
+          <div className="relative bg-white rounded-xl shadow-2xl p-5 w-full max-w-sm z-10 space-y-4 animate-scale-in border border-gray-200">
+            <div className="flex items-center justify-between pb-2 border-b border-gray-100">
+              <h4 className="text-sm font-bold text-gray-900">Thêm size tùy chỉnh</h4>
+              <button
+                type="button"
+                onClick={() => setShowAddSizeModal(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <CloseIcon />
+              </button>
+            </div>
+
+            <form onSubmit={handleAddNewSize} className="space-y-3">
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1">
+                  Tên Size (Tối đa 15 ký tự)
+                </label>
+                <input
+                  type="text"
+                  maxLength={LIMITS.SIZE_MAX_LENGTH}
+                  value={newSizeName}
+                  onChange={(e) => setNewSizeName(e.target.value)}
+                  placeholder="Ví dụ: 4XL, FREESIZE, OVERSIZE..."
+                  autoFocus
+                  className="w-full h-9 px-3 border border-gray-300 rounded-lg text-xs font-bold text-gray-900 uppercase focus:outline-none focus:border-black"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowAddSizeModal(false)}
+                  className="px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-100 rounded-lg"
+                >
+                  Hủy
+                </button>
+                <button
+                  type="submit"
+                  disabled={!newSizeName.trim()}
+                  className="px-4 py-1.5 bg-neutral-900 text-white text-xs font-bold rounded-lg hover:bg-black transition-colors disabled:opacity-50"
+                >
+                  Thêm size
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================= */}
+      {/* MODAL ÁP DỤNG NHANH SỐ LƯỢNG TỒN KHO */}
+      {/* ========================================================= */}
+      {showQuickApplyModal && (
+        <div className="fixed inset-0 z-60 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-xs" onClick={() => setShowQuickApplyModal(false)} />
+          <div className="relative bg-white rounded-2xl shadow-2xl p-6 w-full max-w-md z-10 space-y-5 animate-scale-in border border-gray-200">
+            {/* Header */}
+            <div className="flex items-start justify-between pb-3 border-b border-gray-100">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-600">
+                  <LightningIcon className="w-5 h-5" />
+                </div>
+                <div>
+                  <h4 className="text-sm font-black text-gray-900 uppercase tracking-tight">
+                    Áp dụng nhanh số lượng tồn
+                  </h4>
+                  <p className="text-[11px] text-gray-500 mt-0.5">
+                    Điền đồng loạt số lượng tồn cho các size nhanh chóng
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowQuickApplyModal(false)}
+                className="text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-100 transition-colors"
+              >
+                <CloseIcon />
+              </button>
+            </div>
+
+            <form onSubmit={handleExecuteQuickApply} className="space-y-4">
+              {/* Phạm vi áp dụng */}
+              {selectedColors.length > 1 ? (
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-bold text-gray-700">Phạm vi áp dụng:</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setQuickApplyScope('color')}
+                      className={`p-2.5 rounded-xl border text-left transition-all flex flex-col gap-1 ${
+                        quickApplyScope === 'color'
+                          ? 'border-black bg-neutral-900 text-white shadow-sm'
+                          : 'border-gray-200 bg-gray-50/50 hover:bg-gray-100 text-gray-700'
+                      }`}
+                    >
+                      <div className="flex items-center gap-1.5 text-xs font-bold">
+                        <span
+                          className="w-2.5 h-2.5 rounded-full border border-white/40"
+                          style={{
+                            backgroundColor:
+                              allAvailableColors.find((c) => c.name === quickApplyTargetColor)?.hex || '#4B5563',
+                          }}
+                        />
+                        <span className="truncate">Chỉ màu {quickApplyTargetColor}</span>
+                      </div>
+                      <span className={`text-[10px] ${quickApplyScope === 'color' ? 'text-gray-300' : 'text-gray-400'}`}>
+                        {selectedSizes.length} size đang chọn
+                      </span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setQuickApplyScope('all')}
+                      className={`p-2.5 rounded-xl border text-left transition-all flex flex-col gap-1 ${
+                        quickApplyScope === 'all'
+                          ? 'border-black bg-neutral-900 text-white shadow-sm'
+                          : 'border-gray-200 bg-gray-50/50 hover:bg-gray-100 text-gray-700'
+                      }`}
+                    >
+                      <div className="flex items-center gap-1.5 text-xs font-bold">
+                        <span className="truncate">Tất cả {selectedColors.length} màu</span>
+                      </div>
+                      <span className={`text-[10px] ${quickApplyScope === 'all' ? 'text-gray-300' : 'text-gray-400'}`}>
+                        Tổng {selectedColors.length * selectedSizes.length} biến thể
+                      </span>
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="p-3 bg-gray-50 rounded-xl border border-gray-200/80 flex items-center justify-between text-xs">
+                  <span className="text-gray-500 font-medium">Màu áp dụng:</span>
+                  <div className="flex items-center gap-1.5 font-bold text-gray-900 uppercase">
+                    <span
+                      className="w-2.5 h-2.5 rounded-full"
+                      style={{
+                        backgroundColor:
+                          allAvailableColors.find((c) => c.name === quickApplyTargetColor)?.hex || '#4B5563',
+                      }}
+                    />
+                    <span>{quickApplyTargetColor || 'Mặc định'}</span>
+                  </div>
+                </div>
+              )}
+
+              {/* Ô nhập số lượng tồn */}
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-xs font-bold text-gray-800">
+                    Số lượng tồn cho mỗi size
+                  </label>
+                  <span className="text-[11px] text-gray-400">
+                    Tối đa {LIMITS.STOCK_MAX.toLocaleString()} {formData.unit || 'cái'}
+                  </span>
+                </div>
+
+                <div className="relative">
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={5}
+                    autoFocus
+                    value={quickApplyStock}
+                    onChange={(e) => {
+                      const clean = e.target.value.replace(/[^0-9]/g, '');
+                      setQuickApplyStock(clean);
+                    }}
+                    placeholder="0"
+                    className="w-full h-11 px-3.5 pr-14 border border-gray-300 rounded-xl text-base font-bold font-mono text-gray-900 focus:outline-none focus:border-black focus:ring-1 focus:ring-black"
+                  />
+                  <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-medium text-gray-400 pointer-events-none">
+                    {formData.unit || 'cái'}
+                  </span>
+                </div>
+
+                {Number(quickApplyStock || 0) > LIMITS.STOCK_MAX && (
+                  <p className="text-[11px] text-red-500 mt-1 font-semibold">
+                    Số lượng không được vượt quá {LIMITS.STOCK_MAX.toLocaleString()} {formData.unit || 'cái'}
+                  </p>
+                )}
+
+                {/* Gợi ý số lượng nhanh dạng chip bấm */}
+                <div className="flex items-center gap-1.5 mt-2.5">
+                  <span className="text-[10px] text-gray-400 font-medium">Gợi ý nhanh:</span>
+                  {['0', '5', '10', '20', '50', '100'].map((val) => (
+                    <button
+                      key={val}
+                      type="button"
+                      onClick={() => setQuickApplyStock(val)}
+                      className={`px-2 py-0.5 text-[11px] font-mono font-bold rounded-md border transition-all ${
+                        quickApplyStock === val
+                          ? 'bg-black text-white border-black'
+                          : 'bg-gray-100 hover:bg-gray-200 text-gray-700 border-gray-200'
+                      }`}
+                    >
+                      {val}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Xem trước thay đổi */}
+              <div className="p-3 bg-amber-50/60 border border-amber-200/70 rounded-xl text-[11px] text-amber-900 space-y-1">
+                <div className="font-bold flex items-center gap-1">
+                  <span>⚡</span> Xem trước cập nhật:
+                </div>
+                <p className="text-amber-800 leading-relaxed">
+                  Sẽ gán tồn kho <strong>{quickApplyStock || '0'} {formData.unit || 'cái'}</strong> cho{' '}
+                  <strong>
+                    {quickApplyScope === 'all'
+                      ? `${selectedColors.length * selectedSizes.length} biến thể (${selectedColors.length} màu × ${selectedSizes.length} size)`
+                      : `${selectedSizes.length} size của Màu ${quickApplyTargetColor}`}
+                  </strong>.
+                </p>
+              </div>
+
+              {/* Actions */}
+              <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-gray-100">
+                <button
+                  type="button"
+                  onClick={() => setShowQuickApplyModal(false)}
+                  className="px-4 py-2 text-xs font-semibold text-gray-600 hover:bg-gray-100 rounded-xl transition-colors"
+                >
+                  Hủy
+                </button>
+                <button
+                  type="submit"
+                  disabled={Number(quickApplyStock || 0) > LIMITS.STOCK_MAX}
+                  className="px-5 py-2 bg-neutral-900 text-white text-xs font-bold rounded-xl hover:bg-black transition-colors disabled:opacity-50 shadow-sm"
+                >
+                  Xác nhận áp dụng
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 };

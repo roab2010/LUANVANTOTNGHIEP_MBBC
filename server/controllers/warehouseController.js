@@ -147,7 +147,7 @@ const getWarehouseStats = async (req, res) => {
 // ============================================
 const importStock = async (req, res) => {
   try {
-    const { productId, quantity, supplierId, unitPrice, note } = req.body;
+    const { productId, quantity, supplierId, unitPrice, note, variantSize, variantColor } = req.body;
 
     if (!productId || !mongoose.Types.ObjectId.isValid(productId)) {
       return res.status(400).json({
@@ -180,13 +180,48 @@ const importStock = async (req, res) => {
     }
 
     const stockBefore = product.stock || 0;
-    const targetStock = stockBefore + qty;
+    const hasVariants = product.variants && product.variants.length > 0;
 
-    if (targetStock > 10000) {
-      return res.status(400).json({
-        success: false,
-        message: `Số lượng tồn kho sau khi nhập (${targetStock}) vượt quá giới hạn tối đa cho phép (10.000 sản phẩm)`,
-      });
+    // Nếu sản phẩm có biến thể, bắt buộc phải chọn biến thể khi nhập kho
+    if (hasVariants) {
+      if (!variantSize || !variantColor) {
+        return res.status(400).json({
+          success: false,
+          message: 'Sản phẩm có biến thể, vui lòng chọn size và màu sắc để nhập kho',
+        });
+      }
+
+      // Tìm biến thể khớp
+      const variant = product.variants.find(
+        (v) => v.size === variantSize.trim() && v.color === variantColor.trim()
+      );
+      if (!variant) {
+        return res.status(404).json({
+          success: false,
+          message: `Không tìm thấy biến thể size "${variantSize}" - màu "${variantColor}" trong sản phẩm này`,
+        });
+      }
+
+      const variantTarget = (variant.stock || 0) + qty;
+      if (variantTarget > 10000) {
+        return res.status(400).json({
+          success: false,
+          message: `Số lượng tồn biến thể sau khi nhập (${variantTarget}) vượt quá giới hạn tối đa (10.000)`,
+        });
+      }
+
+      // Tăng stock biến thể (pre-save hook sẽ tự tính tổng stock)
+      variant.stock = variantTarget;
+    } else {
+      // Sản phẩm cũ không có biến thể → tăng stock chung
+      const targetStock = stockBefore + qty;
+      if (targetStock > 10000) {
+        return res.status(400).json({
+          success: false,
+          message: `Số lượng tồn kho sau khi nhập (${targetStock}) vượt quá giới hạn tối đa cho phép (10.000 sản phẩm)`,
+        });
+      }
+      product.stock = targetStock;
     }
 
     // Kiểm tra nhà cung cấp nếu có truyền
@@ -227,8 +262,7 @@ const importStock = async (req, res) => {
       product.supplier = validSupplierId;
     }
 
-    // Cập nhật tồn kho
-    product.stock = targetStock;
+    // Lưu sản phẩm (pre-save hook sẽ tính tổng stock nếu có variants)
     await product.save();
 
     // Tạo bản ghi lịch sử kho
@@ -236,6 +270,8 @@ const importStock = async (req, res) => {
     try {
       historyRecord = await StockHistory.create({
         product: product._id,
+        variantSize: variantSize ? variantSize.trim() : '',
+        variantColor: variantColor ? variantColor.trim() : '',
         type: 'import',
         quantity: qty,
         stockBefore,
@@ -254,8 +290,19 @@ const importStock = async (req, res) => {
     } catch (historyErr) {
       // Rollback lại tồn kho sản phẩm nếu lưu lịch sử thất bại
       console.error('Lỗi khi lưu StockHistory, thực hiện rollback tồn kho:', historyErr);
-      product.stock = stockBefore;
-      await product.save();
+      // Rollback: load lại sản phẩm gốc từ DB
+      const rollbackProduct = await Product.findById(productId);
+      if (rollbackProduct) {
+        if (hasVariants) {
+          const rv = rollbackProduct.variants.find(
+            (v) => v.size === variantSize.trim() && v.color === variantColor.trim()
+          );
+          if (rv) rv.stock = (rv.stock || 0) - qty;
+        } else {
+          rollbackProduct.stock = stockBefore;
+        }
+        await rollbackProduct.save();
+      }
       throw historyErr;
     }
 
@@ -267,6 +314,7 @@ const importStock = async (req, res) => {
           _id: product._id,
           name: product.name,
           stock: product.stock,
+          variants: product.variants,
           costPrice: product.costPrice,
           supplier: product.supplier,
         },
@@ -287,7 +335,7 @@ const importStock = async (req, res) => {
 // ============================================
 const exportStock = async (req, res) => {
   try {
-    const { productId, quantity, reason, note } = req.body;
+    const { productId, quantity, reason, note, variantSize, variantColor } = req.body;
 
     if (!productId || !mongoose.Types.ObjectId.isValid(productId)) {
       return res.status(400).json({
@@ -327,19 +375,49 @@ const exportStock = async (req, res) => {
     }
 
     const stockBefore = product.stock || 0;
+    const hasVariants = product.variants && product.variants.length > 0;
 
-    // Không cho phép xuất nhiều hơn số lượng tồn kho khả dụng
-    if (stockBefore < qty) {
-      return res.status(400).json({
-        success: false,
-        message: `Số lượng xuất (${qty}) vượt quá số lượng tồn kho khả dụng hiện tại (${stockBefore} ${product.unit || 'cái'})`,
-      });
+    if (hasVariants) {
+      // Sản phẩm có biến thể → bắt buộc chọn biến thể
+      if (!variantSize || !variantColor) {
+        return res.status(400).json({
+          success: false,
+          message: 'Sản phẩm có biến thể, vui lòng chọn size và màu sắc để xuất kho',
+        });
+      }
+
+      const variant = product.variants.find(
+        (v) => v.size === variantSize.trim() && v.color === variantColor.trim()
+      );
+      if (!variant) {
+        return res.status(404).json({
+          success: false,
+          message: `Không tìm thấy biến thể size "${variantSize}" - màu "${variantColor}" trong sản phẩm này`,
+        });
+      }
+
+      const variantStock = variant.stock || 0;
+      if (variantStock < qty) {
+        return res.status(400).json({
+          success: false,
+          message: `Biến thể size "${variantSize}" - màu "${variantColor}" chỉ còn ${variantStock} ${product.unit || 'cái'}, không đủ xuất ${qty}`,
+        });
+      }
+
+      // Giảm stock biến thể (pre-save hook sẽ tính lại tổng)
+      variant.stock = variantStock - qty;
+    } else {
+      // Sản phẩm cũ không có biến thể
+      if (stockBefore < qty) {
+        return res.status(400).json({
+          success: false,
+          message: `Số lượng xuất (${qty}) vượt quá số lượng tồn kho khả dụng hiện tại (${stockBefore} ${product.unit || 'cái'})`,
+        });
+      }
+      product.stock = stockBefore - qty;
     }
 
-    const targetStock = stockBefore - qty;
-
-    // Cập nhật tồn kho
-    product.stock = targetStock;
+    // Lưu sản phẩm (pre-save hook tính tổng stock nếu có variants)
     await product.save();
 
     // Tạo bản ghi lịch sử xuất kho
@@ -347,6 +425,8 @@ const exportStock = async (req, res) => {
     try {
       historyRecord = await StockHistory.create({
         product: product._id,
+        variantSize: variantSize ? variantSize.trim() : '',
+        variantColor: variantColor ? variantColor.trim() : '',
         type: 'export',
         quantity: qty,
         stockBefore,
@@ -362,8 +442,18 @@ const exportStock = async (req, res) => {
     } catch (historyErr) {
       // Rollback lại tồn kho nếu lưu lịch sử thất bại
       console.error('Lỗi khi lưu StockHistory, thực hiện rollback tồn kho:', historyErr);
-      product.stock = stockBefore;
-      await product.save();
+      const rollbackProduct = await Product.findById(productId);
+      if (rollbackProduct) {
+        if (hasVariants) {
+          const rv = rollbackProduct.variants.find(
+            (v) => v.size === variantSize.trim() && v.color === variantColor.trim()
+          );
+          if (rv) rv.stock = (rv.stock || 0) + qty;
+        } else {
+          rollbackProduct.stock = stockBefore;
+        }
+        await rollbackProduct.save();
+      }
       throw historyErr;
     }
 
@@ -375,6 +465,7 @@ const exportStock = async (req, res) => {
           _id: product._id,
           name: product.name,
           stock: product.stock,
+          variants: product.variants,
         },
         history: historyRecord,
       },

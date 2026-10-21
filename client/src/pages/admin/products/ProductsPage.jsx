@@ -362,6 +362,11 @@ const ProductsPage = () => {
                           {product.name}
                         </button>
                         <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                          {product.variants && product.variants.length > 0 && (
+                            <span className="text-[10px] font-bold text-teal-700 bg-teal-50 border border-teal-200 px-1.5 py-0.5 rounded" title={product.variants.map(v => `${v.size}-${v.color} (${v.stock})`).join(', ')}>
+                              {product.variants.length} biến thể (Size/Màu)
+                            </span>
+                          )}
                           {product.supplier?.name && (
                             <span className="text-[11px] font-medium text-primary-700 bg-primary-50 border border-primary-100 px-1.5 py-0.5 rounded">
                               NCC: {product.supplier.name}
@@ -498,6 +503,7 @@ const ProductsPage = () => {
           onClose={() => setSelectedDetailProduct(null)}
           onOpenImport={(p) => setSelectedAdjustProduct(p)}
           onOpenExport={(p) => setSelectedExportProduct(p)}
+          onOpenEdit={(p) => handleEdit(p)}
         />
       )}
 

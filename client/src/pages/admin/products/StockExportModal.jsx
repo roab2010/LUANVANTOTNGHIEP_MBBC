@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { exportStock } from '../../../services/warehouseApi';
+import VariantSelect, { getVariantColorHex } from '../../../components/VariantSelect';
 
 // ============================================
 // ICONS
@@ -31,6 +32,8 @@ const EXPORT_REASONS = [
 ];
 
 const StockExportModal = ({ item, onClose, onSuccess }) => {
+  const hasVariants = Boolean(item?.variants && item.variants.length > 0);
+  const [selectedVariantIndex, setSelectedVariantIndex] = useState(0);
   const [quantity, setQuantity] = useState('');
   const [reason, setReason] = useState(EXPORT_REASONS[0]);
   const [note, setNote] = useState('');
@@ -38,7 +41,8 @@ const StockExportModal = ({ item, onClose, onSuccess }) => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const currentStock = item?.stock || 0;
+  const selectedVariant = hasVariants ? item.variants[selectedVariantIndex] : null;
+  const currentStock = hasVariants ? (selectedVariant?.stock || 0) : (item?.stock || 0);
   const numQty = parseInt(quantity, 10) || 0;
   const previewStock = Math.max(0, currentStock - numQty);
   const productCode = item?._id ? `#MBBC-${item._id.slice(-6).toUpperCase()}` : '—';
@@ -71,7 +75,7 @@ const StockExportModal = ({ item, onClose, onSuccess }) => {
     setError('');
 
     if (currentStock <= 0) {
-      setError('Sản phẩm đã hết hàng trong kho, không thể thực hiện xuất kho');
+      setError(hasVariants ? `Biến thể "${selectedVariant?.size} / ${selectedVariant?.color}" đã hết hàng trong kho` : 'Sản phẩm đã hết hàng trong kho, không thể thực hiện xuất kho');
       return;
     }
 
@@ -97,6 +101,8 @@ const StockExportModal = ({ item, onClose, onSuccess }) => {
         quantity: numQty,
         reason,
         note: note.trim() || undefined,
+        variantSize: selectedVariant ? selectedVariant.size : undefined,
+        variantColor: selectedVariant ? selectedVariant.color : undefined,
       });
 
       onSuccess();
@@ -164,17 +170,74 @@ const StockExportModal = ({ item, onClose, onSuccess }) => {
             </div>
 
             <div className="flex items-center justify-between pt-2 border-t border-gray-200/60 text-xs">
-              <span className="text-gray-500">Tồn kho khả dụng hiện tại:</span>
-              <span className={`font-bold tabular-nums text-sm ${currentStock <= 0 ? 'text-red-600' : 'text-gray-900'}`}>
-                {currentStock} <span className="font-normal text-gray-500">{item?.unit || 'cái'}</span>
-              </span>
+              <div className="flex items-center gap-1.5 text-gray-500">
+                {hasVariants && (
+                  <span
+                    className="w-2.5 h-2.5 rounded-full inline-block border border-black/15 shrink-0"
+                    style={{ backgroundColor: getVariantColorHex(selectedVariant?.color) }}
+                  />
+                )}
+                <span>
+                  {hasVariants ? `Tồn biến thể (${selectedVariant?.size} / ${selectedVariant?.color}):` : 'Tồn kho khả dụng hiện tại:'}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className={`font-bold tabular-nums text-sm ${currentStock <= 0 ? 'text-red-600' : 'text-gray-900'}`}>
+                  {currentStock} <span className="font-normal text-gray-500">{item?.unit || 'cái'}</span>
+                </span>
+                {hasVariants && (
+                  currentStock <= 0 ? (
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-50 text-red-600 border border-red-200">
+                      Hết hàng
+                    </span>
+                  ) : (
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                      Còn hàng
+                    </span>
+                  )
+                )}
+              </div>
             </div>
+            {hasVariants ? (
+              <div className="flex items-center justify-between pt-1 text-[11px] text-gray-500">
+                <span>Tổng tồn toàn bộ biến thể:</span>
+                <span className="font-semibold text-gray-700">{item?.stock || 0} {item?.unit || 'cái'}</span>
+              </div>
+            ) : (
+              <div className="mt-1.5 text-[11px] text-amber-800 bg-amber-50/80 p-2 rounded border border-amber-200/70">
+                ℹ️ Sản phẩm này chưa chia Size/Màu nên áp dụng xuất trực tiếp từ <strong>Tồn kho chung</strong>. (Vào mục "Sửa sản phẩm" nếu bạn muốn chia tồn kho theo từng Size/Màu).
+              </div>
+            )}
           </div>
+
+          {/* Chọn Biến thể cần xuất (nếu có) */}
+          {hasVariants && (
+            <div>
+              <div className="text-xs font-semibold text-gray-700 mb-1.5 flex items-center justify-between">
+                <span>Chọn biến thể xuất <span className="text-red-500">*</span></span>
+                <span className="text-[10px] text-amber-600 font-semibold">{item.variants.length} biến thể</span>
+              </div>
+              <VariantSelect
+                variants={item.variants}
+                selectedIndex={selectedVariantIndex}
+                onSelect={(idx) => {
+                  setSelectedVariantIndex(idx);
+                  setQuantity('');
+                  setQtyError('');
+                }}
+                unit={item?.unit || 'cái'}
+                disabled={loading}
+                accent="amber"
+              />
+            </div>
+          )}
 
           {/* Cảnh báo nếu tồn kho = 0 */}
           {currentStock <= 0 && (
             <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-xs text-red-700 font-medium">
-              Sản phẩm hiện đang có tồn kho bằng 0. Không thể xuất thêm sản phẩm từ kho.
+              {hasVariants
+                ? `Biến thể "${selectedVariant?.size} / ${selectedVariant?.color}" hiện đang có tồn kho bằng 0. Không thể xuất biến thể này.`
+                : 'Sản phẩm hiện đang có tồn kho bằng 0. Không thể xuất thêm sản phẩm từ kho.'}
             </div>
           )}
 

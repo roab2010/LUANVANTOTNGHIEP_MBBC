@@ -29,3 +29,8 @@ export const updateProduct = (id, data) => {
 export const deleteProduct = (id) => {
   return api.delete(`/products/${id}`);
 };
+
+// Lấy các tùy chọn bộ lọc (khoảng giá, danh sách màu, danh sách size có sẵn)
+export const getFilterOptions = (params = {}) => {
+  return api.get('/products/filters/options', { params });
+};

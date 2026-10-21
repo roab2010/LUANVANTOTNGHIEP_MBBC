@@ -2,7 +2,10 @@ const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
 const Product = require('../models/Product');
 const Category = require('../models/Category');
+const Supplier = require('../models/Supplier');
+const StockHistory = require('../models/StockHistory');
 const User = require('../models/User');
+const Order = require('../models/Order');
 const { uploadToCloudinary } = require('../config/cloudinary');
 
 // Helper: Kiểm tra request có phải từ Admin có token hợp lệ không
@@ -24,7 +27,22 @@ const checkIsAdmin = async (req) => {
 // ============================================
 const getProducts = async (req, res) => {
   try {
-    const { search, status, stockStatus, category, includeLocked, page = 1, limit = 10 } = req.query;
+    const {
+      search,
+      status,
+      stockStatus,
+      category,
+      includeLocked,
+      page = 1,
+      limit = 12,
+      minPrice,
+      maxPrice,
+      colors,
+      sizes,
+      inStock,
+      inStockOnly,
+      sort = 'newest',
+    } = req.query;
 
     // Tạo filter
     const filter = {};
@@ -44,13 +62,65 @@ const getProducts = async (req, res) => {
       filter.stock = { $lte: 0 };
     } else if (stockStatus === 'low_stock') {
       filter.stock = { $gt: 0, $lte: 10 };
-    } else if (stockStatus === 'in_stock') {
-      filter.stock = { $gt: 10 };
+    } else if (
+      stockStatus === 'in_stock' ||
+      inStock === 'true' ||
+      inStock === true ||
+      inStockOnly === 'true' ||
+      inStockOnly === true
+    ) {
+      filter.stock = { $gt: 0 };
+    }
+
+    // Lọc theo khoảng giá (minPrice, maxPrice)
+    if ((minPrice !== undefined && minPrice !== '') || (maxPrice !== undefined && maxPrice !== '')) {
+      filter.price = {};
+      if (minPrice !== undefined && minPrice !== '') {
+        const numMin = Number(minPrice);
+        if (!isNaN(numMin)) filter.price.$gte = numMin;
+      }
+      if (maxPrice !== undefined && maxPrice !== '') {
+        const numMax = Number(maxPrice);
+        if (!isNaN(numMax)) filter.price.$lte = numMax;
+      }
+      if (Object.keys(filter.price).length === 0) {
+        delete filter.price;
+      }
+    }
+
+    // Lọc theo màu sắc biến thể (hỗ trợ một hoặc nhiều màu)
+    if (colors) {
+      const colorList = (Array.isArray(colors) ? colors : String(colors).split(','))
+        .map((c) => c.trim())
+        .filter(Boolean);
+      if (colorList.length > 0) {
+        filter['variants.color'] = {
+          $in: colorList.map((c) => new RegExp(`^${c.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i')),
+        };
+      }
+    }
+
+    // Lọc theo kích thước biến thể (hỗ trợ một hoặc nhiều size)
+    if (sizes) {
+      const sizeList = (Array.isArray(sizes) ? sizes : String(sizes).split(','))
+        .map((s) => s.trim())
+        .filter(Boolean);
+      if (sizeList.length > 0) {
+        filter['variants.size'] = {
+          $in: sizeList.map((s) => new RegExp(`^${s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i')),
+        };
+      }
     }
 
     // Phân quyền: Kiểm tra Admin có yêu cầu xem cả danh mục bị khóa không
     const isAdmin = await checkIsAdmin(req);
     const allowLocked = isAdmin && (includeLocked === 'true' || includeLocked === true);
+
+    const isNewArrivals =
+      category &&
+      (category.toUpperCase() === 'NEW ARRIVALS' ||
+        category.toUpperCase() === 'NEW-ARRIVALS' ||
+        category.toUpperCase() === 'NEW_ARRIVALS');
 
     if (!allowLocked) {
       // Ẩn toàn bộ sản phẩm thuộc danh mục bị khóa (áp dụng cho khách hàng & API công khai)
@@ -58,7 +128,7 @@ const getProducts = async (req, res) => {
       const inactiveCatNames = inactiveCategories.map((c) => c.name);
 
       if (inactiveCatNames.length > 0) {
-        if (category && category !== 'ALL') {
+        if (category && category !== 'ALL' && !isNewArrivals) {
           const isCategoryLocked = inactiveCatNames.some(
             (cName) => cName.toLowerCase() === category.trim().toLowerCase()
           );
@@ -70,7 +140,7 @@ const getProducts = async (req, res) => {
                 products: [],
                 pagination: {
                   page: parseInt(page) || 1,
-                  limit: parseInt(limit) || 10,
+                  limit: parseInt(limit) || 12,
                   total: 0,
                   totalPages: 0,
                 },
@@ -84,26 +154,95 @@ const getProducts = async (req, res) => {
         } else {
           filter.category = { $nin: inactiveCatNames };
         }
-      } else if (category && category !== 'ALL') {
+      } else if (category && category !== 'ALL' && !isNewArrivals) {
         filter.category = { $regex: new RegExp(`^${category.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') };
       }
     } else {
       // Cho phép Admin xem tất cả danh mục (bao gồm cả danh mục bị khóa)
-      if (category && category !== 'ALL') {
+      if (category && category !== 'ALL' && !isNewArrivals) {
         filter.category = { $regex: new RegExp(`^${category.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') };
       }
     }
 
     // Phân trang
     const pageNum = parseInt(page) || 1;
-    const limitNum = parseInt(limit) || 10;
+    const limitNum = parseInt(limit) || 12;
     const skip = (pageNum - 1) * limitNum;
 
-    // Query
+    // Sắp xếp
+    let sortOption = { createdAt: -1, _id: -1 }; // Mặc định: Mới nhất
+    if (sort === 'price_asc') {
+      sortOption = { price: 1, _id: 1 };
+    } else if (sort === 'price_desc') {
+      sortOption = { price: -1, _id: 1 };
+    } else if (sort === 'name_asc') {
+      sortOption = { name: 1, _id: 1 };
+    } else if (sort === 'name_desc') {
+      sortOption = { name: -1, _id: 1 };
+    } else if (sort === 'oldest') {
+      sortOption = { createdAt: 1, _id: 1 };
+    } else if (sort === 'newest') {
+      sortOption = { createdAt: -1, _id: 1 };
+    } else if (sort === 'stock_desc') {
+      sortOption = { stock: -1, _id: 1 };
+    } else if (sort === 'featured') {
+      sortOption = { isFeatured: -1, stock: -1, createdAt: -1 };
+    }
+
+    // Xử lý tiêu chí BÁN CHẠY NHẤT (best_seller) dựa trên dữ liệu đơn hàng thực tế
+    if (sort === 'best_seller') {
+      const salesAgg = await Order.aggregate([
+        { $match: { status: { $ne: 'cancelled' } } },
+        { $unwind: '$items' },
+        { $group: { _id: '$items.product', totalSold: { $sum: '$items.quantity' } } },
+        { $sort: { totalSold: -1 } },
+      ]);
+
+      const salesMap = {};
+      salesAgg.forEach((item) => {
+        salesMap[String(item._id)] = item.totalSold;
+      });
+
+      const allMatching = await Product.find(filter)
+        .populate('supplier', 'name phone')
+        .lean();
+
+      allMatching.sort((a, b) => {
+        const soldA = salesMap[String(a._id)] || 0;
+        const soldB = salesMap[String(b._id)] || 0;
+        if (soldB !== soldA) return soldB - soldA;
+        return new Date(b.createdAt) - new Date(a.createdAt);
+      });
+
+      const total = allMatching.length;
+      const paged = allMatching.slice(skip, skip + limitNum);
+
+      const safeProducts = isAdmin
+        ? paged
+        : paged.map((p) => {
+            delete p.costPrice;
+            return p;
+          });
+
+      return res.json({
+        success: true,
+        data: {
+          products: safeProducts,
+          pagination: {
+            page: pageNum,
+            limit: limitNum,
+            total,
+            totalPages: Math.ceil(total / limitNum),
+          },
+        },
+      });
+    }
+
+    // Query tiêu chuẩn
     const [products, total] = await Promise.all([
       Product.find(filter)
         .populate('supplier', 'name phone')
-        .sort({ createdAt: -1 })
+        .sort(sortOption)
         .skip(skip)
         .limit(limitNum),
       Product.countDocuments(filter),
@@ -135,6 +274,67 @@ const getProducts = async (req, res) => {
       success: false,
       message: 'Lỗi server, vui lòng thử lại sau',
     });
+  }
+};
+
+// ============================================
+// LẤY TÙY CHỌN BỘ LỌC (COLORS, SIZES, PRICE RANGE) - GET /api/products/filters/options
+// ============================================
+const getFilterOptions = async (req, res) => {
+  try {
+    const { category } = req.query;
+    const filter = { status: 'active' };
+
+    // Không lấy sản phẩm từ danh mục inactive
+    const inactiveCategories = await Category.find({ status: 'inactive' }).select('name').lean();
+    const inactiveCatNames = inactiveCategories.map((c) => c.name);
+    if (inactiveCatNames.length > 0) {
+      filter.category = { $nin: inactiveCatNames };
+    }
+
+    const isNewArrivals =
+      category &&
+      (category.toUpperCase() === 'NEW ARRIVALS' ||
+        category.toUpperCase() === 'NEW-ARRIVALS' ||
+        category.toUpperCase() === 'NEW_ARRIVALS');
+
+    if (category && category !== 'ALL' && !isNewArrivals) {
+      filter.category = {
+        $regex: new RegExp(`^${category.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i'),
+      };
+    }
+
+    const products = await Product.find(filter).select('variants price category stock').lean();
+
+    const colorsSet = new Set();
+    const sizesSet = new Set();
+    let minPrice = Infinity;
+    let maxPrice = 0;
+
+    products.forEach((p) => {
+      if (typeof p.price === 'number') {
+        if (p.price < minPrice) minPrice = p.price;
+        if (p.price > maxPrice) maxPrice = p.price;
+      }
+      (p.variants || []).forEach((v) => {
+        if (v.color) colorsSet.add(v.color.trim());
+        if (v.size) sizesSet.add(v.size.trim());
+      });
+    });
+
+    res.json({
+      success: true,
+      data: {
+        colors: [...colorsSet],
+        sizes: [...sizesSet],
+        minPrice: minPrice === Infinity ? 0 : minPrice,
+        maxPrice: maxPrice,
+        totalProducts: products.length,
+      },
+    });
+  } catch (err) {
+    console.error('Lỗi lấy tùy chọn bộ lọc:', err);
+    res.status(500).json({ success: false, message: 'Lỗi server' });
   }
 };
 
@@ -198,7 +398,7 @@ const getProductById = async (req, res) => {
 // ============================================
 const createProduct = async (req, res) => {
   try {
-    const { name, description, price, costPrice, stock, unit, category, supplier, status } = req.body;
+    const { name, description, price, costPrice, stock, unit, category, supplier, status, variants } = req.body;
 
     // --- Validate input ---
     if (!name || !name.trim()) {
@@ -232,13 +432,56 @@ const createProduct = async (req, res) => {
       }
     }
 
-    if (stock !== undefined && stock !== '') {
-      const stockNum = Number(stock);
-      if (isNaN(stockNum) || stockNum < 0 || stockNum > 10000) {
-        return res.status(400).json({
-          success: false,
-          message: 'Số lượng tồn kho phải từ 0 đến 10,000',
-        });
+    // --- Xử lý biến thể (variants) ---
+    let parsedVariants = [];
+    if (variants !== undefined && variants !== null && variants !== '') {
+      try {
+        parsedVariants = typeof variants === 'string' ? JSON.parse(variants) : variants;
+      } catch (e) {
+        parsedVariants = [];
+      }
+      if (!Array.isArray(parsedVariants)) {
+        parsedVariants = [];
+      }
+    }
+
+    if (parsedVariants.length > 0) {
+      const seenCombos = new Set();
+      for (const v of parsedVariants) {
+        const s = (v.size || '').trim();
+        const c = (v.color || '').trim();
+        if (!s || !c) {
+          return res.status(400).json({
+            success: false,
+            message: 'Mỗi biến thể phải có đầy đủ size và màu sắc',
+          });
+        }
+        const comboKey = `${s.toLowerCase()}__${c.toLowerCase()}`;
+        if (seenCombos.has(comboKey)) {
+          return res.status(400).json({
+            success: false,
+            message: `Biến thể size "${s}" - màu "${c}" bị trùng lặp`,
+          });
+        }
+        seenCombos.add(comboKey);
+
+        const vStock = Number(v.stock);
+        if (isNaN(vStock) || vStock < 0 || vStock > 10000) {
+          return res.status(400).json({
+            success: false,
+            message: `Số lượng tồn cho size "${s}" - màu "${c}" phải từ 0 đến 10,000`,
+          });
+        }
+      }
+    } else {
+      if (stock !== undefined && stock !== '') {
+        const stockNum = Number(stock);
+        if (isNaN(stockNum) || stockNum < 0 || stockNum > 10000) {
+          return res.status(400).json({
+            success: false,
+            message: 'Số lượng tồn kho phải từ 0 đến 10,000',
+          });
+        }
       }
     }
 
@@ -297,19 +540,73 @@ const createProduct = async (req, res) => {
     }
 
     // --- Tạo sản phẩm ---
-    const product = await Product.create({
+    const productPayload = {
       name: trimmedName,
       description: description?.trim() || '',
       price: Number(price),
-      costPrice: costPrice !== undefined ? Number(costPrice) : 0,
-      stock: stock !== undefined ? Number(stock) : 0,
+      costPrice: costPrice !== undefined && costPrice !== '' ? Number(costPrice) : 10000,
       unit: unit?.trim() || 'cái',
       category: category?.trim() || '',
       supplier: supplier ? supplier : null,
       status: status || 'active',
       image: imageUrl,
       imageHash: imageHash,
-    });
+    };
+
+    if (parsedVariants.length > 0) {
+      productPayload.variants = parsedVariants.map((v) => ({
+        size: v.size.trim(),
+        color: v.color.trim(),
+        stock: Math.max(0, parseInt(v.stock) || 0),
+      }));
+      productPayload.stock = productPayload.variants.reduce((sum, v) => sum + v.stock, 0);
+    } else {
+      productPayload.variants = [];
+      productPayload.stock = stock !== undefined && stock !== '' ? Math.max(0, Number(stock)) : 0;
+    }
+
+    const product = await Product.create(productPayload);
+
+    // Ghi nhận lưu vết lịch sử kho ban đầu (nếu có tồn kho)
+    try {
+      if (product.variants && product.variants.length > 0) {
+        for (const v of product.variants) {
+          if (v.stock > 0) {
+            await StockHistory.create({
+              product: product._id,
+              variantSize: v.size,
+              variantColor: v.color,
+              type: 'import',
+              quantity: v.stock,
+              stockBefore: 0,
+              stockAfter: v.stock,
+              supplier: product.supplier || null,
+              unitPrice: product.costPrice || 0,
+              reason: 'Khởi tạo tồn kho ban đầu',
+              note: `Khởi tạo tồn kho ban đầu cho Size ${v.size} - Màu ${v.color}`,
+              performer: req.user?.userId || null,
+            });
+          }
+        }
+      } else if (product.stock > 0) {
+        await StockHistory.create({
+          product: product._id,
+          variantSize: '',
+          variantColor: '',
+          type: 'import',
+          quantity: product.stock,
+          stockBefore: 0,
+          stockAfter: product.stock,
+          supplier: product.supplier || null,
+          unitPrice: product.costPrice || 0,
+          reason: 'Khởi tạo tồn kho ban đầu',
+          note: 'Khởi tạo tồn kho chung ban đầu',
+          performer: req.user?.userId || null,
+        });
+      }
+    } catch (historyErr) {
+      console.warn('Lỗi ghi nhận lịch sử kho khi tạo sản phẩm mới:', historyErr);
+    }
 
     res.status(201).json({
       success: true,
@@ -330,7 +627,7 @@ const createProduct = async (req, res) => {
 // ============================================
 const updateProduct = async (req, res) => {
   try {
-    const { name, description, price, costPrice, stock, unit, category, supplier, status } = req.body;
+    const { name, description, price, costPrice, stock, unit, category, supplier, status, variants } = req.body;
 
     // --- Validate input ---
     if (name !== undefined && !name.trim()) {
@@ -357,7 +654,46 @@ const updateProduct = async (req, res) => {
       }
     }
 
-    if (stock !== undefined && stock !== '') {
+    // --- Xử lý biến thể (variants) ---
+    let parsedVariants = undefined;
+    if (variants !== undefined && variants !== null && variants !== '') {
+      try {
+        parsedVariants = typeof variants === 'string' ? JSON.parse(variants) : variants;
+      } catch (e) {
+        parsedVariants = [];
+      }
+      if (!Array.isArray(parsedVariants)) {
+        parsedVariants = [];
+      }
+
+      const seenCombos = new Set();
+      for (const v of parsedVariants) {
+        const s = (v.size || '').trim();
+        const c = (v.color || '').trim();
+        if (!s || !c) {
+          return res.status(400).json({
+            success: false,
+            message: 'Mỗi biến thể phải có đầy đủ size và màu sắc',
+          });
+        }
+        const comboKey = `${s.toLowerCase()}__${c.toLowerCase()}`;
+        if (seenCombos.has(comboKey)) {
+          return res.status(400).json({
+            success: false,
+            message: `Biến thể size "${s}" - màu "${c}" bị trùng lặp`,
+          });
+        }
+        seenCombos.add(comboKey);
+
+        const vStock = Number(v.stock);
+        if (isNaN(vStock) || vStock < 0 || vStock > 10000) {
+          return res.status(400).json({
+            success: false,
+            message: `Số lượng tồn cho size "${s}" - màu "${c}" phải từ 0 đến 10,000`,
+          });
+        }
+      }
+    } else if (stock !== undefined && stock !== '') {
       const stockNum = Number(stock);
       if (isNaN(stockNum) || stockNum < 0 || stockNum > 10000) {
         return res.status(400).json({
@@ -399,7 +735,6 @@ const updateProduct = async (req, res) => {
     }
 
     // --- Kiểm tra quy tắc khi danh mục bị khóa khi chỉnh sửa ---
-    // 1. Nếu sản phẩm hiện tại đang thuộc danh mục bị khóa, KHÔNG cho phép chuyển sang danh mục khác
     if (existingProduct.category) {
       const currentCatDoc = await Category.findOne({
         name: { $regex: new RegExp(`^${existingProduct.category.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') },
@@ -414,7 +749,6 @@ const updateProduct = async (req, res) => {
       }
     }
 
-    // 2. Không cho phép chuyển sản phẩm vào danh mục đang bị khóa
     if (category !== undefined && category.trim()) {
       const newCatName = category.trim();
       if (!existingProduct.category || newCatName.toLowerCase() !== existingProduct.category.trim().toLowerCase()) {
@@ -430,25 +764,42 @@ const updateProduct = async (req, res) => {
       }
     }
 
-    // --- Tìm và cập nhật ---
-    const updateData = {};
-    if (name !== undefined) updateData.name = name.trim();
-    if (description !== undefined) updateData.description = description.trim();
-    if (price !== undefined) updateData.price = Number(price);
-    if (costPrice !== undefined) updateData.costPrice = Number(costPrice);
-    if (stock !== undefined) updateData.stock = Number(stock);
-    if (unit !== undefined) updateData.unit = unit.trim();
-    if (category !== undefined) updateData.category = category.trim();
-    if (supplier !== undefined) updateData.supplier = supplier ? supplier : null;
-    if (status !== undefined) updateData.status = status;
+    // Lưu trữ thông tin tồn kho cũ trước khi cập nhật để so sánh lưu vết
+    const oldVariants = existingProduct.variants
+      ? existingProduct.variants.map((v) => ({ size: v.size, color: v.color, stock: v.stock || 0 }))
+      : [];
+    const oldTotalStock = existingProduct.stock || 0;
 
-    // Lấy thông tin sản phẩm cũ để xử lý ảnh
-    // Nếu có file mới tải lên, tính hash và kiểm tra trùng trước khi upload
+    // --- Cập nhật các trường ---
+    if (name !== undefined) existingProduct.name = name.trim();
+    if (description !== undefined) existingProduct.description = description.trim();
+    if (price !== undefined) existingProduct.price = Number(price);
+    if (costPrice !== undefined && costPrice !== '') existingProduct.costPrice = Number(costPrice);
+    if (unit !== undefined) existingProduct.unit = unit.trim();
+    if (category !== undefined) existingProduct.category = category.trim();
+    if (supplier !== undefined) existingProduct.supplier = supplier ? supplier : null;
+    if (status !== undefined) existingProduct.status = status;
+
+    if (parsedVariants !== undefined) {
+      existingProduct.variants = parsedVariants.map((v) => ({
+        size: v.size.trim(),
+        color: v.color.trim(),
+        stock: Math.max(0, parseInt(v.stock) || 0),
+      }));
+      if (existingProduct.variants.length > 0) {
+        existingProduct.stock = existingProduct.variants.reduce((sum, v) => sum + v.stock, 0);
+      } else if (stock !== undefined && stock !== '') {
+        existingProduct.stock = Math.max(0, Number(stock));
+      } else {
+        existingProduct.stock = 0;
+      }
+    } else if (stock !== undefined && stock !== '') {
+      existingProduct.stock = Math.max(0, Number(stock));
+    }
+
+    // Xử lý ảnh
     if (req.file) {
-      // 1. Tính toán SHA-256 hash từ binary buffer của ảnh mới
       const newHash = crypto.createHash('sha256').update(req.file.buffer).digest('hex');
-
-      // 2. Kiểm tra trùng hash với sản phẩm khác (ngoại trừ chính sản phẩm đang sửa)
       const existingByHash = await Product.findOne({
         _id: { $ne: req.params.id },
         imageHash: newHash,
@@ -460,33 +811,147 @@ const updateProduct = async (req, res) => {
         });
       }
 
-      // 3. Upload ảnh mới lên Cloudinary
       const uploadResult = await uploadToCloudinary(req.file.buffer);
-      updateData.image = uploadResult.secure_url;
-      updateData.imageHash = newHash;
+      existingProduct.image = uploadResult.secure_url;
+      existingProduct.imageHash = newHash;
     } else if (req.body.removeImage === 'true') {
-      // Nếu user chủ động xóa ảnh
-      updateData.image = '';
-      updateData.imageHash = '';
+      existingProduct.image = '';
+      existingProduct.imageHash = '';
     }
 
-    const product = await Product.findByIdAndUpdate(
-      req.params.id,
-      updateData,
-      { new: true, runValidators: true }
-    ).populate('supplier', 'name phone address');
+    await existingProduct.save();
+    await existingProduct.populate('supplier', 'name phone address');
 
-    if (!product) {
-      return res.status(404).json({
-        success: false,
-        message: 'Không tìm thấy sản phẩm',
-      });
+    // Lưu vết thay đổi tồn kho (StockHistory) khi sửa sản phẩm
+    try {
+      if (parsedVariants !== undefined) {
+        const oldMap = new Map();
+        oldVariants.forEach((v) => oldMap.set(`${v.size}__${v.color}`, v.stock));
+
+        const newMap = new Map();
+        existingProduct.variants.forEach((v) => newMap.set(`${v.size}__${v.color}`, v.stock));
+
+        // Kiểm tra biến thể mới thêm hoặc thay đổi số lượng tồn
+        for (const [key, newStk] of newMap.entries()) {
+          const [s, c] = key.split('__');
+          if (!oldMap.has(key)) {
+            if (newStk > 0) {
+              await StockHistory.create({
+                product: existingProduct._id,
+                variantSize: s,
+                variantColor: c,
+                type: 'import',
+                quantity: newStk,
+                stockBefore: 0,
+                stockAfter: newStk,
+                supplier: existingProduct.supplier || null,
+                unitPrice: existingProduct.costPrice || 0,
+                reason: 'Khởi tạo tồn kho ban đầu',
+                note: `Thêm biến thể mới Size ${s} - Màu ${c} khi cập nhật sản phẩm`,
+                performer: req.user?.userId || null,
+              });
+            }
+          } else {
+            const oldStk = oldMap.get(key);
+            if (newStk > oldStk) {
+              await StockHistory.create({
+                product: existingProduct._id,
+                variantSize: s,
+                variantColor: c,
+                type: 'import',
+                quantity: newStk - oldStk,
+                stockBefore: oldStk,
+                stockAfter: newStk,
+                supplier: existingProduct.supplier || null,
+                unitPrice: existingProduct.costPrice || 0,
+                reason: 'Điều chỉnh tồn kho',
+                note: `Tăng tồn kho biến thể Size ${s} - Màu ${c} khi cập nhật sản phẩm`,
+                performer: req.user?.userId || null,
+              });
+            } else if (newStk < oldStk) {
+              await StockHistory.create({
+                product: existingProduct._id,
+                variantSize: s,
+                variantColor: c,
+                type: 'export',
+                quantity: oldStk - newStk,
+                stockBefore: oldStk,
+                stockAfter: newStk,
+                supplier: existingProduct.supplier || null,
+                unitPrice: existingProduct.costPrice || 0,
+                reason: 'Điều chỉnh tồn kho',
+                note: `Giảm tồn kho biến thể Size ${s} - Màu ${c} khi cập nhật sản phẩm`,
+                performer: req.user?.userId || null,
+              });
+            }
+          }
+        }
+
+        // Kiểm tra các biến thể bị xóa đi
+        for (const [key, oldStk] of oldMap.entries()) {
+          if (!newMap.has(key)) {
+            const [s, c] = key.split('__');
+            if (oldStk > 0) {
+              await StockHistory.create({
+                product: existingProduct._id,
+                variantSize: s,
+                variantColor: c,
+                type: 'export',
+                quantity: oldStk,
+                stockBefore: oldStk,
+                stockAfter: 0,
+                supplier: existingProduct.supplier || null,
+                unitPrice: existingProduct.costPrice || 0,
+                reason: 'Xóa biến thể sản phẩm',
+                note: `Xóa biến thể Size ${s} - Màu ${c} khỏi sản phẩm`,
+                performer: req.user?.userId || null,
+              });
+            }
+          }
+        }
+      } else {
+        // Trường hợp không quản lý theo biến thể (chỉnh sửa tồn kho chung)
+        const newTotalStock = existingProduct.stock || 0;
+        if (newTotalStock > oldTotalStock) {
+          await StockHistory.create({
+            product: existingProduct._id,
+            variantSize: '',
+            variantColor: '',
+            type: 'import',
+            quantity: newTotalStock - oldTotalStock,
+            stockBefore: oldTotalStock,
+            stockAfter: newTotalStock,
+            supplier: existingProduct.supplier || null,
+            unitPrice: existingProduct.costPrice || 0,
+            reason: 'Điều chỉnh tồn kho',
+            note: 'Tăng tồn kho chung khi cập nhật sản phẩm',
+            performer: req.user?.userId || null,
+          });
+        } else if (newTotalStock < oldTotalStock) {
+          await StockHistory.create({
+            product: existingProduct._id,
+            variantSize: '',
+            variantColor: '',
+            type: 'export',
+            quantity: oldTotalStock - newTotalStock,
+            stockBefore: oldTotalStock,
+            stockAfter: newTotalStock,
+            supplier: existingProduct.supplier || null,
+            unitPrice: existingProduct.costPrice || 0,
+            reason: 'Điều chỉnh tồn kho',
+            note: 'Giảm tồn kho chung khi cập nhật sản phẩm',
+            performer: req.user?.userId || null,
+          });
+        }
+      }
+    } catch (historyErr) {
+      console.warn('Lỗi ghi nhận lịch sử kho khi cập nhật sản phẩm:', historyErr);
     }
 
     res.json({
       success: true,
       message: 'Cập nhật sản phẩm thành công',
-      data: { product },
+      data: { product: existingProduct },
     });
   } catch (error) {
     console.error('Lỗi cập nhật sản phẩm:', error);
@@ -538,6 +1003,7 @@ const deleteProduct = async (req, res) => {
 
 module.exports = {
   getProducts,
+  getFilterOptions,
   getProductById,
   createProduct,
   updateProduct,

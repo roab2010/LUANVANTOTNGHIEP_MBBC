@@ -9,6 +9,8 @@ import mbbcLogo from '../../assets/logo MBBC.png';
 // Service API Backend
 import { getProducts } from '../../services/productApi';
 import { getPublicCategories } from '../../services/categoryApi';
+import { useCart } from '../../context/CartContext';
+import StoreModals from '../../components/common/StoreModals';
 
 // ============================================
 // ICONS (Clean, Precision SVG)
@@ -76,7 +78,16 @@ const CustomerHome = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
 
-  // Product Filter & Cart State
+  // Cart & Global State từ CartContext
+  const {
+    cart,
+    addToCart,
+    totalCartCount,
+    setIsCartOpen,
+    showToast,
+  } = useCart();
+
+  // Product Filter & QuickView State
   const [products, setProducts] = useState([]);
   const [activeCategories, setActiveCategories] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -84,11 +95,9 @@ const CustomerHome = () => {
   const [visibleLimit, setVisibleLimit] = useState(10);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [wishlist, setWishlist] = useState([]);
-  const [cart, setCart] = useState([]);
-  const [isCartOpen, setIsCartOpen] = useState(false);
   const [quickViewProduct, setQuickViewProduct] = useState(null);
-  const [quickViewSize, setQuickViewSize] = useState('L');
-  const [toastMessage, setToastMessage] = useState(null);
+  const [quickViewSize, setQuickViewSize] = useState('M');
+  const [quickViewColor, setQuickViewColor] = useState('Đen');
 
   const searchBoxRef = useRef(null);
 
@@ -115,17 +124,14 @@ const CustomerHome = () => {
     return ['ALL', 'TOPS', 'OUTWEAR', 'BOTTOMS', 'ACCESSORIES'];
   }, [activeCategories]);
 
-  // Dropdown menu SHOP động (chính xác theo các danh mục lấy từ backend)
+  // Dropdown menu SHOP động (đầy đủ TOPS, OUTWEAR, BOTTOMS, ACCESSORIES, NEW ARRIVALS, không trùng lặp)
   const shopDropdownItems = useMemo(() => {
-    if (activeCategories.length > 0) {
-      return activeCategories.map((cat) => ({ label: cat, filter: cat }));
-    }
-    return [
-      { label: 'TOPS', filter: 'TOPS' },
-      { label: 'OUTWEAR', filter: 'OUTWEAR' },
-      { label: 'BOTTOMS', filter: 'BOTTOMS' },
-      { label: 'ACCESSORIES', filter: 'ACCESSORIES' },
-    ];
+    const base = ['TOPS', 'OUTWEAR', 'BOTTOMS', 'ACCESSORIES'];
+    const extra = (activeCategories || []).filter(
+      (cat) => cat && !base.includes(cat.toUpperCase()) && cat.toUpperCase() !== 'NEW ARRIVALS'
+    );
+    const combined = [...base, ...extra, 'NEW ARRIVALS'];
+    return combined.map((cat) => ({ label: cat, filter: cat }));
   }, [activeCategories]);
 
   // Tự động chuyển về ALL nếu danh mục đang chọn bị Admin khóa
@@ -141,20 +147,21 @@ const CustomerHome = () => {
   }, [activeCategories, selectedCategory]);
 
   // Tải danh sách sản phẩm thật từ Backend MongoDB (backend tự động ẩn sản phẩm thuộc danh mục bị khóa)
-  useEffect(() => {
-    const fetchBackendProducts = async () => {
-      try {
-        setIsLoading(true);
-        const res = await getProducts({ limit: 100, status: 'active' });
-        if (res.data?.success && Array.isArray(res.data.data?.products)) {
-          setProducts(res.data.data.products);
-        }
-      } catch (err) {
-        console.error('Lỗi khi tải sản phẩm từ backend:', err);
-      } finally {
-        setIsLoading(false);
+  const fetchBackendProducts = async () => {
+    try {
+      setIsLoading(true);
+      const res = await getProducts({ limit: 100, status: 'active' });
+      if (res.data?.success && Array.isArray(res.data.data?.products)) {
+        setProducts(res.data.data.products);
       }
-    };
+    } catch (err) {
+      console.error('Lỗi khi tải sản phẩm từ backend:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
     fetchBackendProducts();
   }, []);
 
@@ -187,10 +194,6 @@ const CustomerHome = () => {
   // Header active khi hover, scroll, hoặc mở search popover
   const isHeaderActive = isHeaderHovered || isScrolled || searchOpen;
 
-  const showToast = (msg) => {
-    setToastMessage(msg);
-    setTimeout(() => setToastMessage(null), 2500);
-  };
 
   const handleLogout = () => {
     logout();
@@ -207,31 +210,19 @@ const CustomerHome = () => {
     }
   };
 
-  const addToCart = (product, size = 'L', qty = 1) => {
-    const prodId = product._id || product.id;
-    const existingIndex = cart.findIndex(
-      (item) => (item.product._id || item.product.id) === prodId && item.size === size
-    );
-    if (existingIndex > -1) {
-      const updated = [...cart];
-      updated[existingIndex].quantity += qty;
-      setCart(updated);
+  const openQuickView = (product) => {
+    const hasVars = Boolean(product.variants && product.variants.length > 0);
+    if (hasVars) {
+      const inStockVar = product.variants.find((v) => (v.stock || 0) > 0) || product.variants[0];
+      setQuickViewSize(inStockVar?.size || product.variants[0]?.size || 'M');
+      setQuickViewColor(inStockVar?.color || product.variants[0]?.color || 'Đen');
     } else {
-      setCart([...cart, { product, size, quantity: qty }]);
+      setQuickViewSize('M');
+      setQuickViewColor('');
     }
-    showToast(`Đã thêm "${product.name}" vào giỏ hàng`);
+    setQuickViewProduct(product);
   };
 
-  const updateCartQty = (index, delta) => {
-    const updated = [...cart];
-    const newQty = updated[index].quantity + delta;
-    if (newQty <= 0) {
-      setCart(cart.filter((_, i) => i !== index));
-    } else {
-      updated[index].quantity = newQty;
-      setCart(updated);
-    }
-  };
 
   const handleSearchSubmit = (e) => {
     e.preventDefault();
@@ -267,17 +258,8 @@ const CustomerHome = () => {
     return filteredProducts.slice(0, visibleLimit);
   }, [filteredProducts, visibleLimit]);
 
-  const totalCartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
-  const cartSubtotal = cart.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
-
   return (
     <div className="min-h-screen bg-white text-black font-['Montserrat',sans-serif] antialiased">
-      {/* Toast thông báo tối giản */}
-      {toastMessage && (
-        <div className="fixed bottom-6 right-6 z-50 bg-black text-white text-xs font-semibold tracking-wider px-5 py-3 shadow-2xl animate-slide-up">
-          {toastMessage}
-        </div>
-      )}
 
       {/* ========================================================= */}
       {/* HEADER BACYKISM CHUẨN (HÌNH 2): LOGO TRÁI, MENU GIỮA, ICONS PHẢI */}
@@ -372,12 +354,20 @@ const CustomerHome = () => {
                     <button
                       key={item.label}
                       onClick={() => {
-                        setSelectedCategory(item.filter);
-                        document.getElementById('products-section')?.scrollIntoView({ behavior: 'smooth' });
+                        navigate(`/category/${encodeURIComponent(item.filter)}`);
                       }}
-                      className="block w-full text-left py-2 text-[12px] font-bold tracking-[0.14em] uppercase text-neutral-800 hover:text-black hover:translate-x-1.5 transition-all"
+                      className={`block w-full text-left py-2 text-[12px] font-bold tracking-[0.14em] uppercase hover:translate-x-1.5 transition-all flex items-center justify-between ${
+                        item.label === 'NEW ARRIVALS'
+                          ? 'text-[#b91c1c] hover:text-[#991b1b]'
+                          : 'text-neutral-800 hover:text-black'
+                      }`}
                     >
-                      {item.label}
+                      <span>{item.label}</span>
+                      {item.label === 'NEW ARRIVALS' && (
+                        <span className="text-[9px] font-extrabold uppercase px-1.5 py-0.5 bg-red-100 text-[#b91c1c] tracking-normal">
+                          HOT
+                        </span>
+                      )}
                     </button>
                   ))}
                 </div>
@@ -524,9 +514,36 @@ const CustomerHome = () => {
 
               {/* Menu tài khoản nhỏ khi user đã đăng nhập */}
               {user && userDropdownOpen && (
-                <div className="absolute top-full right-0 mt-2 bg-white text-black shadow-xl border border-neutral-100 p-4 min-w-[180px] z-50 animate-slide-down">
-                  <p className="text-[11px] font-bold text-neutral-500 uppercase tracking-wider mb-1">Xin chào,</p>
-                  <p className="text-xs font-black text-black truncate mb-3">{user.fullName || 'Khách hàng'}</p>
+                <div className="absolute top-full right-0 mt-2 bg-white text-black shadow-xl border border-neutral-100 p-4 min-w-[200px] z-50 animate-slide-down">
+                  <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider mb-0.5">Xin chào,</p>
+                  <p className="text-xs font-black text-black truncate mb-2.5">{user.fullName || user.email || 'Khách hàng'}</p>
+                  
+                  <div className="space-y-1 mb-3 border-t border-neutral-100 pt-2">
+                    <button
+                      onClick={() => {
+                        setIsMyOrdersOpen(true);
+                        setUserDropdownOpen(false);
+                      }}
+                      className="w-full text-left py-1.5 px-2 text-[11px] font-bold uppercase tracking-wider text-neutral-700 hover:text-black hover:bg-neutral-50 transition-colors flex items-center justify-between"
+                    >
+                      <span>Đơn hàng của tôi</span>
+                      <span className="text-[10px] text-neutral-400">→</span>
+                    </button>
+
+                    {user.role === 'admin' && (
+                      <button
+                        onClick={() => {
+                          setUserDropdownOpen(false);
+                          navigate('/admin');
+                        }}
+                        className="w-full text-left py-1.5 px-2 text-[11px] font-bold uppercase tracking-wider text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 transition-colors flex items-center justify-between"
+                      >
+                        <span>Trang quản trị</span>
+                        <span className="text-[10px] text-indigo-400">→</span>
+                      </button>
+                    )}
+                  </div>
+
                   <button
                     onClick={handleLogout}
                     className="w-full py-1.5 text-center bg-black text-white text-[11px] font-bold uppercase tracking-wider hover:bg-neutral-800 transition-colors"
@@ -575,13 +592,19 @@ const CustomerHome = () => {
               <button
                 key={item.label}
                 onClick={() => {
-                  setSelectedCategory(item.filter);
                   setMobileMenuOpen(false);
-                  document.getElementById('products-section')?.scrollIntoView({ behavior: 'smooth' });
+                  navigate(`/category/${encodeURIComponent(item.filter)}`);
                 }}
-                className="block w-full text-left py-2 text-xs font-black tracking-widest uppercase text-neutral-900"
+                className={`block w-full text-left py-2 text-xs font-black tracking-widest uppercase flex items-center justify-between ${
+                  item.label === 'NEW ARRIVALS' ? 'text-[#b91c1c]' : 'text-neutral-900'
+                }`}
               >
-                {item.label}
+                <span>{item.label}</span>
+                {item.label === 'NEW ARRIVALS' && (
+                  <span className="text-[9px] font-extrabold uppercase px-1.5 py-0.5 bg-red-100 text-[#b91c1c] tracking-normal">
+                    HOT
+                  </span>
+                )}
               </button>
             ))}
           </div>
@@ -663,12 +686,15 @@ const CustomerHome = () => {
               {displayedProducts.map((product) => {
                 const prodId = product._id || product.id;
                 const prodImg = product.image || 'https://placehold.co/600x800/151515/ffffff?text=M.B.B.C';
-                const prodSizes = product.sizes && product.sizes.length > 0 ? product.sizes : ['S', 'M', 'L'];
+                const hasVariants = product.variants && product.variants.length > 0;
+                const variantSizes = hasVariants ? [...new Set(product.variants.map((v) => v.size))] : (product.sizes || []);
+                const isOutOfStock = product.stock <= 0;
+
                 return (
                   <div key={prodId} className="group flex flex-col text-left">
-                    {/* Khung ảnh sạch tinh tế - KHÔNG VIỀN (CHUẨN HÌNH 1 & 2) */}
+                    {/* Khung ảnh sạch tinh tế - bấm để xem chi tiết sản phẩm */}
                     <div
-                      onClick={() => setQuickViewProduct({ ...product, id: prodId, image: prodImg, sizes: prodSizes })}
+                      onClick={() => navigate(`/product/${prodId}`)}
                       className="relative aspect-[3/4] bg-[#f7f7f7] overflow-hidden cursor-pointer"
                     >
                       <img
@@ -677,16 +703,21 @@ const CustomerHome = () => {
                         loading="lazy"
                         className="w-full h-full object-cover object-center transition-transform duration-500 ease-out group-hover:scale-105"
                       />
+                      {isOutOfStock && (
+                        <div className="absolute top-2 left-2 px-2 py-0.5 bg-black/80 text-white text-[10px] font-black uppercase tracking-wider">
+                          HẾT HÀNG
+                        </div>
+                      )}
                     </div>
 
-                    {/* Dòng metadata kích thước chuẩn y chang Hình 1 & 2: "+3 Kích thước" */}
+                    {/* Dòng metadata kích thước / biến thể */}
                     <p className="text-[12px] text-neutral-400 font-normal mt-3 text-left">
-                      +{prodSizes.length} Kích thước
+                      {hasVariants ? `+${variantSizes.length} Kích thước (${product.variants.length} biến thể)` : (product.stock > 0 ? `Còn ${product.stock} ${product.unit || 'cái'}` : 'Hết hàng')}
                     </p>
 
-                    {/* Tên sản phẩm căn TRÁI từ Backend */}
+                    {/* Tên sản phẩm - bấm để xem chi tiết */}
                     <h3
-                      onClick={() => setQuickViewProduct({ ...product, id: prodId, image: prodImg, sizes: prodSizes })}
+                      onClick={() => navigate(`/product/${prodId}`)}
                       className="text-[13px] font-semibold text-neutral-900 uppercase tracking-wide cursor-pointer hover:underline mt-1 line-clamp-1 text-left"
                     >
                       {product.name}
@@ -694,18 +725,17 @@ const CustomerHome = () => {
 
                     {/* Hàng giá tiền & nút THÊM VÀO GIỎ */}
                     <div className="mt-2.5 flex items-center justify-between">
-                      {/* Giá tiền bên trái */}
                       <span className="text-[14px] font-bold text-black tracking-tight">
                         {product.price ? product.price.toLocaleString('vi-VN') : 0}<u>đ</u>
                       </span>
 
-                      {/* Cụm THÊM VÀO GIỎ bên phải kèm nút tròn đen icon túi */}
                       <button
-                        onClick={() => addToCart({ ...product, id: prodId, image: prodImg, sizes: prodSizes })}
-                        className="flex items-center gap-1.5 group/btn text-black hover:opacity-75 transition-opacity focus:outline-none"
+                        onClick={() => openQuickView(product)}
+                        disabled={isOutOfStock}
+                        className="flex items-center gap-1.5 group/btn text-black hover:opacity-75 transition-opacity focus:outline-none disabled:opacity-40 disabled:cursor-not-allowed"
                       >
                         <span className="text-[11px] font-bold tracking-wider uppercase">
-                          THÊM VÀO GIỎ
+                          {isOutOfStock ? 'HẾT HÀNG' : 'CHỌN SIZE'}
                         </span>
                         <div className="w-7 h-7 bg-[#111111] hover:bg-black rounded-full flex items-center justify-center text-white shrink-0 group-hover/btn:scale-105 transition-transform active:scale-95 shadow-sm">
                           <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
@@ -804,125 +834,184 @@ const CustomerHome = () => {
         </div>
       </footer>
 
-      {/* ========================================================= */}
-      {/* CART DRAWER SLIDE-OVER */}
-      {/* ========================================================= */}
-      {isCartOpen && (
-        <div className="fixed inset-0 z-50 overflow-hidden">
-          <div className="absolute inset-0 bg-black/40 backdrop-blur-xs" onClick={() => setIsCartOpen(false)} />
 
-          <div className="fixed inset-y-0 right-0 max-w-full flex pl-10">
-            <div className="w-screen max-w-md bg-white text-black flex flex-col shadow-2xl">
-              <div className="p-5 border-b border-neutral-100 flex items-center justify-between">
-                <h3 className="text-xs font-black tracking-[0.16em] uppercase">
-                  GIỎ HÀNG ({totalCartCount})
-                </h3>
-                <button onClick={() => setIsCartOpen(false)} className="p-1 hover:text-neutral-500">
-                  <CloseIcon />
-                </button>
-              </div>
+      {/* ========================================================= */}
+      {/* QUICK VIEW MODAL (CHỌN SIZE & MÀU SẮC) */}
+      {/* ========================================================= */}
+      {quickViewProduct && (() => {
+        const qvHasVariants = Boolean(quickViewProduct.variants && quickViewProduct.variants.length > 0);
+        const qvSizes = qvHasVariants
+          ? [...new Set(quickViewProduct.variants.map((v) => v.size))]
+          : (quickViewProduct.sizes && quickViewProduct.sizes.length > 0 ? quickViewProduct.sizes : ['S', 'M', 'L', 'XL']);
+        const qvColors = qvHasVariants
+          ? [...new Set(quickViewProduct.variants.map((v) => v.color))]
+          : [];
 
-              <div className="flex-1 overflow-y-auto p-5 space-y-4">
-                {cart.length === 0 ? (
-                  <div className="text-center py-20 text-neutral-400 text-xs font-semibold uppercase tracking-widest">
-                    Giỏ hàng của bạn đang trống.
-                  </div>
-                ) : (
-                  cart.map((item, index) => (
-                    <div key={`${item.product.id}-${item.size}`} className="flex gap-3 pb-4 border-b border-neutral-100">
-                      <img src={item.product.image} alt={item.product.name} className="w-16 h-20 object-cover bg-neutral-100" />
-                      <div className="flex-1 flex flex-col justify-between">
-                        <div>
-                          <h4 className="text-xs font-bold text-neutral-900 uppercase tracking-wide">{item.product.name}</h4>
-                          <p className="text-[11px] text-neutral-400 mt-0.5">Size: {item.size}</p>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center border border-neutral-200">
-                            <button onClick={() => updateCartQty(index, -1)} className="px-2 py-0.5 text-xs">-</button>
-                            <span className="px-2 text-xs font-bold">{item.quantity}</span>
-                            <button onClick={() => updateCartQty(index, 1)} className="px-2 py-0.5 text-xs">+</button>
-                          </div>
-                          <span className="text-xs font-black">{formatPrice(item.product.price * item.quantity)}</span>
-                        </div>
+        // Tìm biến thể khớp với size và màu hiện chọn
+        const currentVariant = qvHasVariants
+          ? quickViewProduct.variants.find((v) => v.size === quickViewSize && v.color === quickViewColor)
+          : null;
+
+        const currentStock = qvHasVariants
+          ? (currentVariant?.stock || 0)
+          : (quickViewProduct.stock || 0);
+
+        const isOutOfStock = qvHasVariants
+          ? (!currentVariant || currentStock <= 0)
+          : (currentStock <= 0);
+
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="fixed inset-0 bg-black/60 backdrop-blur-xs" onClick={() => setQuickViewProduct(null)} />
+            <div className="relative bg-white text-black max-w-2xl w-full p-6 sm:p-8 z-10 shadow-2xl max-h-[90vh] overflow-y-auto">
+              <button onClick={() => setQuickViewProduct(null)} className="absolute top-4 right-4 p-2 text-neutral-500 hover:text-black">
+                <CloseIcon />
+              </button>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                <div className="aspect-[3/4] bg-neutral-100 overflow-hidden relative">
+                  <img src={quickViewProduct.image} alt={quickViewProduct.name} className="w-full h-full object-cover" />
+                  {isOutOfStock && (
+                    <div className="absolute top-3 left-3 px-2.5 py-1 bg-black/85 text-white text-[11px] font-black uppercase tracking-wider">
+                      HẾT HÀNG
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex flex-col justify-between">
+                  <div className="space-y-4">
+                    <div>
+                      <h3 className="text-sm font-extrabold text-black uppercase leading-tight tracking-wider">{quickViewProduct.name}</h3>
+                      <p className="text-base font-black text-neutral-900 mt-2">{formatPrice(quickViewProduct.price)}</p>
+                      {quickViewProduct.description && (
+                        <p className="text-xs text-neutral-500 mt-2.5 leading-relaxed font-medium line-clamp-3">{quickViewProduct.description}</p>
+                      )}
+                    </div>
+
+                    {/* CHỌN SIZE */}
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-xs font-bold uppercase tracking-wider">KÍCH THƯỚC (SIZE):</span>
+                        <span className="text-xs font-bold text-black">{quickViewSize}</span>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {qvSizes.map((sz) => {
+                          const sizeStock = qvHasVariants
+                            ? quickViewProduct.variants.filter((v) => v.size === sz).reduce((s, v) => s + v.stock, 0)
+                            : quickViewProduct.stock;
+                          const isSizeEmpty = sizeStock <= 0;
+
+                          return (
+                            <button
+                              key={sz}
+                              onClick={() => {
+                                setQuickViewSize(sz);
+                                if (qvHasVariants) {
+                                  // Tự chọn màu đầu tiên còn hàng của size này nếu có
+                                  const matchingInStock = quickViewProduct.variants.find((v) => v.size === sz && v.stock > 0);
+                                  if (matchingInStock) {
+                                    setQuickViewColor(matchingInStock.color);
+                                  }
+                                }
+                              }}
+                              className={`px-3.5 py-2 text-xs font-extrabold border transition-all ${
+                                quickViewSize === sz
+                                  ? 'bg-black text-white border-black shadow-xs'
+                                  : isSizeEmpty
+                                  ? 'border-neutral-200 text-neutral-300 bg-neutral-50 line-through'
+                                  : 'border-neutral-300 text-black hover:border-black'
+                              }`}
+                            >
+                              {sz}
+                            </button>
+                          );
+                        })}
                       </div>
                     </div>
-                  ))
-                )}
-              </div>
 
-              {cart.length > 0 && (
-                <div className="p-5 border-t border-neutral-100 bg-[#fafafa] space-y-3">
-                  <div className="flex justify-between text-xs text-neutral-600 font-bold uppercase tracking-wider">
-                    <span>TỔNG TIỀN:</span>
-                    <span className="font-black text-black text-sm">{formatPrice(cartSubtotal)}</span>
-                  </div>
-                  <button
-                    onClick={() => showToast('Chuyển hướng sang cổng thanh toán...')}
-                    className="w-full py-3.5 bg-black text-white text-xs font-black tracking-widest uppercase hover:bg-neutral-800 transition-colors"
-                  >
-                    TIẾN HÀNH THANH TOÁN
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+                    {/* CHỌN MÀU SẮC (NẾU CÓ BIẾN THỂ) */}
+                    {qvColors.length > 0 && (
+                      <div>
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-xs font-bold uppercase tracking-wider">MÀU SẮC:</span>
+                          <span className="text-xs font-bold text-black">{quickViewColor}</span>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          {qvColors.map((cl) => {
+                            const variantForColor = quickViewProduct.variants.find(
+                              (v) => v.size === quickViewSize && v.color === cl
+                            );
+                            const isColorEmpty = !variantForColor || variantForColor.stock <= 0;
 
-      {/* ========================================================= */}
-      {/* QUICK VIEW MODAL */}
-      {/* ========================================================= */}
-      {quickViewProduct && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="fixed inset-0 bg-black/60" onClick={() => setQuickViewProduct(null)} />
-          <div className="relative bg-white text-black max-w-2xl w-full p-6 sm:p-8 z-10 shadow-2xl">
-            <button onClick={() => setQuickViewProduct(null)} className="absolute top-4 right-4 p-2 text-neutral-500 hover:text-black">
-              <CloseIcon />
-            </button>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-              <div className="aspect-[3/4] bg-neutral-100 overflow-hidden">
-                <img src={quickViewProduct.image} alt={quickViewProduct.name} className="w-full h-full object-cover" />
-              </div>
-              <div className="flex flex-col justify-between">
-                <div>
-                  <h3 className="text-sm font-extrabold text-black uppercase leading-tight tracking-wider">{quickViewProduct.name}</h3>
-                  <p className="text-base font-black text-neutral-900 mt-2">{formatPrice(quickViewProduct.price)}</p>
-                  <p className="text-xs text-neutral-500 mt-3 leading-relaxed font-medium">{quickViewProduct.description}</p>
-                  
-                  <div className="mt-4">
-                    <span className="text-xs font-bold uppercase tracking-wider block mb-2">CHỌN SIZE:</span>
-                    <div className="flex gap-2">
-                      {quickViewProduct.sizes.map((sz) => (
-                        <button
-                          key={sz}
-                          onClick={() => setQuickViewSize(sz)}
-                          className={`px-3 py-1.5 text-xs font-extrabold border transition-colors ${
-                            quickViewSize === sz ? 'bg-black text-white border-black' : 'border-neutral-300 text-black hover:border-black'
-                          }`}
-                        >
-                          {sz}
-                        </button>
-                      ))}
+                            return (
+                              <button
+                                key={cl}
+                                onClick={() => setQuickViewColor(cl)}
+                                className={`px-3 py-1.5 text-xs font-bold border transition-all ${
+                                  quickViewColor === cl
+                                    ? 'bg-black text-white border-black shadow-xs'
+                                    : isColorEmpty
+                                    ? 'border-neutral-200 text-neutral-300 bg-neutral-50 line-through'
+                                    : 'border-neutral-300 text-black hover:border-black'
+                                }`}
+                              >
+                                {cl}
+                                {isColorEmpty && <span className="text-[10px] ml-1 text-red-500 font-normal">(Hết)</span>}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* THÔNG BÁO TÌNH TRẠNG TỒN KHO */}
+                    <div className="pt-2">
+                      {isOutOfStock ? (
+                        <div className="p-2.5 bg-red-50 border border-red-200 text-red-700 text-xs font-bold rounded text-center">
+                          Biến thể ({quickViewSize}{quickViewColor ? ` - ${quickViewColor}` : ''}) hiện đã HẾT HÀNG
+                        </div>
+                      ) : (
+                        <div className="text-xs text-neutral-500 font-medium">
+                          Tồn kho khả dụng: <strong className="text-black">{currentStock}</strong> {quickViewProduct.unit || 'cái'}
+                        </div>
+                      )}
                     </div>
                   </div>
-                </div>
 
-                <div className="pt-6">
-                  <button
-                    onClick={() => {
-                      addToCart(quickViewProduct, quickViewSize);
-                      setQuickViewProduct(null);
-                    }}
-                    className="w-full py-3.5 bg-black text-white text-xs font-black tracking-widest uppercase hover:bg-neutral-800 transition-colors"
-                  >
-                    THÊM VÀO GIỎ HÀNG
-                  </button>
+                  <div className="pt-6 space-y-2">
+                    <button
+                      onClick={() => {
+                        addToCart(quickViewProduct, quickViewSize, quickViewColor, 1);
+                        setQuickViewProduct(null);
+                      }}
+                      disabled={isOutOfStock}
+                      className="w-full py-3.5 bg-black text-white text-xs font-black tracking-widest uppercase hover:bg-neutral-800 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                    >
+                      {isOutOfStock ? 'HẾT HÀNG' : 'THÊM VÀO GIỎ HÀNG'}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const targetId = quickViewProduct._id || quickViewProduct.id;
+                        setQuickViewProduct(null);
+                        navigate(`/product/${targetId}`);
+                      }}
+                      className="w-full py-2.5 border border-neutral-300 text-black text-xs font-bold uppercase tracking-wider hover:bg-neutral-100 transition-colors text-center"
+                    >
+                      XEM TRANG CHI TIẾT SẢN PHẨM →
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
+
+      {/* ========================================================= */}
+      {/* MODAL GIỎ HÀNG, THANH TOÁN & ĐƠN HÀNG DÙNG CHUNG */}
+      {/* ========================================================= */}
+      <StoreModals onOrderCompleted={fetchBackendProducts} />
     </div>
   );
 };

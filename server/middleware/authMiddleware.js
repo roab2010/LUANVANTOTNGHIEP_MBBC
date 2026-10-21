@@ -45,4 +45,29 @@ const authenticateToken = async (req, res, next) => {
   }
 };
 
-module.exports = { authenticateToken };
+// Middleware tùy chọn xác thực token JWT (khách vãng lai hoặc khách đăng nhập đều có thể đi tiếp)
+const optionalAuth = async (req, res, next) => {
+  const authHeader = req.headers.authorization;
+  const token = authHeader && authHeader.split(' ')[1];
+
+  if (!token) {
+    req.user = null;
+    return next();
+  }
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const user = await User.findById(decoded.userId);
+    if (user && user.status === 'active') {
+      req.user = { userId: user._id, role: user.role };
+    } else {
+      req.user = null;
+    }
+  } catch (error) {
+    req.user = null;
+  }
+  next();
+};
+
+module.exports = { authenticateToken, optionalAuth };
+

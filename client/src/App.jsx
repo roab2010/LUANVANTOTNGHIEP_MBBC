@@ -1,5 +1,6 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
+import { CartProvider } from './context/CartContext';
 import ProtectedRoute from './components/ProtectedRoute';
 
 // Layouts
@@ -16,19 +17,27 @@ import CustomersPage from './pages/admin/customers/CustomersPage';
 import OrdersPage from './pages/admin/orders/OrdersPage';
 import StatisticsPage from './pages/admin/statistics/StatisticsPage';
 import CustomerHome from './pages/customer/CustomerHome';
+import ProductDetailPage from './pages/customer/ProductDetailPage';
+import CategoryPage from './pages/customer/CategoryPage';
 
 function App() {
   return (
     <Router>
       <AuthProvider>
-        <Routes>
-          {/* === Routes công khai === */}
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/register" element={<RegisterPage />} />
+        <CartProvider>
+          <Routes>
+            {/* === Routes công khai === */}
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/register" element={<RegisterPage />} />
 
-          {/* === Routes Khách hàng / Storefront M.B.B.C === */}
-          <Route path="/" element={<CustomerHome />} />
-          <Route path="/customer" element={<CustomerHome />} />
+            {/* === Routes Khách hàng / Storefront M.B.B.C === */}
+            <Route path="/" element={<CustomerHome />} />
+            <Route path="/customer" element={<CustomerHome />} />
+            <Route path="/product/:id" element={<ProductDetailPage />} />
+            <Route path="/products/:id" element={<ProductDetailPage />} />
+            <Route path="/category/:category" element={<CategoryPage />} />
+            <Route path="/category" element={<CategoryPage />} />
+            <Route path="/shop" element={<CategoryPage />} />
 
           {/* === Routes Admin (cần đăng nhập + role admin) === */}
           <Route
@@ -55,6 +64,7 @@ function App() {
           {/* === 404 → Về trang chủ === */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
+        </CartProvider>
       </AuthProvider>
     </Router>
   );
