@@ -172,7 +172,6 @@ const sendOtpEmail = async (toEmail, otpCode, fullName) => {
         </body>
         </html>
       `,
-      attachments,
     };
 
     const info = await transporter.sendMail(mailOptions);
