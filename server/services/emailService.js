@@ -61,9 +61,15 @@ const verifyConnection = async () => {
 // 1. GỬI MÃ OTP XÁC MINH EMAIL
 // ============================================
 const sendOtpEmail = async (toEmail, otpCode, fullName) => {
+  // Luôn in mã OTP ra Terminal Server để test nhanh và hỗ trợ khi chưa cấu hình SMTP
+  console.log('\n======================================================');
+  console.log(`🔑 [MÃ OTP XÁC MINH] Gửi tới: ${toEmail}`);
+  console.log(`👉 MÃ OTP LÀ: ${otpCode}`);
+  console.log('======================================================\n');
+
   try {
     if (!process.env.SMTP_PASS) {
-      console.warn(`[EMAIL] Chưa cấu hình SMTP_PASS trong .env. Không thể gửi OTP đến: ${toEmail}`);
+      console.warn(`[EMAIL] Cảnh báo: Chưa cấu hình SMTP_PASS trong server/.env. Mã OTP đã được in ra console ở trên.`);
       return {
         success: false,
         error: 'Hệ thống gửi email chưa được cấu hình Google App Password (SMTP_PASS)',
