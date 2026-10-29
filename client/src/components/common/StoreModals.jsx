@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { useCart } from '../../context/CartContext';
+import { useCart, getItemStock } from '../../context/CartContext';
 import { createOrder } from '../../services/orderApi';
 import {
   getProvinces,
@@ -16,6 +16,13 @@ import { getVariantColorHex } from '../VariantSelect';
 const CloseIcon = () => (
   <svg className="w-5 h-5 text-neutral-800" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
     <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+  </svg>
+);
+
+// Trash Icon
+const TrashIcon = ({ className = 'w-4 h-4' }) => (
+  <svg className={className} fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24" aria-hidden="true">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
   </svg>
 );
 
@@ -213,6 +220,7 @@ const StoreModals = ({ onOrderCompleted }) => {
   const {
     cart,
     clearCart,
+    removeFromCart,
     updateCartQty,
     totalCartCount,
     totalCartAmount,
@@ -634,13 +642,29 @@ const StoreModals = ({ onOrderCompleted }) => {
                   <h3 className="text-xs font-black tracking-widest uppercase">GIỎ HÀNG CỦA BẠN</h3>
                   <span className="text-xs font-bold text-neutral-400">({totalCartCount})</span>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setIsCartOpen(false)}
-                  className="p-1 hover:bg-neutral-100 transition-colors"
-                >
-                  <CloseIcon />
-                </button>
+                <div className="flex items-center gap-3">
+                  {cart.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (window.confirm('Bạn có chắc muốn xóa tất cả sản phẩm khỏi giỏ hàng?')) {
+                          clearCart();
+                        }
+                      }}
+                      className="text-[11px] text-neutral-400 hover:text-red-600 font-bold uppercase tracking-wider underline transition-colors"
+                      title="Xóa toàn bộ giỏ hàng"
+                    >
+                      Xóa tất cả
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setIsCartOpen(false)}
+                    className="p-1 hover:bg-neutral-100 transition-colors"
+                  >
+                    <CloseIcon />
+                  </button>
+                </div>
               </div>
 
               {/* Items List */}
@@ -657,56 +681,86 @@ const StoreModals = ({ onOrderCompleted }) => {
                     </button>
                   </div>
                 ) : (
-                  cart.map((item, index) => (
-                    <div key={index} className="pt-4 first:pt-0 flex gap-4">
-                      <img
-                        src={item.product.image || 'https://placehold.co/100x120/111/fff?text=MBBC'}
-                        alt={item.product.name}
-                        className="w-16 h-20 object-cover bg-neutral-100 shrink-0"
-                      />
-                      <div className="flex-1 flex flex-col justify-between min-w-0">
-                        <div>
-                          <h4 className="text-xs font-bold text-neutral-900 uppercase tracking-wide truncate">
-                            {item.product.name}
-                          </h4>
-                          <div className="flex flex-wrap items-center gap-1.5 mt-1 text-[11px] text-neutral-600">
-                            {item.size && (
-                              <span className="px-1.5 py-0.5 bg-neutral-100 font-semibold text-black rounded text-[10px]">
-                                Size: {item.size}
-                              </span>
-                            )}
-                            {item.color && (
-                              <span className="px-1.5 py-0.5 bg-neutral-100 font-semibold text-black rounded text-[10px]">
-                                Màu: {item.color}
-                              </span>
-                            )}
+                  cart.map((item, index) => {
+                    const maxStock = getItemStock(item.product, item.size, item.color);
+                    const isMaxReached = item.quantity >= maxStock;
+
+                    return (
+                      <div key={index} className="pt-4 first:pt-0 flex gap-4">
+                        <img
+                          src={item.product.image || 'https://placehold.co/100x120/111/fff?text=MBBC'}
+                          alt={item.product.name}
+                          className="w-16 h-20 object-cover bg-neutral-100 shrink-0 border border-neutral-100"
+                        />
+                        <div className="flex-1 flex flex-col justify-between min-w-0">
+                          <div>
+                            <div className="flex items-start justify-between gap-2">
+                              <h4 className="text-xs font-bold text-neutral-900 uppercase tracking-wide truncate">
+                                {item.product.name}
+                              </h4>
+                              {/* NÚT XÓA SẢN PHẨM KHỎI GIỎ HÀNG */}
+                              <button
+                                type="button"
+                                onClick={() => removeFromCart(index)}
+                                className="text-neutral-400 hover:text-red-600 transition-colors p-0.5 shrink-0"
+                                title="Xóa sản phẩm này khỏi giỏ hàng"
+                                aria-label="Xóa sản phẩm"
+                              >
+                                <TrashIcon className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                            <div className="flex flex-wrap items-center gap-1.5 mt-1 text-[11px] text-neutral-600">
+                              {item.size && (
+                                <span className="px-1.5 py-0.5 bg-neutral-100 font-semibold text-black rounded text-[10px]">
+                                  Size: {item.size}
+                                </span>
+                              )}
+                              {item.color && (
+                                <span className="px-1.5 py-0.5 bg-neutral-100 font-semibold text-black rounded text-[10px]">
+                                  Màu: {item.color}
+                                </span>
+                              )}
+                            </div>
                           </div>
-                        </div>
-                        <div className="flex items-center justify-between mt-2">
-                          <div className="flex items-center border border-neutral-200">
-                            <button
-                              type="button"
-                              onClick={() => updateCartQty(index, -1)}
-                              className="w-6 h-6 flex items-center justify-center text-xs hover:bg-neutral-100"
-                            >
-                              -
-                            </button>
-                            <span className="px-2 text-xs font-bold tabular-nums">{item.quantity}</span>
-                            <button
-                              type="button"
-                              onClick={() => updateCartQty(index, 1)}
-                              className="w-6 h-6 flex items-center justify-center text-xs hover:bg-neutral-100"
-                            >
-                              +
-                            </button>
+                          <div className="flex items-center justify-between mt-2">
+                            <div className="flex items-center gap-2">
+                              <div className="flex items-center border border-neutral-200">
+                                <button
+                                  type="button"
+                                  onClick={() => updateCartQty(index, -1)}
+                                  className="w-6 h-6 flex items-center justify-center text-xs hover:bg-neutral-100"
+                                >
+                                  -
+                                </button>
+                                <span className="px-2 text-xs font-bold tabular-nums">{item.quantity}</span>
+                                <button
+                                  type="button"
+                                  disabled={isMaxReached}
+                                  onClick={() => updateCartQty(index, 1)}
+                                  className={`w-6 h-6 flex items-center justify-center text-xs ${
+                                    isMaxReached
+                                      ? 'text-neutral-300 cursor-not-allowed bg-neutral-50'
+                                      : 'hover:bg-neutral-100'
+                                  }`}
+                                  title={isMaxReached ? `Kho chỉ còn ${maxStock} sản phẩm` : 'Tăng số lượng'}
+                                >
+                                  +
+                                </button>
+                              </div>
+                              {isMaxReached && (
+                                <span className="text-[10px] text-amber-600 font-semibold">
+                                  Tối đa {maxStock}
+                                </span>
+                              )}
+                            </div>
+                            <span className="text-xs font-black tabular-nums">
+                              {formatPrice((item.product.price || 0) * item.quantity)}
+                            </span>
                           </div>
-                          <span className="text-xs font-black tabular-nums">
-                            {formatPrice((item.product.price || 0) * item.quantity)}
-                          </span>
                         </div>
                       </div>
-                    </div>
-                  ))
+                    );
+                  })
                 )}
               </div>
 
