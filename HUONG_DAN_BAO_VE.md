@@ -379,6 +379,7 @@ Dự án áp dụng mô hình **Single Page Application (SPA)** kết hợp ki�
 ---
 
 ## 4. KỊCH BẢN "GIẢNG VIÊN YÊU CẦU SỬA TRỰC TIẾP THÌ MỞ FILE NÀO?"
+> 💡 **Tài liệu hướng dẫn chuyên sâu chi tiết từng dòng code, nguyên nhân & cách test:** Đã được biên soạn thành cẩm nang riêng tại [`KICH_BAN_SUA_CODE_TRUC_TIEP.md`](file:///c:/Users/taogh/OneDrive/M%C3%A1y%20t%C3%ADnh/LuanVan/LUANVANTOTNGHIEP_SellStock/KICH_BAN_SUA_CODE_TRUC_TIEP.md).
 
 Dưới đây là các tình huống thực tế nhất mà Hội đồng chấm đồ án có thể yêu cầu bạn sửa trực tiếp trên màn hình:
 

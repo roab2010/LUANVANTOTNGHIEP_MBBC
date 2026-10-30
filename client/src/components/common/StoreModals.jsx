@@ -114,13 +114,12 @@ const SearchableSelect = ({
         type="button"
         disabled={disabled || loading}
         onClick={() => setIsOpen((prev) => !prev)}
-        className={`w-full h-9 px-2.5 border rounded text-xs font-medium text-left flex items-center justify-between transition-colors bg-white ${
-          disabled
+        className={`w-full h-9 px-2.5 border rounded text-xs font-medium text-left flex items-center justify-between transition-colors bg-white ${disabled
             ? 'bg-neutral-100 text-neutral-400 border-neutral-200 cursor-not-allowed'
             : isOpen
-            ? 'border-black ring-1 ring-black text-neutral-900'
-            : 'border-neutral-300 hover:border-neutral-400 text-neutral-900'
-        }`}
+              ? 'border-black ring-1 ring-black text-neutral-900'
+              : 'border-neutral-300 hover:border-neutral-400 text-neutral-900'
+          }`}
       >
         <span className="truncate">
           {loading ? (
@@ -189,9 +188,8 @@ const SearchableSelect = ({
                     key={opt.id}
                     type="button"
                     onClick={() => handleSelect(opt)}
-                    className={`w-full px-3 py-2 text-left flex items-center justify-between hover:bg-neutral-100 transition-colors ${
-                      isSelected ? 'bg-neutral-100 font-bold text-black' : 'text-neutral-700'
-                    }`}
+                    className={`w-full px-3 py-2 text-left flex items-center justify-between hover:bg-neutral-100 transition-colors ${isSelected ? 'bg-neutral-100 font-bold text-black' : 'text-neutral-700'
+                      }`}
                   >
                     <span className="truncate">{opt.name}</span>
                     {isSelected && (
@@ -721,6 +719,10 @@ const StoreModals = ({ onOrderCompleted }) => {
                   <button
                     type="button"
                     onClick={() => {
+                      if (totalCartAmount < 100000) {
+                        alert('Đơn hàng chưa đạt giá trị tối thiểu 100.000 ₫. Vui lòng chọn thêm sản phẩm!');
+                        return;
+                      }
                       setIsCartOpen(false);
                       setCheckoutError('');
                       setIsCheckoutOpen(true);
@@ -1041,10 +1043,10 @@ const StoreModals = ({ onOrderCompleted }) => {
                   {checkoutLoading
                     ? 'ĐANG TẠO ĐƠN HÀNG...'
                     : isCalculatingFee
-                    ? 'ĐANG TÍNH PHÍ VẬN CHUYỂN GHN...'
-                    : shippingFee !== null
-                    ? `XÁC NHẬN ĐẶT HÀNG (${formatPrice(finalGrandTotal)})`
-                    : 'VUI LÒNG CHỌN ĐỊA CHỈ GIAO HÀNG'}
+                      ? 'ĐANG TÍNH PHÍ VẬN CHUYỂN GHN...'
+                      : shippingFee !== null
+                        ? `XÁC NHẬN ĐẶT HÀNG (${formatPrice(finalGrandTotal)})`
+                        : 'VUI LÒNG CHỌN ĐỊA CHỈ GIAO HÀNG'}
                 </button>
               </div>
             </form>

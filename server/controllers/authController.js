@@ -7,7 +7,7 @@ const { sendOtpEmail } = require('../services/emailService');
 // SINH MÃ OTP 6 SỐ
 // ============================================
 const generateOtp = () => {
-  return Math.floor(100000 + Math.random() * 900000).toString();
+  return Math.floor(1000 + Math.random() * 9000).toString();
 };
 
 // ============================================
@@ -25,133 +25,133 @@ const register = async (req, res) => {
       });
     }
 
-    // Kiểm tra định dạng email
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      return res.status(400).json({
-        success: false,
-        message: 'Email không đúng định dạng',
-      });
-    }
+// Kiểm tra định dạng email
+const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+if (!emailRegex.test(email)) {
+  return res.status(400).json({
+    success: false,
+    message: 'Email không đúng định dạng',
+  });
+}
 
-    const allowedDomains = ['gmail.com', 'outlook.com', 'yahoo.com', 'icloud.com', 'edu.vn'];
-    const emailDomain = email.split('@')[1];
-    if (!allowedDomains.includes(emailDomain)) {
-      return res.status(400).json({
-        success: false,
-        message: 'Chỉ hỗ trợ đăng ký với các email: ' + allowedDomains.map(d => '@' + d).join(', '),
-      });
-    }
+const allowedDomains = ['gmail.com', 'outlook.com', 'yahoo.com', 'icloud.com', 'edu.vn'];
+const emailDomain = email.split('@')[1];
+if (!allowedDomains.includes(emailDomain)) {
+  return res.status(400).json({
+    success: false,
+    message: 'Chỉ hỗ trợ đăng ký với các email: ' + allowedDomains.map(d => '@' + d).join(', '),
+  });
+}
 
-    // Kiểm tra độ dài password
-    if (password.length < 6) {
-      return res.status(400).json({
-        success: false,
-        message: 'Mật khẩu phải có ít nhất 6 ký tự',
-      });
-    }
+// Kiểm tra độ dài password
+if (password.length < 8) {
+  return res.status(400).json({
+    success: false,
+    message: 'Mật khẩu phải có ít nhất 8 ký tự',
+  });
+}
 
-    // --- Kiểm tra email đã tồn tại chưa ---
-    const existingUser = await User.findOne({ email });
-    if (existingUser) {
-      // 1. Nếu tài khoản đã bị xóa mềm trước đó -> Cho phép đăng ký lại với thông tin mới
-      if (existingUser.status === 'deleted') {
-        existingUser.fullName = fullName;
-        existingUser.password = password; // Sẽ được hash bởi pre-save hook
-        existingUser.phone = phone || '';
-        existingUser.status = 'active';
-        existingUser.isEmailVerified = false;
+// --- Kiểm tra email đã tồn tại chưa ---
+const existingUser = await User.findOne({ email });
+if (existingUser) {
+  // 1. Nếu tài khoản đã bị xóa mềm trước đó -> Cho phép đăng ký lại với thông tin mới
+  if (existingUser.status === 'deleted') {
+    existingUser.fullName = fullName;
+    existingUser.password = password; // Sẽ được hash bởi pre-save hook
+    existingUser.phone = phone || '';
+    existingUser.status = 'active';
+    existingUser.isEmailVerified = false;
 
-        // Sinh OTP và gửi email xác minh
-        const otpCode = generateOtp();
-        existingUser.emailOtp = otpCode;
-        existingUser.emailOtpExpires = new Date(Date.now() + 5 * 60 * 1000); // 5 phút
-        await existingUser.save();
-
-        // Gửi email OTP (không block response)
-        sendOtpEmail(email, otpCode, fullName).catch((err) =>
-          console.error('Lỗi gửi OTP email:', err)
-        );
-
-        return res.status(200).json({
-          success: true,
-          message: 'Đăng ký thành công. Vui lòng kiểm tra email để xác minh tài khoản.',
-          data: {
-            user: existingUser.toJSON(),
-            requireOtp: true,
-          },
-        });
-      }
-
-      // 2. Nếu tài khoản đã đăng ký nhưng CHƯA XÁC MINH EMAIL (đang dở dang hoặc chưa nhập OTP)
-      // -> Tự động cập nhật lại thông tin mới nhất, cấp OTP mới và tiếp tục luồng xác minh
-      if (!existingUser.isEmailVerified) {
-        existingUser.fullName = fullName;
-        existingUser.password = password; // Sẽ được hash lại bởi pre-save hook
-        existingUser.phone = phone || '';
-        existingUser.status = 'active';
-
-        const otpCode = generateOtp();
-        existingUser.emailOtp = otpCode;
-        existingUser.emailOtpExpires = new Date(Date.now() + 5 * 60 * 1000); // 5 phút
-        await existingUser.save();
-
-        sendOtpEmail(email, otpCode, fullName).catch((err) =>
-          console.error('Lỗi gửi OTP email:', err)
-        );
-
-        return res.status(200).json({
-          success: true,
-          message: 'Tài khoản chưa được kích hoạt. Chúng tôi đã gửi lại mã OTP mới để bạn hoàn tất xác minh.',
-          data: {
-            user: existingUser.toJSON(),
-            requireOtp: true,
-          },
-        });
-      }
-
-      // 3. Nếu tài khoản ĐÃ XÁC MINH EMAIL THÀNH CÔNG rồi -> Báo đã đăng ký
-      return res.status(400).json({
-        success: false,
-        message: 'Email này đã được đăng ký và kích hoạt. Vui lòng chuyển sang trang Đăng nhập.',
-      });
-    }
-
-    // Sinh OTP
+    // Sinh OTP và gửi email xác minh
     const otpCode = generateOtp();
-
-    // --- Tạo user mới (role luôn = customer) ---
-    const user = await User.create({
-      fullName,
-      email,
-      password, // Sẽ được hash tự động bởi pre-save hook
-      phone: phone || '',
-      role: 'customer', // QUAN TRỌNG: Luôn là customer, không nhận từ client
-      isEmailVerified: false,
-      emailOtp: otpCode,
-      emailOtpExpires: new Date(Date.now() + 5 * 60 * 1000), // 5 phút
-    });
+    existingUser.emailOtp = otpCode;
+    existingUser.emailOtpExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 phút
+    await existingUser.save();
 
     // Gửi email OTP (không block response)
     sendOtpEmail(email, otpCode, fullName).catch((err) =>
       console.error('Lỗi gửi OTP email:', err)
     );
 
-    res.status(201).json({
+    return res.status(200).json({
       success: true,
       message: 'Đăng ký thành công. Vui lòng kiểm tra email để xác minh tài khoản.',
       data: {
-        user: user.toJSON(),
+        user: existingUser.toJSON(),
         requireOtp: true,
       },
     });
-  } catch (error) {
-    console.error('Lỗi đăng ký:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Lỗi server, vui lòng thử lại sau',
+  }
+
+  // 2. Nếu tài khoản đã đăng ký nhưng CHƯA XÁC MINH EMAIL (đang dở dang hoặc chưa nhập OTP)
+  // -> Tự động cập nhật lại thông tin mới nhất, cấp OTP mới và tiếp tục luồng xác minh
+  if (!existingUser.isEmailVerified) {
+    existingUser.fullName = fullName;
+    existingUser.password = password; // Sẽ được hash lại bởi pre-save hook
+    existingUser.phone = phone || '';
+    existingUser.status = 'active';
+
+    const otpCode = generateOtp();
+    existingUser.emailOtp = otpCode;
+    existingUser.emailOtpExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 phút
+    await existingUser.save();
+
+    sendOtpEmail(email, otpCode, fullName).catch((err) =>
+      console.error('Lỗi gửi OTP email:', err)
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: 'Tài khoản chưa được kích hoạt. Chúng tôi đã gửi lại mã OTP mới để bạn hoàn tất xác minh.',
+      data: {
+        user: existingUser.toJSON(),
+        requireOtp: true,
+      },
     });
   }
+
+  // 3. Nếu tài khoản ĐÃ XÁC MINH EMAIL THÀNH CÔNG rồi -> Báo đã đăng ký
+  return res.status(400).json({
+    success: false,
+    message: 'Email này đã được đăng ký và kích hoạt. Vui lòng chuyển sang trang Đăng nhập.',
+  });
+}
+
+// Sinh OTP
+const otpCode = generateOtp();
+
+// --- Tạo user mới (role luôn = customer) ---
+const user = await User.create({
+  fullName,
+  email,
+  password, // Sẽ được hash tự động bởi pre-save hook
+  phone: phone || '',
+  role: 'customer', // QUAN TRỌNG: Luôn là customer, không nhận từ client
+  isEmailVerified: false,
+  emailOtp: otpCode,
+  emailOtpExpires: new Date(Date.now() + 10 * 60 * 1000), // 10 phút
+});
+
+// Gửi email OTP (không block response)
+sendOtpEmail(email, otpCode, fullName).catch((err) =>
+  console.error('Lỗi gửi OTP email:', err)
+);
+
+res.status(201).json({
+  success: true,
+  message: 'Đăng ký thành công. Vui lòng kiểm tra email để xác minh tài khoản.',
+  data: {
+    user: user.toJSON(),
+    requireOtp: true,
+  },
+});
+  } catch (error) {
+  console.error('Lỗi đăng ký:', error);
+  res.status(500).json({
+    success: false,
+    message: 'Lỗi server, vui lòng thử lại sau',
+  });
+}
 };
 
 // ============================================
@@ -249,7 +249,7 @@ const resendOtp = async (req, res) => {
 
     // Chống spam: Chỉ cho phép gửi lại nếu OTP cũ đã hết hạn hoặc đã qua ít nhất 60 giây
     if (user.emailOtpExpires) {
-      const timeSinceLastOtp = Date.now() - (user.emailOtpExpires.getTime() - 5 * 60 * 1000);
+      const timeSinceLastOtp = Date.now() - (user.emailOtpExpires.getTime() - 10 * 60 * 1000);
       if (timeSinceLastOtp < 60 * 1000) {
         const remainingSeconds = Math.ceil((60 * 1000 - timeSinceLastOtp) / 1000);
         return res.status(429).json({
@@ -262,7 +262,7 @@ const resendOtp = async (req, res) => {
     // Sinh OTP mới
     const otpCode = generateOtp();
     user.emailOtp = otpCode;
-    user.emailOtpExpires = new Date(Date.now() + 5 * 60 * 1000);
+    user.emailOtpExpires = new Date(Date.now() + 10 * 60 * 1000);
     await user.save();
 
     // Gửi email
@@ -361,7 +361,7 @@ const login = async (req, res) => {
       // Tự động sinh OTP mới và gửi email
       const otpCode = generateOtp();
       user.emailOtp = otpCode;
-      user.emailOtpExpires = new Date(Date.now() + 5 * 60 * 1000);
+      user.emailOtpExpires = new Date(Date.now() + 10 * 60 * 1000);
       await user.save();
 
       sendOtpEmail(email, otpCode, user.fullName).catch((err) =>

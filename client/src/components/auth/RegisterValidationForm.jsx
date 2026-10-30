@@ -83,7 +83,7 @@ const RegisterValidationForm = ({
         return /^[0-9]{9,11}$/.test(val.replace(/\s+/g, ''));
       }
       case 'password':
-        return data.password.length >= 6;
+        return data.password.length >= 8;
       case 'confirmPassword':
         return data.confirmPassword.length > 0 && data.confirmPassword === data.password;
       case 'terms':
@@ -126,8 +126,8 @@ const RegisterValidationForm = ({
       label: 'Mật khẩu',
       required: true,
       type: 'password',
-      placeholder: 'Tối thiểu 6 ký tự',
-      hint: 'Mật khẩu phải có ít nhất 6 ký tự',
+      placeholder: 'Tối thiểu 8 ký tự',
+      hint: 'Mật khẩu phải có ít nhất 8 ký tự',
       autoComplete: 'new-password',
       isPassword: true,
     },

@@ -317,6 +317,12 @@ const createOrder = async (req, res) => {
       await product.save();
     }
 
+    if (totalAmount < 100000) {
+      return res.status(400).json({
+        success: false,
+        message: 'Chính sách cửa hàng: Đơn hàng phải có tổng tiền từ 100.000 ₫ trở lên',
+      });
+    }
     // Xác thực phí vận chuyển GHN tại backend nếu có thông tin quận/huyện và phường/xã
     let shippingFee = 0;
     if (customer.districtId && customer.wardCode) {

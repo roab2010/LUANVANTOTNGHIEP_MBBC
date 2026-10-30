@@ -33,7 +33,7 @@ const CloseIcon = () => (
 );
 
 const OtpVerificationModal = ({ email, onSuccess, onClose, initialCountdown = 60 }) => {
-  const [otp, setOtp] = useState(['', '', '', '', '', '']);
+  const [otp, setOtp] = useState(['', '', '', '']);
   const [loading, setLoading] = useState(false);
   const [resending, setResending] = useState(false);
   const [error, setError] = useState('');
@@ -78,7 +78,7 @@ const OtpVerificationModal = ({ email, onSuccess, onClose, initialCountdown = 60
     setError('');
 
     // Tự động nhảy ô tiếp theo
-    if (index < 5) {
+    if (index < 3) {
       inputRefs.current[index + 1]?.focus();
     }
 
@@ -100,7 +100,7 @@ const OtpVerificationModal = ({ email, onSuccess, onClose, initialCountdown = 60
       }
     } else if (e.key === 'ArrowLeft' && index > 0) {
       inputRefs.current[index - 1]?.focus();
-    } else if (e.key === 'ArrowRight' && index < 5) {
+    } else if (e.key === 'ArrowRight' && index < 3) {
       inputRefs.current[index + 1]?.focus();
     }
   };
@@ -109,23 +109,23 @@ const OtpVerificationModal = ({ email, onSuccess, onClose, initialCountdown = 60
   const handlePaste = (e) => {
     e.preventDefault();
     const pasteText = e.clipboardData.getData('text').trim();
-    const cleanDigits = pasteText.replace(/\D/g, '').slice(0, 6);
+    const cleanDigits = pasteText.replace(/\D/g, '').slice(0, 4);
 
     if (!cleanDigits) return;
 
     const newOtp = [...otp];
-    for (let i = 0; i < 6; i++) {
+    for (let i = 0; i < 4; i++) {
       newOtp[i] = cleanDigits[i] || '';
     }
     setOtp(newOtp);
     setError('');
 
     // Focus vào ô tiếp theo hoặc ô cuối
-    const focusIndex = Math.min(cleanDigits.length, 5);
+    const focusIndex = Math.min(cleanDigits.length, 3);
     inputRefs.current[focusIndex]?.focus();
 
-    // Nếu đủ 6 số, tự động xác minh
-    if (cleanDigits.length === 6) {
+    // Nếu đủ 4 số, tự động xác minh
+    if (cleanDigits.length === 4) {
       handleVerify(cleanDigits);
     }
   };
@@ -133,8 +133,8 @@ const OtpVerificationModal = ({ email, onSuccess, onClose, initialCountdown = 60
   // Xử lý xác minh OTP
   const handleVerify = async (otpCodeString) => {
     const code = otpCodeString || otp.join('');
-    if (code.length !== 6) {
-      setError('Vui lòng nhập đầy đủ 6 chữ số mã xác minh');
+    if (code.length !== 4) {
+      setError('Vui lòng nhập đầy đủ 4 chữ số mã xác minh');
       triggerShake();
       return;
     }
@@ -158,7 +158,7 @@ const OtpVerificationModal = ({ email, onSuccess, onClose, initialCountdown = 60
       setError(message);
       triggerShake();
       // Xóa các ô và focus lại ô đầu
-      setOtp(['', '', '', '', '', '']);
+      setOtp(['', '', '', '']);
       inputRefs.current[0]?.focus();
     } finally {
       setLoading(false);
@@ -199,9 +199,8 @@ const OtpVerificationModal = ({ email, onSuccess, onClose, initialCountdown = 60
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
       <div
-        className={`relative w-full max-w-md bg-white rounded-2xl shadow-2xl p-6 sm:p-8 border border-gray-100 animate-slide-up transition-transform duration-200 ${
-          isShaking ? 'animate-shake' : ''
-        }`}
+        className={`relative w-full max-w-md bg-white rounded-2xl shadow-2xl p-6 sm:p-8 border border-gray-100 animate-slide-up transition-transform duration-200 ${isShaking ? 'animate-shake' : ''
+          }`}
       >
         {/* Nút đóng */}
         {onClose && (
@@ -240,7 +239,7 @@ const OtpVerificationModal = ({ email, onSuccess, onClose, initialCountdown = 60
               </span>
             ) : (
               <>
-                Chúng tôi đã gửi mã xác minh 6 chữ số đến địa chỉ email:
+                Chúng tôi đã gửi mã xác minh 4 chữ số đến địa chỉ email:
                 <br />
                 <span className="font-semibold text-gray-900 break-all">{email}</span>
               </>
@@ -310,7 +309,7 @@ const OtpVerificationModal = ({ email, onSuccess, onClose, initialCountdown = 60
             {/* Nút xác nhận */}
             <button
               type="submit"
-              disabled={loading || otp.join('').length !== 6 || isSuccess}
+              disabled={loading || otp.join('').length !== 4 || isSuccess}
               className="w-full h-11 bg-black text-white font-semibold text-sm rounded-lg hover:bg-neutral-800 active:scale-[0.98] transition-all duration-150 disabled:opacity-50 disabled:pointer-events-none flex items-center justify-center gap-2 cursor-pointer"
             >
               {loading ? (
