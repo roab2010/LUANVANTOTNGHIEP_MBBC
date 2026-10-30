@@ -61,10 +61,30 @@ const PlusIcon = ({ className = 'w-3 h-3' }) => (
   </svg>
 );
 
+const PhoneIcon = ({ className = 'w-4 h-4' }) => (
+  <svg className={className} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden="true">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 002.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-.282.376-.769.542-1.21.38a12.035 12.035 0 01-7.143-7.143c-.162-.441.004-.928.38-1.21l1.293-.97c.363-.271.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 00-1.091-.852H4.5A2.25 2.25 0 002.25 4.5v2.25z" />
+  </svg>
+);
+
+const ChatBubbleIcon = ({ className = 'w-4 h-4' }) => (
+  <svg className={className} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden="true">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a.75.75 0 01-.84-.945l.504-1.765A7.98 7.98 0 013 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z" />
+  </svg>
+);
+
+// ============================================
+// CẤU HÌNH LIÊN HỆ MUA SỈ / SỐ LƯỢNG LỚN (B2B HOTLINE)
+// SĐT của chủ shop: 0397789902
+// ============================================
+export const STORE_HOTLINE = '0397789902';
+export const STORE_HOTLINE_DISPLAY = '0397789902';
+export const STORE_ZALO_LINK = 'https://zalo.me/0397789902';
+
 const ProductDetailPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { addToCart, buyNow, showToast } = useCart();
+  const { cart, addToCart, buyNow, showToast } = useCart();
 
   // Dữ liệu sản phẩm & trạng thái tải
   const [product, setProduct] = useState(null);
@@ -82,8 +102,11 @@ const ProductDetailPage = () => {
   const [activeImage, setActiveImage] = useState('');
   const [showSizeGuide, setShowSizeGuide] = useState(false);
 
+  // Modal liên hệ mua số lượng lớn (B2B / Sỉ)
+  const [showBulkModal, setShowBulkModal] = useState(false);
+
   // Accordion state
-  const [openAccordion, setOpenAccordion] = useState('details'); // 'details' | 'care' | 'shipping' | null
+  const [openAccordion, setOpenAccordion] = useState(null); // 'details' | 'care' | 'shipping' | null
 
   // Sản phẩm liên quan & Danh mục
   const [relatedProducts, setRelatedProducts] = useState([]);
@@ -292,6 +315,31 @@ const ProductDetailPage = () => {
     return product.stock || 0;
   }, [product, hasVariants, currentVariant]);
 
+  // Số lượng sản phẩm này (cùng size và màu) hiện đã có sẵn trong giỏ hàng
+  const quantityInCart = useMemo(() => {
+    if (!product || !cart || cart.length === 0) return 0;
+    const prodId = product._id || product.id;
+    const existing = cart.find(
+      (item) =>
+        (item.product?._id || item.product?.id) === prodId &&
+        (item.size || '') === (selectedSize || '') &&
+        (item.color || '') === (selectedColor || '')
+    );
+    return existing ? existing.quantity : 0;
+  }, [cart, product, selectedSize, selectedColor]);
+
+  // Số lượng còn lại tối đa có thể thêm vào giỏ hàng
+  const remainingStockCanAdd = Math.max(0, availableStock - quantityInCart);
+
+  // Tự động điều chỉnh quantity nếu vượt quá số lượng còn lại có thể thêm
+  useEffect(() => {
+    if (remainingStockCanAdd > 0 && quantity > remainingStockCanAdd) {
+      setQuantity(remainingStockCanAdd);
+    } else if (remainingStockCanAdd <= 0 && quantity !== 1) {
+      setQuantity(1);
+    }
+  }, [remainingStockCanAdd]);
+
   // Kiểm tra size có còn hàng ứng với màu đang chọn hay không
   const isSizeAvailableForColor = (size) => {
     if (!hasVariants) return (product?.stock || 0) > 0;
@@ -325,19 +373,26 @@ const ProductDetailPage = () => {
     }
   };
 
-  // Xử lý đổi số lượng
+  // Xử lý đổi số lượng (BẪY LỖI SỚM SỐ LƯỢNG TỒN KHO)
   const handleQuantityChange = (delta) => {
     setValidationError('');
     const newQty = quantity + delta;
     if (newQty < 1) return;
-    if (newQty > availableStock) {
-      showToast(`Kho chỉ còn ${availableStock} ${product?.unit || 'cái'}`);
+
+    if (remainingStockCanAdd <= 0) {
+      showToast(`Bạn đã thêm toàn bộ ${availableStock} sản phẩm tồn kho vào giỏ hàng!`);
       return;
     }
+
+    if (newQty > remainingStockCanAdd) {
+      showToast(`Kho chỉ còn ${availableStock} ${product?.unit || 'cái'}. Đã có ${quantityInCart} trong giỏ, chỉ thêm tối đa ${remainingStockCanAdd} nữa!`);
+      return;
+    }
+
     setQuantity(newQty);
   };
 
-  // Thêm vào giỏ hàng
+  // Thêm vào giỏ hàng (BẪY LỖI SỚM: KHÔNG CHO VƯỢT QUÁ TỒN KHO)
   const handleAddToCart = () => {
     setValidationError('');
     if (hasVariants) {
@@ -351,6 +406,22 @@ const ProductDetailPage = () => {
       }
     } else if ((product?.stock || 0) <= 0) {
       setValidationError('Sản phẩm hiện đang tạm hết hàng');
+      return;
+    }
+
+    // BẪY LỖI SỚM: Đã thêm hết số lượng tồn kho vào giỏ hàng
+    if (remainingStockCanAdd <= 0) {
+      const msg = `Kho chỉ còn ${availableStock} cái. Bạn đã thêm đủ ${quantityInCart} cái vào giỏ hàng rồi!`;
+      setValidationError(msg);
+      showToast(msg);
+      return;
+    }
+
+    // BẪY LỖI SỚM: Số lượng muốn thêm vượt quá số lượng còn lại có thể thêm
+    if (quantity > remainingStockCanAdd) {
+      const msg = `Kho còn ${availableStock} cái. Bạn đã có ${quantityInCart} trong giỏ, chỉ có thể thêm tối đa ${remainingStockCanAdd} cái nữa!`;
+      setValidationError(msg);
+      showToast(msg);
       return;
     }
 
@@ -504,9 +575,8 @@ const ProductDetailPage = () => {
                     key={idx}
                     type="button"
                     onClick={() => setActiveImage(img)}
-                    className={`w-20 aspect-[3/4] bg-[#f5f5f5] overflow-hidden transition-all shrink-0 ${
-                      activeImage === img ? 'ring-2 ring-[#b91c1c]' : 'opacity-60 hover:opacity-100'
-                    }`}
+                    className={`w-20 aspect-[3/4] bg-[#f5f5f5] overflow-hidden transition-all shrink-0 ${activeImage === img ? 'ring-2 ring-[#b91c1c]' : 'opacity-60 hover:opacity-100'
+                      }`}
                   >
                     <img src={img} alt={`View ${idx + 1}`} className="w-full h-full object-cover" />
                   </button>
@@ -570,16 +640,19 @@ const ProductDetailPage = () => {
                     <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
                     Biến thể hết hàng
                   </span>
-                ) : availableStock <= 5 ? (
-                  <span className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.2em] text-amber-700">
-                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
-                    Chỉ còn {availableStock} {product.unit || 'cái'}
-                  </span>
                 ) : (
-                  <span className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.2em] text-emerald-700">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                    Còn hàng ({availableStock})
-                  </span>
+                  <div className="flex flex-col items-end">
+                    <span className={`inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.2em] ${availableStock <= 5 ? 'text-amber-700' : 'text-emerald-700'
+                      }`}>
+                      <span className={`w-1.5 h-1.5 rounded-full ${availableStock <= 5 ? 'bg-amber-500 animate-pulse' : 'bg-emerald-500'}`} />
+                      Còn hàng ({availableStock})
+                    </span>
+                    {quantityInCart > 0 && (
+                      <span className="text-[10px] font-bold text-neutral-500 tracking-wider">
+                        (Đã có {quantityInCart} trong giỏ)
+                      </span>
+                    )}
+                  </div>
                 )}
               </div>
             </div>
@@ -629,13 +702,12 @@ const ProductDetailPage = () => {
                             }
                           }
                         }}
-                        className={`group inline-flex items-center gap-2.5 px-3.5 py-2 text-xs font-bold uppercase tracking-wider border transition-all ${
-                          isSelected
-                            ? 'border-neutral-900 bg-neutral-900 text-white'
-                            : isAvailable
+                        className={`group inline-flex items-center gap-2.5 px-3.5 py-2 text-xs font-bold uppercase tracking-wider border transition-all ${isSelected
+                          ? 'border-neutral-900 bg-neutral-900 text-white'
+                          : isAvailable
                             ? 'border-neutral-300 bg-white text-neutral-800 hover:border-black'
                             : 'border-neutral-200 bg-neutral-50 text-neutral-300 opacity-60 line-through'
-                        }`}
+                          }`}
                       >
                         <span
                           className="w-3 h-3 rounded-full shrink-0 border border-black/20"
@@ -682,13 +754,12 @@ const ProductDetailPage = () => {
                           setSelectedSize(sizeName);
                           setValidationError('');
                         }}
-                        className={`h-12 text-xs font-bold uppercase tracking-wider border transition-all flex items-center justify-center relative ${
-                          isSelected
-                            ? 'bg-neutral-900 text-white border-neutral-900 shadow-xs'
-                            : isAvailable
+                        className={`h-12 text-xs font-bold uppercase tracking-wider border transition-all flex items-center justify-center relative ${isSelected
+                          ? 'bg-neutral-900 text-white border-neutral-900 shadow-xs'
+                          : isAvailable
                             ? 'bg-white text-black border-neutral-300 hover:border-black'
                             : 'bg-neutral-50 text-neutral-300 border-neutral-200 cursor-not-allowed before:absolute before:inset-0 before:m-auto before:h-[1px] before:w-full before:bg-neutral-300 before:rotate-[-25deg]'
-                        }`}
+                          }`}
                       >
                         <span>{sizeName}</span>
                       </button>
@@ -705,25 +776,25 @@ const ProductDetailPage = () => {
               </div>
             )}
 
-            {/* 6. SỐ LƯỢNG & CÁC NÚT MUA HÀNG (MÀU SẮC TƯƠI MỚI, KHÔNG CÒN BỊ ĐEN TOÀN DIỆN) */}
+            {/* 6. SỐ LƯỢNG & CÁC NÚT MUA HÀNG (BẪY LỖI SỚM TỒN KHO & MUA SỈ SỐ LƯỢNG LỚN) */}
             <div ref={mainBuySectionRef} className="space-y-3 pt-2">
               <div className="flex items-stretch gap-3">
                 {/* Quantity Stepper */}
                 <div className="w-32 h-13 border border-neutral-300 flex items-center justify-between px-2 bg-white shrink-0">
                   <button
                     type="button"
-                    disabled={quantity <= 1 || isCurrentSelectionOutOfStock}
+                    disabled={quantity <= 1 || isCurrentSelectionOutOfStock || remainingStockCanAdd <= 0}
                     onClick={() => handleQuantityChange(-1)}
                     className="w-8 h-full flex items-center justify-center text-neutral-600 hover:text-black disabled:opacity-20 transition-colors"
                   >
                     <MinusIcon className="w-3 h-3" />
                   </button>
                   <span className="text-xs font-mono font-bold select-none text-neutral-900">
-                    {quantity}
+                    {remainingStockCanAdd <= 0 ? 0 : quantity}
                   </span>
                   <button
                     type="button"
-                    disabled={quantity >= availableStock || isCurrentSelectionOutOfStock}
+                    disabled={quantity >= remainingStockCanAdd || remainingStockCanAdd <= 0 || isCurrentSelectionOutOfStock}
                     onClick={() => handleQuantityChange(1)}
                     className="w-8 h-full flex items-center justify-center text-neutral-600 hover:text-black disabled:opacity-20 transition-colors"
                   >
@@ -731,45 +802,79 @@ const ProductDetailPage = () => {
                   </button>
                 </div>
 
-                {/* Primary CTA: THÊM VÀO GIỎ HÀNG (NỀN TRẮNG VIỀN ĐỎ CHỮ ĐỎ THỜI TRANG MBBC) */}
+                {/* Primary CTA: THÊM VÀO GIỎ HÀNG */}
                 <button
                   type="button"
-                  disabled={isCurrentSelectionOutOfStock}
+                  disabled={isCurrentSelectionOutOfStock || remainingStockCanAdd <= 0}
                   onClick={handleAddToCart}
-                  className="flex-1 h-13 border-2 border-[#b91c1c] bg-white text-[#b91c1c] hover:bg-[#b91c1c] hover:text-white font-bold text-xs tracking-[0.2em] uppercase flex items-center justify-center gap-2.5 transition-all duration-200 active:scale-[0.99] disabled:opacity-30 disabled:hover:bg-white disabled:hover:text-[#b91c1c] disabled:cursor-not-allowed shadow-2xs"
+                  className="flex-1 h-13 border-2 border-[#b91c1c] bg-white text-[#b91c1c] hover:bg-[#b91c1c] hover:text-white font-bold text-xs tracking-[0.16em] uppercase flex items-center justify-center gap-2 transition-all duration-200 active:scale-[0.99] disabled:opacity-40 disabled:hover:bg-white disabled:hover:text-[#b91c1c] disabled:cursor-not-allowed shadow-2xs"
                 >
                   <BagIcon className="w-4 h-4" />
-                  <span>THÊM VÀO GIỎ HÀNG</span>
+                  <span>
+                    {remainingStockCanAdd <= 0 && availableStock > 0
+                      ? `ĐÃ ĐẠT GIỚI HẠN (${quantityInCart}/${availableStock})`
+                      : 'THÊM VÀO GIỎ HÀNG'}
+                  </span>
                 </button>
               </div>
 
-              {/* Secondary CTA: MUA NGAY (NỀN ĐỎ THƯƠNG HIỆU M.B.B.C NỔI BẬT & CUỐN HÚT) */}
-              <button
-                type="button"
-                disabled={isCurrentSelectionOutOfStock}
-                onClick={handleBuyNow}
-                className="w-full h-13 bg-[#b91c1c] hover:bg-[#991b1b] text-white font-bold text-xs tracking-[0.22em] uppercase flex items-center justify-center gap-2 transition-all duration-200 shadow-sm hover:shadow-md active:scale-[0.99] disabled:opacity-30 disabled:hover:bg-[#b91c1c] disabled:cursor-not-allowed"
-              >
-                <span>{isCurrentSelectionOutOfStock ? 'TẠM HẾT HÀNG' : 'MUA NGAY'}</span>
-              </button>
+              {/* Secondary CTAs: MUA NGAY & SỐ LƯỢNG LỚN (LIÊN HỆ) */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                {/* MUA NGAY */}
+                <button
+                  type="button"
+                  disabled={isCurrentSelectionOutOfStock || remainingStockCanAdd <= 0}
+                  onClick={handleBuyNow}
+                  className="w-full h-13 bg-[#b91c1c] hover:bg-[#991b1b] text-white font-bold text-xs tracking-[0.2em] uppercase flex items-center justify-center gap-2 transition-all duration-200 shadow-sm hover:shadow-md active:scale-[0.99] disabled:opacity-30 disabled:hover:bg-[#b91c1c] disabled:cursor-not-allowed"
+                >
+                  <span>{isCurrentSelectionOutOfStock ? 'TẠM HẾT HÀNG' : 'MUA NGAY'}</span>
+                </button>
+
+                {/* NÚT SỐ LƯỢNG LỚN (LIÊN HỆ) - GỌI ĐIỆN VÀO SĐT HOẶC MỞ FORM BÁO GIÁ SỈ */}
+                <button
+                  type="button"
+                  onClick={() => setShowBulkModal(true)}
+                  className="w-full h-13 border-2 border-neutral-900 bg-neutral-900 hover:bg-black text-white font-bold text-xs tracking-[0.14em] uppercase flex items-center justify-center gap-2 transition-all duration-200 shadow-sm hover:shadow-md active:scale-[0.99] group cursor-pointer"
+                  title="Khách hàng mua số lượng lớn hoặc đơn sỉ liên hệ Hotline"
+                >
+                  <PhoneIcon className="w-4 h-4 text-red-500 group-hover:scale-110 transition-transform" />
+                  <span>SỐ LƯỢNG LỚN (LIÊN HỆ)</span>
+                </button>
+              </div>
+
+              {/* Gợi ý mua sỉ khi khách đã thêm hết số lượng tồn kho */}
+              {remainingStockCanAdd <= 0 && availableStock > 0 && (
+                <div className="p-2.5 border border-amber-300 bg-amber-50/80 text-[11px] text-amber-900 leading-relaxed flex items-center justify-between gap-2">
+                  <span>
+                    Bạn đã có trọn bộ <strong>{quantityInCart}/{availableStock}</strong> sản phẩm này trong giỏ hàng.
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setShowBulkModal(true)}
+                    className="underline font-bold text-black uppercase tracking-wider shrink-0 hover:text-red-600"
+                  >
+                    Mua sỉ &gt;
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* 7. BRAND GUARANTEES (EDITORIAL HIGHLIGHTS VỚI ACCENT ĐỎ MBBC) */}
             <div className="grid grid-cols-2 gap-y-3.5 gap-x-4 py-5 border-t border-b border-neutral-200 text-[10px] uppercase tracking-[0.18em] font-bold text-neutral-700">
               <div className="flex items-center gap-2">
-                <span className="w-1.5 h-1.5 bg-[#b91c1c] rounded-none shrink-0" />
-                <span>MIỄN PHÍ GIAO HÀNG ĐƠN TỪ 500K</span>
+                <span className="w-1.5 h-1.5 bg-[#b91c1c] rounded-full shrink-0" />
+                <span>GIAO HÀNG HỎA TỐC HCM</span>
               </div>
               <div className="flex items-center gap-2">
-                <span className="w-1.5 h-1.5 bg-[#b91c1c] rounded-none shrink-0" />
+                <span className="w-1.5 h-1.5 bg-[#b91c1c] rounded-full shrink-0" />
                 <span>ĐỔI SIZE 30 NGÀY TẬN NƠI</span>
               </div>
               <div className="flex items-center gap-2">
-                <span className="w-1.5 h-1.5 bg-[#b91c1c] rounded-none shrink-0" />
+                <span className="w-1.5 h-1.5 bg-[#b91c1c] rounded-full shrink-0" />
                 <span>100% HEAVYWEIGHT COTTON</span>
               </div>
               <div className="flex items-center gap-2">
-                <span className="w-1.5 h-1.5 bg-[#b91c1c] rounded-none shrink-0" />
+                <span className="w-1.5 h-1.5 bg-[#b91c1c] rounded-full shrink-0" />
                 <span>ĐỒNG KIỂM COD KHI NHẬN HÀNG</span>
               </div>
             </div>
@@ -986,7 +1091,7 @@ const ProductDetailPage = () => {
       {showSizeGuide && (
         <div className="fixed inset-0 z-60 flex items-center justify-center p-4">
           <div className="fixed inset-0 bg-black/60 backdrop-blur-xs" onClick={() => setShowSizeGuide(false)} />
-          <div className="relative bg-white text-black max-w-lg w-full p-6 sm:p-8 z-10 shadow-2xl border border-neutral-300 space-y-5 animate-scale-in">
+          <div className="relative bg-white text-black max-w-xl w-full p-6 sm:p-7 z-10 shadow-2xl border border-neutral-300 space-y-5 animate-scale-in">
             <div className="flex items-center justify-between pb-3 border-b border-neutral-200">
               <div className="flex items-center gap-2">
                 <RulerIcon className="w-4 h-4 text-black" />
@@ -1006,51 +1111,51 @@ const ProductDetailPage = () => {
             </p>
 
             <div className="overflow-x-auto border border-neutral-200">
-              <table className="w-full text-xs text-center border-collapse">
+              <table className="w-full text-xs text-center border-collapse whitespace-nowrap">
                 <thead>
                   <tr className="bg-neutral-100 text-neutral-800 font-bold border-b border-neutral-200">
-                    <th className="py-2.5 px-3">Size</th>
-                    <th className="py-2.5 px-3">Chiều cao</th>
-                    <th className="py-2.5 px-3">Cân nặng</th>
-                    <th className="py-2.5 px-3">Dài áo (cm)</th>
-                    <th className="py-2.5 px-3">Rộng ngực (cm)</th>
+                    <th className="py-2.5 px-4 whitespace-nowrap">Size</th>
+                    <th className="py-2.5 px-4 whitespace-nowrap">Chiều cao</th>
+                    <th className="py-2.5 px-4 whitespace-nowrap">Cân nặng</th>
+                    <th className="py-2.5 px-4 whitespace-nowrap">Dài áo (cm)</th>
+                    <th className="py-2.5 px-4 whitespace-nowrap">Rộng ngực (cm)</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-neutral-200 text-neutral-700 font-mono">
                   <tr>
-                    <td className="py-2.5 px-3 font-bold text-black bg-neutral-50 font-sans">S</td>
-                    <td className="py-2.5 px-3">1m55 - 1m65</td>
-                    <td className="py-2.5 px-3">45 - 55 kg</td>
-                    <td className="py-2.5 px-3">68</td>
-                    <td className="py-2.5 px-3">54</td>
+                    <td className="py-2.5 px-4 font-bold text-black bg-neutral-50 font-sans whitespace-nowrap">S</td>
+                    <td className="py-2.5 px-4 whitespace-nowrap">1m55 - 1m65</td>
+                    <td className="py-2.5 px-4 whitespace-nowrap">45 - 55 kg</td>
+                    <td className="py-2.5 px-4 whitespace-nowrap">68</td>
+                    <td className="py-2.5 px-4 whitespace-nowrap">54</td>
                   </tr>
                   <tr>
-                    <td className="py-2.5 px-3 font-bold text-black bg-neutral-50 font-sans">M</td>
-                    <td className="py-2.5 px-3">1m65 - 1m72</td>
-                    <td className="py-2.5 px-3">55 - 65 kg</td>
-                    <td className="py-2.5 px-3">71</td>
-                    <td className="py-2.5 px-3">57</td>
+                    <td className="py-2.5 px-4 font-bold text-black bg-neutral-50 font-sans whitespace-nowrap">M</td>
+                    <td className="py-2.5 px-4 whitespace-nowrap">1m65 - 1m72</td>
+                    <td className="py-2.5 px-4 whitespace-nowrap">55 - 65 kg</td>
+                    <td className="py-2.5 px-4 whitespace-nowrap">71</td>
+                    <td className="py-2.5 px-4 whitespace-nowrap">57</td>
                   </tr>
                   <tr>
-                    <td className="py-2.5 px-3 font-bold text-black bg-neutral-50 font-sans">L</td>
-                    <td className="py-2.5 px-3">1m70 - 1m78</td>
-                    <td className="py-2.5 px-3">65 - 75 kg</td>
-                    <td className="py-2.5 px-3">74</td>
-                    <td className="py-2.5 px-3">60</td>
+                    <td className="py-2.5 px-4 font-bold text-black bg-neutral-50 font-sans whitespace-nowrap">L</td>
+                    <td className="py-2.5 px-4 whitespace-nowrap">1m70 - 1m78</td>
+                    <td className="py-2.5 px-4 whitespace-nowrap">65 - 75 kg</td>
+                    <td className="py-2.5 px-4 whitespace-nowrap">74</td>
+                    <td className="py-2.5 px-4 whitespace-nowrap">60</td>
                   </tr>
                   <tr>
-                    <td className="py-2.5 px-3 font-bold text-black bg-neutral-50 font-sans">XL</td>
-                    <td className="py-2.5 px-3">1m75 - 1m85</td>
-                    <td className="py-2.5 px-3">75 - 85 kg</td>
-                    <td className="py-2.5 px-3">77</td>
-                    <td className="py-2.5 px-3">63</td>
+                    <td className="py-2.5 px-4 font-bold text-black bg-neutral-50 font-sans whitespace-nowrap">XL</td>
+                    <td className="py-2.5 px-4 whitespace-nowrap">1m75 - 1m85</td>
+                    <td className="py-2.5 px-4 whitespace-nowrap">75 - 85 kg</td>
+                    <td className="py-2.5 px-4 whitespace-nowrap">77</td>
+                    <td className="py-2.5 px-4 whitespace-nowrap">63</td>
                   </tr>
                   <tr>
-                    <td className="py-2.5 px-3 font-bold text-black bg-neutral-50 font-sans">2XL</td>
-                    <td className="py-2.5 px-3">&gt; 1m80</td>
-                    <td className="py-2.5 px-3">&gt; 85 kg</td>
-                    <td className="py-2.5 px-3">80</td>
-                    <td className="py-2.5 px-3">66</td>
+                    <td className="py-2.5 px-4 font-bold text-black bg-neutral-50 font-sans whitespace-nowrap">2XL</td>
+                    <td className="py-2.5 px-4 whitespace-nowrap">&gt; 1m80</td>
+                    <td className="py-2.5 px-4 whitespace-nowrap">&gt; 85 kg</td>
+                    <td className="py-2.5 px-4 whitespace-nowrap">80</td>
+                    <td className="py-2.5 px-4 whitespace-nowrap">66</td>
                   </tr>
                 </tbody>
               </table>
@@ -1063,6 +1168,101 @@ const ProductDetailPage = () => {
             >
               ĐÃ HIỂU
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================= */}
+      {/* MODAL LIÊN HỆ MUA SỈ / SỐ LƯỢNG LỚN (GỌI ĐIỆN & ZALO TRỰC TIẾP) */}
+      {/* ========================================================= */}
+      {showBulkModal && (
+        <div className="fixed inset-0 z-60 flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-black/70 backdrop-blur-xs" onClick={() => setShowBulkModal(false)} />
+          <div className="relative bg-white text-black max-w-md w-full p-6 sm:p-7 z-10 shadow-2xl border border-neutral-300 space-y-5 animate-scale-in">
+            {/* Header Modal */}
+            <div className="flex items-center justify-between pb-3 border-b border-neutral-200">
+              <div className="flex items-center gap-2.5">
+                <span className="p-2 bg-red-50 text-[#b91c1c] rounded">
+                  <PhoneIcon className="w-4 h-4" />
+                </span>
+                <div>
+                  <h4 className="text-xs font-black uppercase tracking-[0.18em] text-neutral-900">
+                    LIÊN HỆ MUA SỐ LƯỢNG LỚN
+                  </h4>
+                  <p className="text-[10px] text-neutral-500 font-semibold tracking-wider uppercase">
+                    M.B.B.C WHOLESALE SERVICE
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowBulkModal(false)}
+                className="p-1 text-neutral-400 hover:text-black transition-colors"
+                aria-label="Đóng"
+              >
+                <CloseIcon />
+              </button>
+            </div>
+
+            {/* Sản phẩm đang quan tâm */}
+            <div className="flex items-center gap-3.5 p-3.5 bg-neutral-50 border border-neutral-200">
+              <img
+                src={activeImage || product.image || 'https://placehold.co/80x100/151515/ffffff?text=MBBC'}
+                alt={product.name}
+                className="w-16 h-20 object-cover bg-white border border-neutral-200 shrink-0"
+              />
+              <div className="min-w-0 flex-1">
+                <p className="text-[10px] uppercase font-bold tracking-widest text-neutral-400">
+                  {productCode}
+                </p>
+                <h5 className="text-xs font-black text-neutral-950 uppercase truncate mt-0.5">
+                  {product.name}
+                </h5>
+                <div className="flex items-center gap-2 mt-1 text-xs">
+                  <span className="font-extrabold text-[#b91c1c]">{formatPrice(product.price)}</span>
+                  <span className="text-neutral-300">•</span>
+                  <span className="text-neutral-500 font-medium">Kho lẻ còn: {availableStock}</span>
+                </div>
+                {(selectedSize || selectedColor) && (
+                  <p className="text-[10px] text-neutral-500 mt-1">
+                    Đang chọn: <strong>{[selectedColor, selectedSize].filter(Boolean).join(' / ')}</strong>
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {/* HÀNH ĐỘNG GỌI ĐIỆN VÀ ZALO TRỰC TIẾP */}
+            <div className="space-y-2.5 pt-1">
+              {/* NÚT GỌI ĐIỆN NGAY QUA SỐ ĐIỆN THOẠI BẢO */}
+              <a
+                href={`tel:${STORE_HOTLINE}`}
+                className="flex items-center justify-center gap-2.5 w-full py-3.5 px-4 bg-[#b91c1c] hover:bg-[#991b1b] text-white font-bold text-xs uppercase tracking-wider transition-colors shadow-md active:scale-[0.98]"
+              >
+                <PhoneIcon className="w-4 h-4" />
+                <span>GỌI: {STORE_HOTLINE_DISPLAY}</span>
+              </a>
+
+              {/* NÚT CHAT QUA ZALO */}
+              <a
+                href={STORE_ZALO_LINK}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-center gap-2.5 w-full py-3.5 px-4 bg-[#0068ff] hover:bg-[#0055d4] text-white font-bold text-xs uppercase tracking-wider transition-colors shadow-md active:scale-[0.98]"
+              >
+                <ChatBubbleIcon className="w-4 h-4" />
+                <span>CHAT QUA ZALO</span>
+              </a>
+            </div>
+
+            <div className="pt-2 border-t border-neutral-100">
+              <button
+                type="button"
+                onClick={() => setShowBulkModal(false)}
+                className="w-full py-2.5 text-neutral-400 hover:text-black text-xs font-bold uppercase tracking-wider transition-colors cursor-pointer"
+              >
+                ĐÓNG CỬA SỔ
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -1101,9 +1301,8 @@ const ProductDetailPage = () => {
       {/* Tự động hiện khi lướt qua sản phẩm chính & biến mất khi đến Footer hoặc cuộn ngược lên */}
       {/* ========================================================= */}
       <div
-        className={`fixed bottom-0 left-0 w-full z-40 bg-white/98 backdrop-blur-md border-t border-neutral-200/90 shadow-[0_-8px_30px_rgba(0,0,0,0.08)] transition-all duration-300 ease-out font-['Montserrat',sans-serif] ${
-          showStickyBar ? 'translate-y-0 opacity-100' : 'translate-y-full opacity-0 pointer-events-none'
-        }`}
+        className={`fixed bottom-0 left-0 w-full z-40 bg-white/98 backdrop-blur-md border-t border-neutral-200/90 shadow-[0_-8px_30px_rgba(0,0,0,0.08)] transition-all duration-300 ease-out font-['Montserrat',sans-serif] ${showStickyBar ? 'translate-y-0 opacity-100' : 'translate-y-full opacity-0 pointer-events-none'
+          }`}
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-8 py-2.5 sm:py-3 flex items-center justify-between gap-3 sm:gap-6">
           {/* CỘT TRÁI: ẢNH NHỎ & GIÁ SẢN PHẨM */}
@@ -1224,18 +1423,18 @@ const ProductDetailPage = () => {
             <div className="hidden sm:flex h-9 border border-neutral-300 items-center justify-between px-1.5 bg-white shrink-0">
               <button
                 type="button"
-                disabled={quantity <= 1 || isCurrentSelectionOutOfStock}
+                disabled={quantity <= 1 || isCurrentSelectionOutOfStock || remainingStockCanAdd <= 0}
                 onClick={() => handleQuantityChange(-1)}
                 className="w-6 h-full flex items-center justify-center text-neutral-600 hover:text-black disabled:opacity-20 transition-colors"
               >
                 <MinusIcon className="w-2.5 h-2.5" />
               </button>
               <span className="text-xs font-mono font-bold select-none text-neutral-900 px-2">
-                {quantity}
+                {remainingStockCanAdd <= 0 ? 0 : quantity}
               </span>
               <button
                 type="button"
-                disabled={quantity >= availableStock || isCurrentSelectionOutOfStock}
+                disabled={quantity >= remainingStockCanAdd || remainingStockCanAdd <= 0 || isCurrentSelectionOutOfStock}
                 onClick={() => handleQuantityChange(1)}
                 className="w-6 h-full flex items-center justify-center text-neutral-600 hover:text-black disabled:opacity-20 transition-colors"
               >
@@ -1243,15 +1442,32 @@ const ProductDetailPage = () => {
               </button>
             </div>
 
-            {/* Nút THÊM VÀO GIỎ (ĐỎ THƯƠNG HIỆU MBBC NỔI BẬT CHUẨN MẪU BACYKISM) */}
+            {/* Nút Gọi sỉ nhanh trên Sticky Bar */}
             <button
               type="button"
-              disabled={isCurrentSelectionOutOfStock}
+              onClick={() => setShowBulkModal(true)}
+              className="hidden lg:flex h-9 sm:h-10 px-3.5 border border-neutral-300 hover:border-black text-neutral-800 hover:text-black text-[11px] font-bold tracking-wider uppercase transition-colors shrink-0 items-center gap-1.5"
+              title="Khách mua số lượng lớn hoặc đơn sỉ liên hệ Hotline"
+            >
+              <PhoneIcon className="w-3.5 h-3.5 text-[#b91c1c]" />
+              <span>Mua Sỉ</span>
+            </button>
+
+            {/* Nút THÊM VÀO GIỎ */}
+            <button
+              type="button"
+              disabled={isCurrentSelectionOutOfStock || remainingStockCanAdd <= 0}
               onClick={handleAddToCart}
               className="h-9 sm:h-10 px-4 sm:px-7 bg-[#b91c1c] hover:bg-[#991b1b] text-white text-[11px] sm:text-xs font-bold tracking-[0.14em] uppercase transition-colors shrink-0 shadow-sm active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2"
             >
               <BagIcon className="w-3.5 h-3.5 hidden sm:inline-block" />
-              <span>{isCurrentSelectionOutOfStock ? 'HẾT HÀNG' : 'THÊM VÀO GIỎ'}</span>
+              <span>
+                {remainingStockCanAdd <= 0 && availableStock > 0
+                  ? 'ĐÃ ĐẠT GIỚI HẠN'
+                  : isCurrentSelectionOutOfStock
+                    ? 'HẾT HÀNG'
+                    : 'THÊM VÀO GIỎ'}
+              </span>
             </button>
           </div>
         </div>

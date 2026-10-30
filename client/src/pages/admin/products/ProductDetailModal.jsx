@@ -106,7 +106,7 @@ const ProductDetailModal = ({ product, onClose, onOpenImport, onOpenExport, onOp
       <div className="fixed inset-0 bg-black/40 backdrop-blur-sm animate-fade-in" onClick={onClose} />
 
       {/* Modal Container */}
-      <div className="relative bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[92vh] flex flex-col z-10 animate-scale-in overflow-hidden border border-gray-100">
+      <div className="relative bg-white rounded-xl shadow-2xl w-full max-w-6xl max-h-[92vh] flex flex-col z-10 animate-scale-in overflow-hidden border border-gray-100">
         {/* Modal Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-gray-50/70 shrink-0">
           <div className="flex items-center gap-3">
@@ -429,39 +429,39 @@ const ProductDetailModal = ({ product, onClose, onOpenImport, onOpenExport, onOp
                 </div>
               ) : (
                 <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs">
-                    <thead className="bg-gray-50 border-b border-gray-200 text-gray-600 font-semibold uppercase tracking-wider text-[11px]">
+                  <table className="min-w-full text-left text-xs whitespace-nowrap">
+                    <thead className="bg-gray-50 border-b border-gray-200 text-gray-600 font-semibold uppercase tracking-wider text-[11px] whitespace-nowrap">
                       <tr>
-                        <th className="px-3.5 py-3">Thời gian</th>
-                        <th className="px-3.5 py-3">Loại giao dịch</th>
-                        <th className="px-3.5 py-3">Biến thể</th>
-                        <th className="px-3.5 py-3 text-right">Số lượng</th>
-                        <th className="px-3.5 py-3 text-right">Tồn sau GD</th>
-                        <th className="px-3.5 py-3">Nhà cung cấp / Lý do</th>
-                        <th className="px-3.5 py-3 text-right">Đơn giá nhập</th>
-                        <th className="px-3.5 py-3">Người thực hiện</th>
-                        <th className="px-3.5 py-3">Ghi chú</th>
+                        <th className="px-4 py-3 whitespace-nowrap">Thời gian</th>
+                        <th className="px-4 py-3 whitespace-nowrap">Loại giao dịch</th>
+                        <th className="px-4 py-3 whitespace-nowrap">Biến thể</th>
+                        <th className="px-4 py-3 text-right whitespace-nowrap">Số lượng</th>
+                        <th className="px-4 py-3 text-right whitespace-nowrap">Tồn sau GD</th>
+                        <th className="px-4 py-3 whitespace-nowrap">Nhà cung cấp / Lý do</th>
+                        <th className="px-4 py-3 text-right whitespace-nowrap">Đơn giá nhập</th>
+                        <th className="px-4 py-3 whitespace-nowrap">Người thực hiện</th>
+                        <th className="px-4 py-3 whitespace-nowrap">Ghi chú</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-gray-100">
+                    <tbody className="divide-y divide-gray-100 whitespace-nowrap">
                       {history.map((item) => {
                         const isImport = item.type === 'import';
                         return (
                           <tr key={item._id} className="hover:bg-gray-50/80 transition-colors">
                             {/* Thời gian */}
-                            <td className="px-3.5 py-3 font-mono text-gray-600 whitespace-nowrap">
+                            <td className="px-4 py-3 font-mono text-gray-600 whitespace-nowrap">
                               {formatDate(item.createdAt)}
                             </td>
 
                             {/* Loại giao dịch */}
-                            <td className="px-3.5 py-3 whitespace-nowrap">
+                            <td className="px-4 py-3 whitespace-nowrap">
                               {isImport ? (
-                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-teal-50 text-teal-700 border border-teal-200">
+                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-teal-50 text-teal-700 border border-teal-200 whitespace-nowrap">
                                   <ImportIcon />
                                   <span>Nhập kho</span>
                                 </span>
                               ) : (
-                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
+                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-50 text-amber-700 border border-amber-200 whitespace-nowrap">
                                   <ExportIcon />
                                   <span>Xuất kho</span>
                                 </span>
@@ -469,20 +469,20 @@ const ProductDetailModal = ({ product, onClose, onOpenImport, onOpenExport, onOp
                             </td>
 
                             {/* Biến thể */}
-                            <td className="px-3.5 py-3 whitespace-nowrap">
+                            <td className="px-4 py-3 whitespace-nowrap">
                               {item.variantSize || item.variantColor ? (
-                                <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                                <span className="inline-flex items-center px-2.5 py-0.5 rounded text-[11px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200 whitespace-nowrap">
                                   Size {item.variantSize || '—'} / {item.variantColor || '—'}
                                 </span>
                               ) : (
-                                <span className="text-[11px] text-gray-400 italic">
+                                <span className="text-[11px] text-gray-400 italic whitespace-nowrap">
                                   Tồn kho chung
                                 </span>
                               )}
                             </td>
 
                             {/* Số lượng */}
-                            <td className="px-3.5 py-3 text-right font-bold tabular-nums whitespace-nowrap">
+                            <td className="px-4 py-3 text-right font-bold tabular-nums whitespace-nowrap">
                               <span className={isImport ? 'text-teal-700' : 'text-amber-700'}>
                                 {isImport ? `+${item.quantity}` : `-${item.quantity}`}
                               </span>{' '}
@@ -500,15 +500,15 @@ const ProductDetailModal = ({ product, onClose, onOpenImport, onOpenExport, onOp
                             </td>
 
                             {/* Nhà cung cấp / Lý do */}
-                            <td className="px-4 py-3 text-gray-700">
+                            <td className="px-4 py-3 text-gray-700 whitespace-nowrap">
                               {isImport ? (
                                 item.supplier?.name ? (
-                                  <span className="font-medium text-gray-900">{item.supplier.name}</span>
+                                  <span className="font-medium text-gray-900 whitespace-nowrap">{item.supplier.name}</span>
                                 ) : (
-                                  <span className="text-gray-400 italic">—</span>
+                                  <span className="text-gray-400 italic whitespace-nowrap">—</span>
                                 )
                               ) : (
-                                <span className="font-medium text-amber-900 bg-amber-50 px-2 py-0.5 rounded text-[11px]">
+                                <span className="inline-flex items-center font-medium text-amber-900 bg-amber-50 px-2.5 py-0.5 rounded text-[11px] whitespace-nowrap border border-amber-200/60">
                                   {item.reason || 'Khác'}
                                 </span>
                               )}
@@ -517,24 +517,24 @@ const ProductDetailModal = ({ product, onClose, onOpenImport, onOpenExport, onOp
                             {/* Đơn giá nhập */}
                             <td className="px-4 py-3 text-right tabular-nums whitespace-nowrap">
                               {isImport && item.unitPrice > 0 ? (
-                                <span className="text-gray-700 font-medium">
+                                <span className="text-gray-700 font-medium whitespace-nowrap">
                                   {formatCurrency(item.unitPrice)}
                                 </span>
                               ) : (
-                                <span className="text-gray-400">—</span>
+                                <span className="text-gray-400 whitespace-nowrap">—</span>
                               )}
                             </td>
 
                             {/* Người thực hiện */}
                             <td className="px-4 py-3 text-gray-600 whitespace-nowrap">
                               {item.performer?.fullName || item.performer?.email || (
-                                <span className="text-gray-400 italic">Quản trị viên</span>
+                                <span className="text-gray-400 italic whitespace-nowrap">Quản trị viên</span>
                               )}
                             </td>
 
                             {/* Ghi chú */}
-                            <td className="px-4 py-3 text-gray-500 max-w-xs truncate" title={item.note || ''}>
-                              {item.note || <span className="text-gray-300 italic">—</span>}
+                            <td className="px-4 py-3 text-gray-500 whitespace-nowrap max-w-xs truncate" title={item.note || ''}>
+                              {item.note || <span className="text-gray-300 italic whitespace-nowrap">—</span>}
                             </td>
                           </tr>
                         );

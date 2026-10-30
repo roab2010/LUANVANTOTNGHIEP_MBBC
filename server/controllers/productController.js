@@ -123,7 +123,9 @@ const getProducts = async (req, res) => {
       category &&
       (category.toUpperCase() === 'NEW ARRIVALS' ||
         category.toUpperCase() === 'NEW-ARRIVALS' ||
-        category.toUpperCase() === 'NEW_ARRIVALS');
+        category.toUpperCase() === 'NEW_ARRIVALS' ||
+        category.toUpperCase() === 'HÀNG MỚI VỀ' ||
+        category.toUpperCase() === 'HANG MOI VE');
 
     if (!allowLocked) {
       // Ẩn toàn bộ sản phẩm thuộc danh mục bị khóa (áp dụng cho khách hàng & API công khai)

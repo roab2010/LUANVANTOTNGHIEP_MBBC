@@ -90,7 +90,8 @@ const CategoryPage = () => {
   });
 
   // Danh mục public từ backend
-  const [dbCategories, setDbCategories] = useState(['TOPS', 'OUTWEAR', 'BOTTOMS', 'ACCESSORIES']);
+  const [dbCategories, setDbCategories] = useState([]);
+  const [dbCategoryDescriptions, setDbCategoryDescriptions] = useState({});
 
   // Trạng thái sản phẩm
   const [products, setProducts] = useState([]);
@@ -106,8 +107,14 @@ const CategoryPage = () => {
   // Drawer bộ lọc
   const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
 
+  // Kiểm tra nếu đang ở danh mục Hàng Mới Về
+  const isNewArrivals =
+    currentCategory.toUpperCase() === 'NEW ARRIVALS' ||
+    currentCategory.toUpperCase() === 'HÀNG MỚI VỀ' ||
+    currentCategory.toUpperCase() === 'HANG MOI VE';
+
   // Đọc state từ URL query params
-  const activeSort = searchParams.get('sort') || (currentCategory === 'NEW ARRIVALS' ? 'newest' : 'featured');
+  const activeSort = searchParams.get('sort') || (isNewArrivals ? 'newest' : 'featured');
   const activeMinPrice = searchParams.get('minPrice') || '';
   const activeMaxPrice = searchParams.get('maxPrice') || '';
   const activeColors = useMemo(() => {
@@ -166,9 +173,17 @@ const CategoryPage = () => {
     const fetchCategories = async () => {
       try {
         const res = await getPublicCategories();
-        if (res.data?.success && Array.isArray(res.data.data)) {
-          const names = res.data.data.map((c) => c.name);
+        const cats = res.data?.data?.categories || (Array.isArray(res.data?.data) ? res.data.data : null);
+        if (Array.isArray(cats) && cats.length > 0) {
+          const names = cats.map((c) => (typeof c === 'string' ? c : c.name));
           setDbCategories(names);
+          const descMap = {};
+          cats.forEach((c) => {
+            if (c && c.name && c.description) {
+              descMap[c.name.toUpperCase()] = c.description;
+            }
+          });
+          setDbCategoryDescriptions(descMap);
         }
       } catch (err) {
         console.error('Lỗi tải danh mục:', err);
@@ -198,7 +213,7 @@ const CategoryPage = () => {
       try {
         setIsOptionsLoading(true);
         const params = {};
-        if (targetCat && targetCat !== 'ALL' && targetCat !== 'NEW ARRIVALS') {
+        if (targetCat && targetCat !== 'ALL' && targetCat !== 'NEW ARRIVALS' && targetCat !== 'HÀNG MỚI VỀ') {
           params.category = targetCat;
         }
         const res = await getFilterOptions(params);
@@ -242,7 +257,7 @@ const CategoryPage = () => {
           sort: activeSort,
         };
 
-        if (currentCategory && currentCategory !== 'ALL') {
+        if (currentCategory && currentCategory !== 'ALL' && !isNewArrivals) {
           params.category = currentCategory;
         }
 
@@ -437,6 +452,12 @@ const CategoryPage = () => {
   const displayTitle = useMemo(() => {
     if (searchQuery) return `KẾT QUẢ CHO "${searchQuery.toUpperCase()}"`;
     if (currentCategory === 'ALL') return 'TẤT CẢ SẢN PHẨM';
+    if (
+      currentCategory.toUpperCase() === 'NEW ARRIVALS' ||
+      currentCategory.toUpperCase() === 'HÀNG MỚI VỀ'
+    ) {
+      return 'HÀNG MỚI VỀ';
+    }
     return currentCategory.toUpperCase();
   }, [currentCategory, searchQuery]);
 
@@ -465,17 +486,19 @@ const CategoryPage = () => {
                   {displayTitle}
                 </h1>
                 <p className="mt-2 text-xs sm:text-sm text-neutral-500 max-w-xl font-medium">
-                  {currentCategory === 'NEW ARRIVALS'
-                    ? 'Khám phá các thiết kế mới nhất vừa được phát hành trong bộ sưu tập đương đại MBBC.'
-                    : currentCategory === 'TOPS'
-                    ? 'Bộ sưu tập áo thun, hoodie, sweater và sơ mi mang phong cách streetwear phóng khoáng.'
-                    : currentCategory === 'OUTWEAR'
-                    ? 'Áo khoác bomber, varsity, jacket với phom dáng oversize và chất liệu cao cấp.'
-                    : currentCategory === 'BOTTOMS'
-                    ? 'Quần jean, cargo pants, short và jogger thiết kế chuẩn phom dáng đường phố.'
-                    : currentCategory === 'ACCESSORIES'
-                    ? 'Phụ kiện mũ, nón, túi đeo chéo và thắt lưng hoàn thiện set đồ street style.'
-                    : 'Tổng hợp toàn bộ các sản phẩm chính hãng thuộc thương hiệu thời trang MBBC.'}
+                  {dbCategoryDescriptions[currentCategory?.toUpperCase()] || (
+                    isNewArrivals
+                      ? 'Khám phá các thiết kế mới nhất vừa được phát hành trong bộ sưu tập đương đại MBBC.'
+                      : currentCategory === 'TOPS'
+                      ? 'Bộ sưu tập áo thun, hoodie, sweater và sơ mi mang phong cách streetwear phóng khoáng.'
+                      : currentCategory === 'OUTWEAR'
+                      ? 'Áo khoác bomber, varsity, jacket với phom dáng oversize và chất liệu cao cấp.'
+                      : currentCategory === 'BOTTOMS'
+                      ? 'Quần jean, cargo pants, short và jogger thiết kế chuẩn phom dáng đường phố.'
+                      : currentCategory === 'ACCESSORIES'
+                      ? 'Phụ kiện mũ, nón, túi đeo chéo và thắt lưng hoàn thiện set đồ street style.'
+                      : 'Tổng hợp toàn bộ các sản phẩm chính hãng thuộc thương hiệu thời trang MBBC.'
+                  )}
                 </p>
               </div>
 
@@ -854,13 +877,15 @@ const CategoryPage = () => {
                   <span className="text-[10px] text-neutral-400 font-normal">Chọn 1 danh mục</span>
                 </h3>
                 <div className="flex flex-wrap gap-2">
-                  {['ALL', 'TOPS', 'OUTWEAR', 'BOTTOMS', 'ACCESSORIES', 'NEW ARRIVALS'].map((cat) => {
-                    const isSelected = draftCategory === cat;
+                  {['ALL', ...(dbCategories.length > 0 ? dbCategories : ['ÁO', 'ÁO KHOÁC', 'QUẦN', 'PHỤ KIỆN']), 'HÀNG MỚI VỀ'].map((cat) => {
+                    const isSelected =
+                      draftCategory === cat ||
+                      (cat === 'HÀNG MỚI VỀ' && (draftCategory === 'NEW ARRIVALS' || draftCategory === 'HÀNG MỚI VỀ'));
                     return (
                       <button
                         key={cat}
                         type="button"
-                        onClick={() => setDraftCategory(cat)}
+                        onClick={() => setDraftCategory(cat === 'HÀNG MỚI VỀ' ? 'NEW ARRIVALS' : cat)}
                         className={`px-3 py-1.5 text-xs font-bold uppercase tracking-wider border transition-all ${
                           isSelected
                             ? 'bg-black text-white border-black shadow-xs'

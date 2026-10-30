@@ -132,8 +132,9 @@ const CustomerHome = () => {
     const fetchActiveCategories = async () => {
       try {
         const res = await getPublicCategories();
-        if (res.data?.success && Array.isArray(res.data.data?.categories)) {
-          setActiveCategories(res.data.data.categories.map((c) => c.name));
+        const cats = res.data?.data?.categories || (Array.isArray(res.data?.data) ? res.data.data : null);
+        if (Array.isArray(cats) && cats.length > 0) {
+          setActiveCategories(cats.map((c) => (typeof c === 'string' ? c : c.name)));
         }
       } catch (err) {
         console.error('Lỗi khi tải danh mục active:', err);
@@ -150,14 +151,20 @@ const CustomerHome = () => {
     return ['ALL', 'TOPS', 'OUTWEAR', 'BOTTOMS', 'ACCESSORIES'];
   }, [activeCategories]);
 
-  // Dropdown menu SHOP động (đầy đủ TOPS, OUTWEAR, BOTTOMS, ACCESSORIES, NEW ARRIVALS, không trùng lặp)
+  // Dropdown menu CỬA HÀNG động (lấy trực tiếp từ DB, chỉ fallback nếu DB rỗng)
   const shopDropdownItems = useMemo(() => {
-    const base = ['TOPS', 'OUTWEAR', 'BOTTOMS', 'ACCESSORIES'];
-    const extra = (activeCategories || []).filter(
-      (cat) => cat && !base.includes(cat.toUpperCase()) && cat.toUpperCase() !== 'NEW ARRIVALS'
-    );
-    const combined = [...base, ...extra, 'NEW ARRIVALS'];
-    return combined.map((cat) => ({ label: cat, filter: cat }));
+    const list =
+      activeCategories.length > 0
+        ? activeCategories.filter(
+            (cat) =>
+              cat &&
+              cat.toUpperCase() !== 'NEW ARRIVALS' &&
+              cat.toUpperCase() !== 'HÀNG MỚI VỀ'
+          )
+        : ['ÁO', 'ÁO KHOÁC', 'QUẦN', 'PHỤ KIỆN'];
+    const items = list.map((cat) => ({ label: cat, filter: cat }));
+    items.push({ label: 'HÀNG MỚI VỀ', filter: 'NEW ARRIVALS' });
+    return items;
   }, [activeCategories]);
 
   // Tự động chuyển về ALL nếu danh mục đang chọn bị Admin khóa
@@ -319,10 +326,10 @@ const CustomerHome = () => {
             </span>
           </div>
 
-          {/* CỘT GIỮA: MENU NAVIGATION (ABOUT US ⌵, SHOP ⌵, CAMPAIGN ⌵, WOLRWIDE SHIPPING ⌵) */}
+          {/* CỘT GIỮA: MENU NAVIGATION (VỀ CHÚNG TÔI ⌵, CỬA HÀNG ⌵, CHIẾN DỊCH ⌵, GIAO HÀNG TOÀN CẦU ⌵) */}
           <nav className="hidden md:flex items-center gap-8 lg:gap-12" aria-label="Menu chính">
 
-            {/* ABOUT US */}
+            {/* VỀ CHÚNG TÔI */}
             <div className="group relative py-2">
               <button
                 onClick={() => {
@@ -331,7 +338,7 @@ const CustomerHome = () => {
                 className={`text-[12px] sm:text-[13px] font-bold tracking-[0.12em] uppercase transition-colors flex items-center gap-1 focus:outline-none ${isHeaderActive ? 'text-black hover:text-neutral-600' : 'text-white hover:text-white/80'
                   }`}
               >
-                <span>ABOUT US</span>
+                <span>VỀ CHÚNG TÔI</span>
                 <ChevronDownIcon className="w-3 h-3 transition-transform duration-200 group-hover:rotate-180" />
               </button>
 
@@ -339,7 +346,7 @@ const CustomerHome = () => {
                 {/* Hit-box bridge giúp lướt chuột mượt mà 100% không bao giờ rớt hover */}
                 <div className="absolute -top-3 left-0 right-0 h-4 bg-transparent" />
                 <div className="bg-white text-black shadow-[0_12px_35px_rgba(0,0,0,0.12)] border border-neutral-100 py-3.5 px-6 min-w-[210px]">
-                  {['BRAND STORY', 'STREETWEAR PHILOSOPHY', 'SHOWROOM'].map((sub) => (
+                  {['CÂU CHUYỆN THƯƠNG HIỆU', 'TRIẾT LÝ PHONG CÁCH', 'HỆ THỐNG CỬA HÀNG'].map((sub) => (
                     <button
                       key={sub}
                       onClick={() => {
@@ -354,7 +361,7 @@ const CustomerHome = () => {
               </div>
             </div>
 
-            {/* SHOP (DROPDOWN NHƯ HÌNH 5) */}
+            {/* CỬA HÀNG */}
             <div className="group relative py-2">
               <button
                 onClick={() => {
@@ -363,11 +370,11 @@ const CustomerHome = () => {
                 className={`text-[12px] sm:text-[13px] font-bold tracking-[0.12em] uppercase transition-colors flex items-center gap-1 focus:outline-none ${isHeaderActive ? 'text-black hover:text-neutral-600' : 'text-white hover:text-white/80'
                   }`}
               >
-                <span>SHOP</span>
+                <span>CỬA HÀNG</span>
                 <ChevronDownIcon className="w-3 h-3 transition-transform duration-200 group-hover:rotate-180" />
               </button>
 
-              {/* DROPDOWN MENU CHUẨN HÌNH 5 */}
+              {/* DROPDOWN MENU */}
               <div className="absolute top-full left-0 pt-2 z-50 opacity-0 invisible pointer-events-none -translate-y-1.5 group-hover:opacity-100 group-hover:visible group-hover:pointer-events-auto group-hover:translate-y-0 transition-all duration-200 ease-out">
                 {/* Hit-box bridge */}
                 <div className="absolute -top-3 left-0 right-0 h-4 bg-transparent" />
@@ -378,13 +385,13 @@ const CustomerHome = () => {
                       onClick={() => {
                         navigate(`/category/${encodeURIComponent(item.filter)}`);
                       }}
-                      className={`block w-full text-left py-2 text-[12px] font-bold tracking-[0.14em] uppercase hover:translate-x-1.5 transition-all flex items-center justify-between ${item.label === 'NEW ARRIVALS'
+                      className={`block w-full text-left py-2 text-[12px] font-bold tracking-[0.14em] uppercase hover:translate-x-1.5 transition-all flex items-center justify-between ${item.filter === 'NEW ARRIVALS'
                           ? 'text-[#b91c1c] hover:text-[#991b1b]'
                           : 'text-neutral-800 hover:text-black'
                         }`}
                     >
                       <span>{item.label}</span>
-                      {item.label === 'NEW ARRIVALS' && (
+                      {item.filter === 'NEW ARRIVALS' && (
                         <span className="text-[9px] font-extrabold uppercase px-1.5 py-0.5 bg-red-100 text-[#b91c1c] tracking-normal">
                           HOT
                         </span>
@@ -395,7 +402,7 @@ const CustomerHome = () => {
               </div>
             </div>
 
-            {/* CAMPAIGN */}
+            {/* CHIẾN DỊCH */}
             <div className="group relative py-2">
               <button
                 onClick={() => {
@@ -404,7 +411,7 @@ const CustomerHome = () => {
                 className={`text-[12px] sm:text-[13px] font-bold tracking-[0.12em] uppercase transition-colors flex items-center gap-1 focus:outline-none ${isHeaderActive ? 'text-black hover:text-neutral-600' : 'text-white hover:text-white/80'
                   }`}
               >
-                <span>CAMPAIGN</span>
+                <span>CHIẾN DỊCH</span>
                 <ChevronDownIcon className="w-3 h-3 transition-transform duration-200 group-hover:rotate-180" />
               </button>
 
@@ -412,7 +419,7 @@ const CustomerHome = () => {
                 {/* Hit-box bridge */}
                 <div className="absolute -top-3 left-0 right-0 h-4 bg-transparent" />
                 <div className="bg-white text-black shadow-[0_12px_35px_rgba(0,0,0,0.12)] border border-neutral-100 py-3.5 px-6 min-w-[220px]">
-                  {['BA SON METRO DROP', 'CYBER UNDERGROUND'].map((sub) => (
+                  {['BST GA BA SON', 'CHIẾN DỊCH CYBER'].map((sub) => (
                     <button
                       key={sub}
                       onClick={() => {
@@ -427,7 +434,7 @@ const CustomerHome = () => {
               </div>
             </div>
 
-            {/* WOLRWIDE SHIPPING (CHÍNH XÁC NHƯ HÌNH 2) */}
+            {/* GIAO HÀNG TOÀN CẦU */}
             <div className="group relative py-2">
               <button
                 onClick={() => {
@@ -436,7 +443,7 @@ const CustomerHome = () => {
                 className={`text-[12px] sm:text-[13px] font-bold tracking-[0.12em] uppercase transition-colors flex items-center gap-1 focus:outline-none ${isHeaderActive ? 'text-black hover:text-neutral-600' : 'text-white hover:text-white/80'
                   }`}
               >
-                <span>WOLRWIDE SHIPPING</span>
+                <span>GIAO HÀNG TOÀN CẦU</span>
                 <ChevronDownIcon className="w-3 h-3 transition-transform duration-200 group-hover:rotate-180" />
               </button>
 
@@ -632,11 +639,11 @@ const CustomerHome = () => {
                   setMobileMenuOpen(false);
                   navigate(`/category/${encodeURIComponent(item.filter)}`);
                 }}
-                className={`block w-full text-left py-2 text-xs font-black tracking-widest uppercase flex items-center justify-between ${item.label === 'NEW ARRIVALS' ? 'text-[#b91c1c]' : 'text-neutral-900'
+                className={`block w-full text-left py-2 text-xs font-black tracking-widest uppercase flex items-center justify-between ${item.filter === 'NEW ARRIVALS' ? 'text-[#b91c1c]' : 'text-neutral-900'
                   }`}
               >
                 <span>{item.label}</span>
-                {item.label === 'NEW ARRIVALS' && (
+                {item.filter === 'NEW ARRIVALS' && (
                   <span className="text-[9px] font-extrabold uppercase px-1.5 py-0.5 bg-red-100 text-[#b91c1c] tracking-normal">
                     HOT
                   </span>
@@ -741,7 +748,7 @@ const CustomerHome = () => {
         {/* TIÊU ĐỀ NEW ARRIVALS */}
         <div className="text-center mb-10 pt-2">
           <h2 className="text-2xl sm:text-3xl font-extrabold tracking-[0.24em] text-black uppercase">
-            NEW ARRIVALS
+            HÀNG MỚI VỀ
           </h2>
 
           {/* Category Tabs tối giản */}
@@ -755,7 +762,7 @@ const CustomerHome = () => {
                     : 'text-neutral-400 hover:text-black'
                   }`}
               >
-                {cat}
+                {cat === 'ALL' ? 'TẤT CẢ' : cat}
                 {selectedCategory === cat && (
                   <span className="absolute bottom-0 left-0 right-0 h-[2px] bg-black" />
                 )}

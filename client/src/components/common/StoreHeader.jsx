@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useMemo } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useCart } from '../../context/CartContext';
+import { getPublicCategories } from '../../services/categoryApi';
 import mbbcLogo from '../../assets/logo MBBC.png';
 
 // Icons
@@ -91,17 +92,55 @@ const StoreHeader = ({
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [mobileShopExpanded, setMobileShopExpanded] = useState(true);
 
+  const [internalCategories, setInternalCategories] = useState([]);
+
   const searchBoxRef = useRef(null);
   const shopMenuRef = useRef(null);
 
-  // Danh mục chuẩn yêu cầu: TOPS, OUTWEAR, BOTTOMS, ACCESSORIES, NEW ARRIVALS
-  const categoryList = useMemo(() => {
-    const standard = ['TOPS', 'OUTWEAR', 'BOTTOMS', 'ACCESSORIES'];
-    const extra = (propCategories || []).filter(
-      (c) => c && !standard.includes(c.toUpperCase()) && c.toUpperCase() !== 'NEW ARRIVALS'
-    );
-    return [...standard, ...extra, 'NEW ARRIVALS'];
+  // Tự động tải danh mục từ backend nếu component không được truyền propCategories
+  useEffect(() => {
+    if (!propCategories || propCategories.length === 0) {
+      const fetchCats = async () => {
+        try {
+          const res = await getPublicCategories();
+          const cats = res.data?.data?.categories || (Array.isArray(res.data?.data) ? res.data.data : null);
+          if (Array.isArray(cats) && cats.length > 0) {
+            setInternalCategories(cats.map((c) => (typeof c === 'string' ? c : c.name)));
+          }
+        } catch (err) {
+          console.error('Lỗi tải danh mục trong StoreHeader:', err);
+        }
+      };
+      fetchCats();
+    }
   }, [propCategories]);
+
+  const effectiveCategories =
+    propCategories && propCategories.length > 0 ? propCategories : internalCategories;
+
+  // Danh mục menu CỬA HÀNG: ưu tiên danh mục thực tế từ DB, hiển thị tiếng Việt
+  const categoryItems = useMemo(() => {
+    if (effectiveCategories.length > 0) {
+      const clean = effectiveCategories
+        .filter(
+          (c) =>
+            c &&
+            (typeof c === 'string' ? c : c.name).toUpperCase() !== 'NEW ARRIVALS' &&
+            (typeof c === 'string' ? c : c.name).toUpperCase() !== 'HÀNG MỚI VỀ'
+        )
+        .map((c) => (typeof c === 'string' ? c : c.name));
+      const items = clean.map((cat) => ({ label: cat, filter: cat }));
+      items.push({ label: 'HÀNG MỚI VỀ', filter: 'NEW ARRIVALS' });
+      return items;
+    }
+    return [
+      { label: 'ÁO', filter: 'ÁO' },
+      { label: 'ÁO KHOÁC', filter: 'ÁO KHOÁC' },
+      { label: 'QUẦN', filter: 'QUẦN' },
+      { label: 'PHỤ KIỆN', filter: 'PHỤ KIỆN' },
+      { label: 'HÀNG MỚI VỀ', filter: 'NEW ARRIVALS' },
+    ];
+  }, [effectiveCategories]);
 
   // Click outside search box & desktop shop menu
   useEffect(() => {
@@ -223,7 +262,7 @@ const StoreHeader = ({
 
           {/* CỘT GIỮA: NAVIGATION DESKTOP */}
           <nav className="hidden md:flex items-center gap-7 lg:gap-11" aria-label="Menu chính">
-            {/* ABOUT US */}
+            {/* VỀ CHÚNG TÔI */}
             <div className="group relative py-2">
               <button
                 type="button"
@@ -236,13 +275,13 @@ const StoreHeader = ({
                 className={`text-[12px] lg:text-[13px] font-bold tracking-[0.14em] uppercase transition-colors flex items-center gap-1.5 focus:outline-none ${isHeaderActive ? 'text-black hover:text-neutral-600' : 'text-white hover:text-white/80'
                   }`}
               >
-                <span>ABOUT US</span>
+                <span>VỀ CHÚNG TÔI</span>
                 <ChevronDownIcon className="w-3 h-3 transition-transform duration-200 group-hover:rotate-180" />
               </button>
               <div className="absolute top-full left-0 pt-2 z-50 opacity-0 invisible pointer-events-none -translate-y-1.5 group-hover:opacity-100 group-hover:visible group-hover:pointer-events-auto group-hover:translate-y-0 transition-all duration-200 ease-out">
                 <div className="absolute -top-3 left-0 right-0 h-4 bg-transparent" />
                 <div className="bg-white text-black shadow-[0_12px_35px_rgba(0,0,0,0.12)] border border-neutral-100 py-3.5 px-6 min-w-[220px]">
-                  {['BRAND STORY', 'STREETWEAR PHILOSOPHY', 'SHOWROOM'].map((sub) => (
+                  {['CÂU CHUYỆN THƯƠNG HIỆU', 'TRIẾT LÝ PHONG CÁCH', 'HỆ THỐNG CỬA HÀNG'].map((sub) => (
                     <button
                       key={sub}
                       type="button"
@@ -261,7 +300,7 @@ const StoreHeader = ({
               </div>
             </div>
 
-            {/* SHOP MENU (Hỗ trợ cả rê chuột hover và bấm click) */}
+            {/* CỬA HÀNG (Hỗ trợ cả rê chuột hover và bấm click) */}
             <div className="group relative py-2" ref={shopMenuRef}>
               <button
                 type="button"
@@ -269,7 +308,7 @@ const StoreHeader = ({
                 className={`text-[12px] lg:text-[13px] font-bold tracking-[0.14em] uppercase transition-colors flex items-center gap-1.5 focus:outline-none ${isHeaderActive ? 'text-black hover:text-neutral-600' : 'text-white hover:text-white/80'
                   }`}
               >
-                <span>SHOP</span>
+                <span>CỬA HÀNG</span>
                 <ChevronDownIcon
                   className={`w-3 h-3 transition-transform duration-200 ${desktopShopOpen ? 'rotate-180' : 'group-hover:rotate-180'
                     }`}
@@ -283,18 +322,18 @@ const StoreHeader = ({
               >
                 <div className="absolute -top-3 left-0 right-0 h-4 bg-transparent" />
                 <div className="bg-white text-black shadow-[0_14px_40px_rgba(0,0,0,0.14)] border border-neutral-100 py-3 px-5 min-w-[220px]">
-                  {categoryList.map((cat) => (
+                  {categoryItems.map((item) => (
                     <button
-                      key={cat}
+                      key={item.label}
                       type="button"
-                      onClick={() => handleCategoryClick(cat)}
-                      className={`block w-full text-left py-2.5 text-[12px] font-bold tracking-[0.14em] uppercase border-b border-neutral-50 last:border-b-0 transition-all flex items-center justify-between ${cat === 'NEW ARRIVALS'
+                      onClick={() => handleCategoryClick(item.filter)}
+                      className={`block w-full text-left py-2.5 text-[12px] font-bold tracking-[0.14em] uppercase border-b border-neutral-50 last:border-b-0 transition-all flex items-center justify-between ${item.filter === 'NEW ARRIVALS'
                           ? 'text-[#b91c1c] hover:text-[#991b1b] hover:translate-x-1'
                           : 'text-neutral-800 hover:text-black hover:translate-x-1'
                         }`}
                     >
-                      <span>{cat}</span>
-                      {cat === 'NEW ARRIVALS' && (
+                      <span>{item.label}</span>
+                      {item.filter === 'NEW ARRIVALS' && (
                         <span className="text-[9px] font-extrabold uppercase px-1.5 py-0.5 bg-red-100 text-[#b91c1c] tracking-normal">
                           HOT
                         </span>
@@ -305,7 +344,7 @@ const StoreHeader = ({
               </div>
             </div>
 
-            {/* CAMPAIGN */}
+            {/* CHIẾN DỊCH */}
             <div className="group relative py-2">
               <button
                 type="button"
@@ -318,13 +357,13 @@ const StoreHeader = ({
                 className={`text-[12px] lg:text-[13px] font-bold tracking-[0.14em] uppercase transition-colors flex items-center gap-1.5 focus:outline-none ${isHeaderActive ? 'text-black hover:text-neutral-600' : 'text-white hover:text-white/80'
                   }`}
               >
-                <span>CAMPAIGN</span>
+                <span>CHIẾN DỊCH</span>
                 <ChevronDownIcon className="w-3 h-3 transition-transform duration-200 group-hover:rotate-180" />
               </button>
               <div className="absolute top-full left-0 pt-2 z-50 opacity-0 invisible pointer-events-none -translate-y-1.5 group-hover:opacity-100 group-hover:visible group-hover:pointer-events-auto group-hover:translate-y-0 transition-all duration-200 ease-out">
                 <div className="absolute -top-3 left-0 right-0 h-4 bg-transparent" />
                 <div className="bg-white text-black shadow-[0_12px_35px_rgba(0,0,0,0.12)] border border-neutral-100 py-3.5 px-6 min-w-[220px]">
-                  {['BA SON METRO DROP', 'CYBER UNDERGROUND'].map((sub) => (
+                  {['BST GA BA SON', 'CHIẾN DỊCH CYBER'].map((sub) => (
                     <button
                       key={sub}
                       type="button"
@@ -338,7 +377,7 @@ const StoreHeader = ({
               </div>
             </div>
 
-            {/* WOLRWIDE SHIPPING */}
+            {/* GIAO HÀNG TOÀN CẦU */}
             <div className="group relative py-2">
               <button
                 type="button"
@@ -351,7 +390,7 @@ const StoreHeader = ({
                 className={`text-[12px] lg:text-[13px] font-bold tracking-[0.14em] uppercase transition-colors flex items-center gap-1.5 focus:outline-none ${isHeaderActive ? 'text-black hover:text-neutral-600' : 'text-white hover:text-white/80'
                   }`}
               >
-                <span>WOLRWIDE SHIPPING</span>
+                <span>GIAO HÀNG TOÀN CẦU</span>
                 <ChevronDownIcon className="w-3 h-3 transition-transform duration-200 group-hover:rotate-180" />
               </button>
               <div className="absolute top-full left-0 pt-2 z-50 opacity-0 invisible pointer-events-none -translate-y-1.5 group-hover:opacity-100 group-hover:visible group-hover:pointer-events-auto group-hover:translate-y-0 transition-all duration-200 ease-out">
@@ -550,7 +589,7 @@ const StoreHeader = ({
 
             {/* Navigation links */}
             <div className="p-5 space-y-4 flex-1">
-              {/* SHOP SECTION (Accordion cảm ứng) */}
+              {/* CỬA HÀNG (Accordion cảm ứng) */}
               <div className="border-b border-neutral-100 pb-3">
                 <button
                   type="button"
@@ -558,9 +597,9 @@ const StoreHeader = ({
                   className="w-full flex items-center justify-between py-2 text-[13px] font-bold uppercase tracking-[0.14em] text-black"
                 >
                   <span className="flex items-center gap-2">
-                    <span>SHOP</span>
+                    <span>CỬA HÀNG</span>
                     <span className="text-[10px] font-normal text-neutral-400 lowercase">
-                      ({categoryList.length} mục)
+                      ({categoryItems.length} mục)
                     </span>
                   </span>
                   <ChevronDownIcon
@@ -571,22 +610,22 @@ const StoreHeader = ({
 
                 {mobileShopExpanded && (
                   <div className="mt-2 pl-3 space-y-2 border-l-2 border-black">
-                    {categoryList.map((cat) => (
+                    {categoryItems.map((item) => (
                       <button
-                        key={cat}
+                        key={item.label}
                         type="button"
-                        onClick={() => handleCategoryClick(cat)}
-                        className={`block w-full text-left py-1.5 text-[12px] font-bold tracking-[0.12em] uppercase transition-colors ${cat === 'NEW ARRIVALS' ? 'text-[#b91c1c]' : 'text-neutral-700 hover:text-black'
+                        onClick={() => handleCategoryClick(item.filter)}
+                        className={`block w-full text-left py-1.5 text-[12px] font-bold tracking-[0.12em] uppercase transition-colors ${item.filter === 'NEW ARRIVALS' ? 'text-[#b91c1c]' : 'text-neutral-700 hover:text-black'
                           }`}
                       >
-                        {cat}
+                        {item.label}
                       </button>
                     ))}
                   </div>
                 )}
               </div>
 
-              {/* ABOUT US */}
+              {/* VỀ CHÚNG TÔI */}
               <div className="border-b border-neutral-100 pb-3">
                 <button
                   type="button"
@@ -599,11 +638,11 @@ const StoreHeader = ({
                   }}
                   className="w-full text-left py-2 text-[13px] font-bold uppercase tracking-[0.14em] text-neutral-800 hover:text-black"
                 >
-                  ABOUT US
+                  VỀ CHÚNG TÔI
                 </button>
               </div>
 
-              {/* CAMPAIGN */}
+              {/* CHIẾN DỊCH */}
               <div className="border-b border-neutral-100 pb-3">
                 <button
                   type="button"
@@ -613,11 +652,11 @@ const StoreHeader = ({
                   }}
                   className="w-full text-left py-2 text-[13px] font-bold uppercase tracking-[0.14em] text-neutral-800 hover:text-black"
                 >
-                  CAMPAIGN
+                  CHIẾN DỊCH
                 </button>
               </div>
 
-              {/* WOLRWIDE SHIPPING */}
+              {/* GIAO HÀNG TOÀN CẦU */}
               <div className="border-b border-neutral-100 pb-3">
                 <button
                   type="button"
@@ -630,7 +669,7 @@ const StoreHeader = ({
                   }}
                   className="w-full text-left py-2 text-[13px] font-bold uppercase tracking-[0.14em] text-neutral-800 hover:text-black"
                 >
-                  WOLRWIDE SHIPPING
+                  GIAO HÀNG TOÀN CẦU
                 </button>
               </div>
             </div>
