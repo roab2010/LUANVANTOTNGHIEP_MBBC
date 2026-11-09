@@ -18,9 +18,12 @@ import OrdersPage from './pages/admin/orders/OrdersPage';
 import StatisticsPage from './pages/admin/statistics/StatisticsPage';
 import ActivityLogsPage from './pages/admin/activityLogs/ActivityLogsPage';
 import ReviewsPage from './pages/admin/reviews/ReviewsPage';
+import PromotionsPage from './pages/admin/promotions/PromotionsPage';
 import CustomerHome from './pages/customer/CustomerHome';
 import ProductDetailPage from './pages/customer/ProductDetailPage';
 import CategoryPage from './pages/customer/CategoryPage';
+import PromotionsCenterPage from './pages/customer/PromotionsCenterPage';
+import MyVouchersPage from './pages/customer/MyVouchersPage';
 
 function App() {
   return (
@@ -40,6 +43,15 @@ function App() {
             <Route path="/category/:category" element={<CategoryPage />} />
             <Route path="/category" element={<CategoryPage />} />
             <Route path="/shop" element={<CategoryPage />} />
+            <Route path="/promotions" element={<PromotionsCenterPage />} />
+            <Route
+              path="/my-vouchers"
+              element={
+                <ProtectedRoute>
+                  <MyVouchersPage />
+                </ProtectedRoute>
+              }
+            />
 
             {/* === Routes Admin (cần đăng nhập + role admin) === */}
             <Route
@@ -59,6 +71,7 @@ function App() {
               <Route path="import" element={<Navigate to="/admin/products" replace />} />
               <Route path="warehouse" element={<Navigate to="/admin/products" replace />} />
               <Route path="orders" element={<OrdersPage />} />
+              <Route path="promotions" element={<PromotionsPage />} />
               <Route path="customers" element={<CustomersPage />} />
               <Route path="reviews" element={<ReviewsPage />} />
               <Route path="statistics" element={<StatisticsPage />} />

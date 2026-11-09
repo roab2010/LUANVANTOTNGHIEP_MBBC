@@ -27,6 +27,7 @@ app.use('/api/shipping', require('./routes/shippingRoutes'));
 app.use('/api/statistics', require('./routes/statisticRoutes'));
 app.use('/api/activity-logs', require('./routes/activityLogRoutes'));
 app.use('/api/reviews', require('./routes/reviewRoutes'));
+app.use('/api/promotions', require('./routes/promotionRoutes'));
 
 // Route test server
 app.get('/', (req, res) => {

@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { getProductById, getProducts } from '../../services/productApi';
 import { getPublicCategories } from '../../services/categoryApi';
+import { getPublicPromotions } from '../../services/promotionApi';
 import { useCart } from '../../context/CartContext';
 import StoreHeader from '../../components/common/StoreHeader';
 import StoreModals from '../../components/common/StoreModals';
@@ -73,6 +74,18 @@ const ChatBubbleIcon = ({ className = 'w-4 h-4' }) => (
   </svg>
 );
 
+const ChevronLeftIcon = ({ className = 'w-5 h-5' }) => (
+  <svg className={className} fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24" aria-hidden="true">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
+  </svg>
+);
+
+const ChevronRightIcon = ({ className = 'w-5 h-5' }) => (
+  <svg className={className} fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24" aria-hidden="true">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+  </svg>
+);
+
 // ============================================
 // CẤU HÌNH LIÊN HỆ MUA SỈ / SỐ LƯỢNG LỚN (B2B HOTLINE)
 // SĐT của chủ shop: 0397789902
@@ -97,6 +110,7 @@ const ProductDetailPage = () => {
   const [quantity, setQuantity] = useState(1);
   const [validationError, setValidationError] = useState('');
   const [copiedCode, setCopiedCode] = useState(false);
+  const [applicablePromos, setApplicablePromos] = useState([]);
 
   // Ảnh hiển thị chính & Size guide modal
   const [activeImage, setActiveImage] = useState('');
@@ -181,16 +195,23 @@ const ProductDetailPage = () => {
         if (res.data?.success && res.data.data?.product) {
           const prod = res.data.data.product;
           setProduct(prod);
-          setActiveImage(prod.image || '');
 
           // Tự động chọn biến thể đầu tiên còn hàng nếu có
           if (prod.variants && prod.variants.length > 0) {
             const inStockVariant = prod.variants.find((v) => v.stock > 0) || prod.variants[0];
-            setSelectedColor(inStockVariant.color || '');
+            const vColor = inStockVariant.color || '';
+            setSelectedColor(vColor);
             setSelectedSize(inStockVariant.size || '');
+
+            // Nếu biến thể có ảnh màu riêng, hiển thị ảnh đó
+            const colorImg = prod.colorImages?.find(
+              (ci) => ci.color?.toLowerCase()?.trim() === vColor.toLowerCase().trim()
+            )?.image || inStockVariant.image;
+            setActiveImage(colorImg || prod.image || '');
           } else {
             setSelectedColor('');
             setSelectedSize('');
+            setActiveImage(prod.image || '');
           }
           setQuantity(1);
           setValidationError('');
@@ -274,6 +295,78 @@ const ProductDetailPage = () => {
     }
   }, [product]);
 
+  // Tải danh sách ưu đãi áp dụng cho sản phẩm này
+  useEffect(() => {
+    if (!product) return;
+    const fetchPromos = async () => {
+      try {
+        const res = await getPublicPromotions();
+        if (res.data?.success && Array.isArray(res.data.data?.promotions)) {
+          const prodId = product._id?.toString();
+          const prodCat = (product.category || '').trim().toLowerCase();
+
+          const matched = res.data.data.promotions.filter((p) => {
+            if (p.computedStatus !== 'active') return false;
+
+            // Kiểm tra điều kiện đơn tối thiểu: Nếu giá sản phẩm này nhỏ hơn minOrderValue thì không thể áp dụng cho riêng sản phẩm này
+            if (p.minOrderValue && product.price < p.minOrderValue) return false;
+
+            if (p.scope === 'order') {
+              // Ưu đãi toàn đơn hàng chỉ xuất hiện nếu giá sản phẩm này đủ điều kiện minOrderValue (hoặc không yêu cầu)
+              return !p.minOrderValue || product.price >= p.minOrderValue;
+            }
+
+            const hasProd = (p.applicableProducts || []).some((it) => (it._id || it).toString() === prodId);
+            const hasCat = (p.applicableCategories || []).some((c) => c.trim().toLowerCase() === prodCat);
+            return hasProd || hasCat;
+          });
+
+          setApplicablePromos(matched);
+        }
+      } catch (e) {
+        console.error('Lỗi tải khuyến mãi sản phẩm:', e);
+      }
+    };
+    fetchPromos();
+  }, [product]);
+
+  // Ưu đãi áp dụng tự động tốt nhất trên sản phẩm này
+  const bestAutoPromo = useMemo(() => {
+    // Chỉ tự động giảm giá trực tiếp vào sản phẩm nếu là khuyến mãi cấp sản phẩm/danh mục
+    // và giá sản phẩm phải thỏa mãn minOrderValue (nếu có)
+    const autos = applicablePromos.filter((p) => {
+      if (p.type !== 'automatic') return false;
+      if (p.scope === 'order') return false;
+      if (p.minOrderValue && product.price < p.minOrderValue) return false;
+      return true;
+    });
+    if (autos.length === 0) return null;
+    return autos.reduce((best, curr) => {
+      const bestDisc = best.discountType === 'percentage' ? (product.price * best.discountValue) / 100 : best.discountValue;
+      const currDisc = curr.discountType === 'percentage' ? (product.price * curr.discountValue) / 100 : curr.discountValue;
+      return currDisc > bestDisc ? curr : best;
+    }, autos[0]);
+  }, [applicablePromos, product]);
+
+  const discountAmountOnProduct = useMemo(() => {
+    if (!bestAutoPromo || !product) return 0;
+    let disc = 0;
+    if (bestAutoPromo.discountType === 'percentage') {
+      disc = Math.round((product.price * bestAutoPromo.discountValue) / 100);
+      if (bestAutoPromo.maxDiscount && disc > bestAutoPromo.maxDiscount) {
+        disc = bestAutoPromo.maxDiscount;
+      }
+    } else {
+      disc = bestAutoPromo.discountValue;
+    }
+    return Math.min(disc, product.price);
+  }, [bestAutoPromo, product]);
+
+  const finalProductPrice = useMemo(() => {
+    if (!product) return 0;
+    return Math.max(0, product.price - discountAmountOnProduct);
+  }, [product, discountAmountOnProduct]);
+
   // Xóa lịch sử đã xem
   const handleClearHistory = () => {
     localStorage.removeItem('mbbc_recently_viewed');
@@ -354,11 +447,90 @@ const ProductDetailPage = () => {
     return product.variants.some((v) => v.color === color && v.stock > 0);
   };
 
-  // Danh sách thumbnails ảnh
+  // Danh sách toàn bộ ảnh hiển thị trong gallery (ảnh chính + ảnh màu + ảnh phụ)
   const galleryImages = useMemo(() => {
-    if (!product?.image) return [];
-    return [product.image];
+    if (!product) return [];
+    const list = [];
+    const seenUrls = new Set();
+
+    // 1. Ảnh chính của sản phẩm
+    if (product.image && !seenUrls.has(product.image)) {
+      list.push({ url: product.image, color: '', label: 'Chính' });
+      seenUrls.add(product.image);
+    }
+
+    // 2. Ảnh theo từng màu sắc (colorImages)
+    if (Array.isArray(product.colorImages)) {
+      product.colorImages.forEach((ci) => {
+        if (ci.image && !seenUrls.has(ci.image)) {
+          list.push({ url: ci.image, color: ci.color, label: `Màu: ${ci.color}` });
+          seenUrls.add(ci.image);
+        }
+      });
+    }
+
+    // 3. Ảnh từ variants (nếu có)
+    if (Array.isArray(product.variants)) {
+      product.variants.forEach((v) => {
+        if (v.image && !seenUrls.has(v.image)) {
+          list.push({ url: v.image, color: v.color, label: `Màu: ${v.color}` });
+          seenUrls.add(v.image);
+        }
+      });
+    }
+
+    // 4. Danh sách các ảnh phụ bổ sung (images)
+    if (Array.isArray(product.images)) {
+      product.images.forEach((imgUrl, i) => {
+        if (imgUrl && !seenUrls.has(imgUrl)) {
+          list.push({ url: imgUrl, color: '', label: `Góc chụp ${i + 1}` });
+          seenUrls.add(imgUrl);
+        }
+      });
+    }
+
+    return list;
   }, [product]);
+
+  // Vị trí ảnh hiện tại trong gallery
+  const currentImageIndex = useMemo(() => {
+    if (galleryImages.length === 0) return 0;
+    const idx = galleryImages.findIndex((item) => item.url === activeImage);
+    return idx >= 0 ? idx : 0;
+  }, [galleryImages, activeImage]);
+
+  // Điều hướng chuyển ảnh trước / tiếp theo
+  const handlePrevImage = (e) => {
+    e?.stopPropagation();
+    if (galleryImages.length <= 1) return;
+    const newIdx = (currentImageIndex - 1 + galleryImages.length) % galleryImages.length;
+    const target = galleryImages[newIdx];
+    setActiveImage(target.url);
+    if (target.color) {
+      setSelectedColor(target.color);
+      setValidationError('');
+    }
+  };
+
+  const handleNextImage = (e) => {
+    e?.stopPropagation();
+    if (galleryImages.length <= 1) return;
+    const newIdx = (currentImageIndex + 1) % galleryImages.length;
+    const target = galleryImages[newIdx];
+    setActiveImage(target.url);
+    if (target.color) {
+      setSelectedColor(target.color);
+      setValidationError('');
+    }
+  };
+
+  const handleSelectGalleryImage = (item) => {
+    setActiveImage(item.url);
+    if (item.color) {
+      setSelectedColor(item.color);
+      setValidationError('');
+    }
+  };
 
   // Mã sản phẩm chuẩn
   const productCode = product?._id ? `#MBBC-${product._id.slice(-6).toUpperCase()}` : '—';
@@ -544,45 +716,86 @@ const ProductDetailPage = () => {
           {/* ========================================================= */}
           {/* CỘT TRÁI (COL 1-7): STUDIO MEDIA GALLERY (STICKY) */}
           {/* ========================================================= */}
-          <div className="lg:col-span-7 lg:sticky lg:top-28 space-y-4">
-            {/* Main Stage */}
-            <div className="relative aspect-[3/4] bg-[#f5f5f5] overflow-hidden group">
-              <img
-                src={activeImage || product.image || 'https://placehold.co/900x1200/151515/ffffff?text=M.B.B.C'}
-                alt={product.name}
-                className="w-full h-full object-cover object-center transition-transform duration-700 ease-out group-hover:scale-105"
-              />
+          <div className="lg:col-span-7 lg:sticky lg:top-28">
+            <div className={`flex flex-col-reverse ${galleryImages.length > 1 ? 'lg:flex-row' : ''} gap-3 sm:gap-4 items-start`}>
+              {/* DẢI THUMBNAILS: Xếp dọc bên trái ở Desktop (chuẩn Image 1), cuộn ngang ở Mobile */}
+              {galleryImages.length > 1 && (
+                <div
+                  className="flex lg:flex-col gap-2.5 overflow-x-auto overflow-y-hidden lg:overflow-x-hidden lg:overflow-y-auto w-full lg:w-[84px] shrink-0 lg:max-h-[640px] no-scrollbar p-1.5"
+                  style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+                >
+                  {galleryImages.map((item, idx) => {
+                    const isSelected = activeImage === item.url || (!activeImage && idx === 0);
+                    return (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => handleSelectGalleryImage(item)}
+                        className={`relative w-14 sm:w-16 lg:w-[72px] aspect-[3/4] bg-[#f5f5f5] overflow-hidden rounded-md transition-all shrink-0 cursor-pointer ${
+                          isSelected
+                            ? 'border-2 border-black shadow-xs'
+                            : 'border-2 border-transparent opacity-65 hover:opacity-100 hover:border-neutral-300'
+                        }`}
+                        title={item.label || `Góc nhìn ${idx + 1}`}
+                      >
+                        <img src={item.url} alt={`View ${idx + 1}`} className="w-full h-full object-cover" />
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
 
-              {/* Status Badge */}
-              <div className="absolute top-4 left-4 flex flex-col gap-1.5 z-10">
-                {isTotalOutOfStock ? (
-                  <span className="px-3 py-1 bg-black text-white text-[10px] font-black tracking-[0.25em] uppercase">
-                    HẾT HÀNG
-                  </span>
-                ) : (
-                  <span className="px-3 py-1 bg-white/95 text-[#b91c1c] text-[10px] font-black tracking-[0.2em] uppercase border border-red-200 shadow-2xs">
-                    M.B.B.C EDITION
-                  </span>
+              {/* KHUNG ẢNH CHÍNH (MAIN STAGE) */}
+              <div className="flex-1 w-full relative aspect-[3/4] bg-[#f5f5f5] overflow-hidden rounded-sm group border border-neutral-100 shadow-2xs">
+                <img
+                  src={activeImage || product.image || 'https://placehold.co/900x1200/151515/ffffff?text=M.B.B.C'}
+                  alt={product.name}
+                  className="w-full h-full object-cover object-center transition-all duration-500 ease-out group-hover:scale-105"
+                />
+
+                {/* MŨI TÊN ĐIỀU HƯỚNG ẢNH TRƯỚC / TIẾP THEO (CHUẨN GIAO DIỆN HÌNH 1) */}
+                {galleryImages.length > 1 && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={handlePrevImage}
+                      className="absolute left-2.5 top-1/2 -translate-y-1/2 w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-white/90 hover:bg-black text-neutral-800 hover:text-white flex items-center justify-center transition-all duration-200 shadow-md z-20 cursor-pointer opacity-85 hover:opacity-100 group-hover:opacity-100"
+                      title="Ảnh trước"
+                      aria-label="Previous image"
+                    >
+                      <ChevronLeftIcon className="w-4 h-4 sm:w-5 sm:h-5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleNextImage}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-white/90 hover:bg-black text-neutral-800 hover:text-white flex items-center justify-center transition-all duration-200 shadow-md z-20 cursor-pointer opacity-85 hover:opacity-100 group-hover:opacity-100"
+                      title="Ảnh tiếp theo"
+                      aria-label="Next image"
+                    >
+                      <ChevronRightIcon className="w-4 h-4 sm:w-5 sm:h-5" />
+                    </button>
+
+                    {/* Bộ đếm vị trí ảnh */}
+                    <div className="absolute bottom-3 right-3 px-2 py-0.5 bg-black/75 text-white text-[10px] font-mono tracking-widest rounded-full backdrop-blur-xs z-10">
+                      {currentImageIndex + 1} / {galleryImages.length}
+                    </div>
+                  </>
                 )}
+
+                {/* Status Badge */}
+                <div className="absolute top-4 left-4 flex flex-col gap-1.5 z-10">
+                  {isTotalOutOfStock ? (
+                    <span className="px-3 py-1 bg-black text-white text-[10px] font-black tracking-[0.25em] uppercase">
+                      HẾT HÀNG
+                    </span>
+                  ) : (
+                    <span className="px-3 py-1 bg-white/95 text-[#b91c1c] text-[10px] font-black tracking-[0.2em] uppercase border border-red-200 shadow-2xs">
+                      M.B.B.C EDITION
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
-
-            {/* Thumbnails (nếu có nhiều ảnh) */}
-            {galleryImages.length > 1 && (
-              <div className="flex items-center gap-3 overflow-x-auto pb-1">
-                {galleryImages.map((img, idx) => (
-                  <button
-                    key={idx}
-                    type="button"
-                    onClick={() => setActiveImage(img)}
-                    className={`w-20 aspect-[3/4] bg-[#f5f5f5] overflow-hidden transition-all shrink-0 ${activeImage === img ? 'ring-2 ring-[#b91c1c]' : 'opacity-60 hover:opacity-100'
-                      }`}
-                  >
-                    <img src={img} alt={`View ${idx + 1}`} className="w-full h-full object-cover" />
-                  </button>
-                ))}
-              </div>
-            )}
           </div>
 
           {/* ========================================================= */}
@@ -626,9 +839,21 @@ const ProductDetailPage = () => {
 
               {/* Price & Stock status - ĐỔI MÀU GIÁ SANG ĐỎ MBBC */}
               <div className="flex items-baseline justify-between pt-2">
-                <span className="text-3xl sm:text-4xl font-extrabold tracking-tight text-[#b91c1c]">
-                  {formatPrice(product.price)}
-                </span>
+                <div className="flex items-baseline gap-3 flex-wrap">
+                  <span className="text-3xl sm:text-4xl font-extrabold tracking-tight text-[#b91c1c]">
+                    {formatPrice(finalProductPrice)}
+                  </span>
+                  {discountAmountOnProduct > 0 && (
+                    <>
+                      <s className="text-base text-neutral-400 font-bold tabular-nums">
+                        {formatPrice(product.price)}
+                      </s>
+                      <span className="px-2 py-0.5 bg-red-100 text-red-700 text-[10px] font-black uppercase tracking-wider rounded">
+                        Tiết kiệm {formatPrice(discountAmountOnProduct)}
+                      </span>
+                    </>
+                  )}
+                </div>
 
                 {isTotalOutOfStock ? (
                   <span className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.2em] text-neutral-400">
@@ -655,6 +880,45 @@ const ProductDetailPage = () => {
                   </div>
                 )}
               </div>
+
+              {/* VOUCHER / ƯU ĐÃI CÓ THỂ ÁP DỤNG CHO SẢN PHẨM NÀY */}
+              {applicablePromos.length > 0 && (
+                <div className="pt-2.5 border-t border-dashed border-neutral-200">
+                  <div className="flex items-center justify-between text-[11px] font-bold uppercase tracking-wider text-neutral-600 mb-1.5">
+                    <span className="flex items-center gap-1.5">
+                      <svg className="w-3.5 h-3.5 text-red-600" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 6v.75m0 3v.75m0 3v.75m0 3V18m-9-5.25h5.25M7.5 15h3M3.375 5.25c-.621 0-1.125.504-1.125 1.125v3.026a2.999 2.999 0 010 5.198v3.026c0 .621.504 1.125 1.125 1.125h17.25c.621 0 1.125-.504 1.125-1.125v-3.026a2.999 2.999 0 010-5.198V6.375c0-.621-.504-1.125-1.125-1.125H3.375z" />
+                      </svg>
+                      <span>Ưu đãi áp dụng ({applicablePromos.length})</span>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => navigate('/promotions')}
+                      className="text-[10px] text-red-600 hover:underline"
+                    >
+                      Xem tất cả &rarr;
+                    </button>
+                  </div>
+
+                  <div className="flex flex-wrap gap-1.5">
+                    {applicablePromos.slice(0, 3).map((p) => (
+                      <span
+                        key={p._id}
+                        className="inline-flex items-center gap-1 px-2 py-1 bg-red-50 border border-red-200/80 rounded text-[10px] font-bold text-red-800"
+                      >
+                        {p.code ? (
+                          <span className="font-mono bg-white px-1 rounded border border-red-200">{p.code}</span>
+                        ) : null}
+                        <span>
+                          {p.discountType === 'percentage'
+                            ? `Giảm ${p.discountValue}%`
+                            : `Giảm ${formatPrice(p.discountValue)}`}
+                        </span>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* 2. MÔ TẢ NGẮN */}
@@ -690,6 +954,20 @@ const ProductDetailPage = () => {
                         onClick={() => {
                           setSelectedColor(colorName);
                           setValidationError('');
+
+                          // TỰ ĐỘNG CHUYỂN ẢNH CHÍNH SANG ẢNH CỦA MÀU NÀY
+                          const matchedColorImg =
+                            product.colorImages?.find(
+                              (ci) => ci.color?.toLowerCase()?.trim() === colorName.toLowerCase().trim()
+                            )?.image ||
+                            product.variants?.find(
+                              (v) => v.color?.toLowerCase()?.trim() === colorName.toLowerCase().trim() && v.image
+                            )?.image;
+
+                          if (matchedColorImg) {
+                            setActiveImage(matchedColorImg);
+                          }
+
                           if (selectedSize) {
                             const v = product.variants.find(
                               (item) => item.color === colorName && item.size === selectedSize
@@ -1337,6 +1615,20 @@ const ProductDetailPage = () => {
                       const newCol = e.target.value;
                       setSelectedColor(newCol);
                       setValidationError('');
+
+                      // Tự động chuyển ảnh chính theo màu
+                      const matchedColorImg =
+                        product.colorImages?.find(
+                          (ci) => ci.color?.toLowerCase()?.trim() === newCol.toLowerCase().trim()
+                        )?.image ||
+                        product.variants?.find(
+                          (v) => v.color?.toLowerCase()?.trim() === newCol.toLowerCase().trim() && v.image
+                        )?.image;
+
+                      if (matchedColorImg) {
+                        setActiveImage(matchedColorImg);
+                      }
+
                       if (selectedSize) {
                         const v = product.variants?.find((item) => item.color === newCol && item.size === selectedSize);
                         if (!v || v.stock <= 0) {

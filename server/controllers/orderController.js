@@ -2,10 +2,13 @@ const Order = require('../models/Order');
 const Product = require('../models/Product');
 const Review = require('../models/Review');
 const User = require('../models/User');
+const Promotion = require('../models/Promotion');
+const PromotionUsage = require('../models/PromotionUsage');
 const ghnService = require('../services/ghnService');
 const { logActivity } = require('../services/activityLogService');
 const { sendOrderConfirmationEmail } = require('../services/emailService');
 const { generateOrderPDF } = require('../services/pdfService');
+const { evaluateBestPromotion } = require('../services/promotionEngine');
 
 // ============================================
 // LẤY DANH SÁCH ĐƠN HÀNG (ADMIN) - GET /api/orders
@@ -204,7 +207,7 @@ const getOrderById = async (req, res) => {
 // ============================================
 const createOrder = async (req, res) => {
   try {
-    const { customer, items, paymentMethod, notes } = req.body;
+    const { customer, items, paymentMethod, notes, voucherCode, promotionId } = req.body;
 
     if (!customer || !customer.fullName || !customer.phone) {
       return res.status(400).json({
@@ -308,6 +311,7 @@ const createOrder = async (req, res) => {
         image: itemImg,
         size: itemSize,
         color: itemColor,
+        category: product.category || '',
         price: product.price,
         quantity: qty,
         total: itemTotal,
@@ -336,14 +340,56 @@ const createOrder = async (req, res) => {
       }
     }
 
-    const grandTotal = totalAmount + shippingFee;
+
+
+    // Lấy customerId từ token nếu có (customer đăng nhập checkout)
+    const customerId = customer.customerId || req.user?.userId || null;
+
+    const subtotal = totalAmount; // Tổng tiền hàng trước khi giảm
+
+    // Tính toán khuyến mãi tối ưu trên backend (không tin tưởng giá/discount từ frontend)
+    const promoEvaluation = await evaluateBestPromotion({
+      items: validatedItems,
+      voucherCode: voucherCode ? voucherCode.trim() : '',
+      promotionId: promotionId ? promotionId.trim() : '',
+      userId: customerId,
+      now: new Date(),
+    });
+
+    // Nếu khách hàng nhập mã voucher hoặc chọn khuyến mãi cụ thể nhưng không hợp lệ -> báo lỗi chi tiết và rollback tồn kho
+    const isVoucherInvalid = voucherCode && voucherCode.trim() && promoEvaluation.voucherResult && !promoEvaluation.voucherResult.valid;
+    const isSpecificPromoInvalid = promotionId && promoEvaluation.specificResult && !promoEvaluation.specificResult.valid;
+
+    if (isVoucherInvalid || isSpecificPromoInvalid) {
+      for (const change of stockChanges) {
+        if (change.hasVariants) {
+          const v = change.product.variants.find(
+            (item) => item.size === change.itemSize && item.color === change.itemColor
+          );
+          if (v) v.stock += change.qty;
+        } else {
+          change.product.stock += change.qty;
+        }
+        await change.product.save();
+      }
+
+      const errMsg = (isVoucherInvalid ? promoEvaluation.voucherResult?.message : null) ||
+                     (isSpecificPromoInvalid ? promoEvaluation.specificResult?.message : null) ||
+                     'Khuyến mãi đã chọn không hợp lệ';
+
+      return res.status(400).json({
+        success: false,
+        message: errMsg,
+      });
+    }
+
+    const discountAmount = promoEvaluation.discountAmount || 0;
+    const appliedPromo = promoEvaluation.appliedPromotion || null;
+    const grandTotal = Math.max(0, subtotal - discountAmount) + shippingFee;
 
     // Sinh mã đơn hàng tự động DH-xxxx
     const randomSuffix = Math.floor(1000 + Math.random() * 9000);
     const orderCode = `DH-${Date.now().toString().slice(-4)}${randomSuffix}`;
-
-    // Lấy customerId từ token nếu có (customer đăng nhập checkout)
-    const customerId = customer.customerId || req.user?.userId || null;
 
     const order = await Order.create({
       orderCode,
@@ -365,6 +411,20 @@ const createOrder = async (req, res) => {
         wardCode: customer.wardCode ? String(customer.wardCode) : '',
       },
       items: validatedItems,
+      subtotal,
+      discountAmount,
+      promotion: appliedPromo
+        ? {
+            promotionId: appliedPromo._id,
+            name: appliedPromo.name,
+            code: appliedPromo.code || '',
+            type: appliedPromo.type,
+            scope: appliedPromo.scope,
+            discountType: appliedPromo.discountType,
+            discountValue: appliedPromo.discountValue,
+            discountAmount,
+          }
+        : undefined,
       shippingFee,
       totalAmount: grandTotal,
       paymentMethod: paymentMethod || 'cod',
@@ -372,6 +432,26 @@ const createOrder = async (req, res) => {
       status: 'pending',
       notes: notes?.trim() || '',
     });
+
+    // Ghi nhận lượt sử dụng khuyến mãi nếu có
+    if (appliedPromo && discountAmount > 0) {
+      try {
+        await Promotion.findByIdAndUpdate(appliedPromo._id, {
+          $inc: { usedCount: 1 },
+        });
+
+        await PromotionUsage.create({
+          promotionId: appliedPromo._id,
+          userId: customerId,
+          orderId: order._id,
+          discountAmount,
+          usedAt: new Date(),
+          status: 'Used',
+        });
+      } catch (usageErr) {
+        console.error('Lỗi ghi nhận PromotionUsage:', usageErr);
+      }
+    }
 
     res.status(201).json({
       success: true,
@@ -447,6 +527,21 @@ const updateOrderStatus = async (req, res) => {
           }
         }
       }
+
+      // Hoàn lại lượt sử dụng voucher một lần duy nhất
+      try {
+        const usage = await PromotionUsage.findOne({ orderId: order._id, status: 'Used' });
+        if (usage) {
+          await Promotion.findByIdAndUpdate(usage.promotionId, {
+            $inc: { usedCount: -1 },
+          });
+          usage.status = 'Restored';
+          usage.restoredAt = new Date();
+          await usage.save();
+        }
+      } catch (usageErr) {
+        console.error('Lỗi hoàn lượt sử dụng voucher khi hủy đơn:', usageErr);
+      }
     }
 
     // Nếu đơn hàng từ cancelled được phục hồi sang trạng thái khác -> trừ lại stock
@@ -469,6 +564,21 @@ const updateOrderStatus = async (req, res) => {
             await product.save();
           }
         }
+      }
+
+      // Phục hồi lại lượt sử dụng voucher
+      try {
+        const restoredUsage = await PromotionUsage.findOne({ orderId: order._id, status: 'Restored' });
+        if (restoredUsage) {
+          await Promotion.findByIdAndUpdate(restoredUsage.promotionId, {
+            $inc: { usedCount: 1 },
+          });
+          restoredUsage.status = 'Used';
+          restoredUsage.restoredAt = null;
+          await restoredUsage.save();
+        }
+      } catch (usageErr) {
+        console.error('Lỗi trừ lại lượt voucher khi phục hồi đơn:', usageErr);
       }
     }
 

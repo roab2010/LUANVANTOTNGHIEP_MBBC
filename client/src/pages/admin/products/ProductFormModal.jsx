@@ -42,6 +42,12 @@ const LightningIcon = ({ className = 'w-4 h-4' }) => (
   </svg>
 );
 
+const CheckIcon = ({ className = 'w-4 h-4' }) => (
+  <svg className={className} fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+  </svg>
+);
+
 // Format currency
 const formatCurrency = (value) => {
   return new Intl.NumberFormat('vi-VN', {
@@ -134,6 +140,13 @@ const ProductFormModal = ({ product, onClose, onSuccess }) => {
   const [imageFile, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState('');
   const [removeImage, setRemoveImage] = useState(false);
+
+  // Extra gallery images
+  const [existingExtraImages, setExistingExtraImages] = useState([]);
+  const [newExtraFiles, setNewExtraFiles] = useState([]);
+
+  // Color-specific images: { [colorName]: { file: File|null, previewUrl: string, existingUrl: string } }
+  const [colorImages, setColorImages] = useState({});
 
   // Categories & Suppliers
   const [categories, setCategories] = useState([]);
@@ -247,6 +260,50 @@ const ProductFormModal = ({ product, onClose, onSuccess }) => {
       setImagePreview(product.image || '');
       setImageFile(null);
       setRemoveImage(false);
+
+      // Load album ảnh phụ: gộp images hiện tại + bất kỳ colorImages cũ nào để không bao giờ bị mất
+      const extraList = Array.isArray(product.images) ? [...product.images] : [];
+      const seenExtra = new Set([product.image, ...extraList].filter(Boolean));
+      if (Array.isArray(product.colorImages)) {
+        product.colorImages.forEach((ci) => {
+          if (ci.image && !seenExtra.has(ci.image)) {
+            extraList.push(ci.image);
+            seenExtra.add(ci.image);
+          }
+        });
+      }
+      if (Array.isArray(product.variants)) {
+        product.variants.forEach((v) => {
+          if (v.image && !seenExtra.has(v.image)) {
+            extraList.push(v.image);
+            seenExtra.add(v.image);
+          }
+        });
+      }
+      setExistingExtraImages(extraList);
+      setNewExtraFiles([]);
+
+      // Load ảnh theo từng màu sắc (chọn ảnh từ dàn ảnh)
+      const initialColorImages = {};
+      if (Array.isArray(product.colorImages)) {
+        product.colorImages.forEach((ci) => {
+          if (ci.color && ci.image) {
+            initialColorImages[ci.color] = { url: ci.image, isMain: ci.image === product.image };
+          }
+        });
+      }
+      if (Array.isArray(product.variants)) {
+        product.variants.forEach((v) => {
+          if (v.color && v.image && !initialColorImages[v.color]) {
+            initialColorImages[v.color] = { url: v.image, isMain: v.image === product.image };
+          }
+        });
+      }
+      setColorImages(initialColorImages);
+    } else {
+      setExistingExtraImages([]);
+      setNewExtraFiles([]);
+      setColorImages({});
     }
   }, [product]);
 
@@ -556,6 +613,125 @@ const ProductFormModal = ({ product, onClose, onSuccess }) => {
     if (fileInput) fileInput.value = '';
   };
 
+  // Handlers album ảnh phụ
+  const handleExtraImagesChange = (e) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+    const allowed = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+    const validFiles = files.filter((f) => allowed.includes(f.type) && f.size <= 5 * 1024 * 1024);
+    if (validFiles.length < files.length) {
+      setError('Một số file không đúng định dạng JPG/PNG/WEBP hoặc vượt quá 5MB');
+    }
+    const mapped = validFiles.map((file) => ({
+      file,
+      previewUrl: URL.createObjectURL(file),
+    }));
+    setNewExtraFiles((prev) => [...prev, ...mapped]);
+    e.target.value = '';
+  };
+
+  const handleRemoveExistingExtraImage = (index) => {
+    const removedUrl = existingExtraImages[index];
+    setExistingExtraImages((prev) => prev.filter((_, idx) => idx !== index));
+    if (removedUrl) {
+      setColorImages((prev) => {
+        const next = { ...prev };
+        Object.keys(next).forEach((col) => {
+          if (next[col]?.url === removedUrl) delete next[col];
+        });
+        return next;
+      });
+    }
+  };
+
+  const handleRemoveNewExtraFile = (index) => {
+    setNewExtraFiles((prev) => prev.filter((_, idx) => idx !== index));
+    setColorImages((prev) => {
+      const next = { ...prev };
+      Object.keys(next).forEach((col) => {
+        if (next[col]?.newExtraIndex === index) {
+          delete next[col];
+        } else if (next[col]?.newExtraIndex !== undefined && next[col].newExtraIndex > index) {
+          next[col].newExtraIndex -= 1;
+        }
+      });
+      return next;
+    });
+  };
+
+  // Dàn ảnh toàn bộ của sản phẩm (ảnh chính + ảnh phụ hiện có + ảnh phụ mới tải lên)
+  const availableGalleryItems = useMemo(() => {
+    const items = [];
+    if (imagePreview) {
+      items.push({
+        id: 'main',
+        url: imagePreview,
+        isMain: true,
+        label: 'Ảnh chính',
+        isNew: !!imageFile,
+      });
+    }
+    existingExtraImages.forEach((url, idx) => {
+      items.push({
+        id: `existing_${idx}`,
+        url,
+        isMain: false,
+        label: `Ảnh phụ ${idx + 1}`,
+        isNew: false,
+      });
+    });
+    newExtraFiles.forEach((item, idx) => {
+      items.push({
+        id: `new_${idx}`,
+        url: item.previewUrl,
+        isMain: false,
+        label: `Ảnh mới ${idx + 1}`,
+        isNew: true,
+        newExtraIndex: idx,
+      });
+    });
+    return items;
+  }, [imagePreview, imageFile, existingExtraImages, newExtraFiles]);
+
+  // Kiểm tra xem một item trong dàn ảnh có đang được gán cho colorName không
+  const isImageSelectedForColor = (colorName, galleryItem) => {
+    const assigned = colorImages[colorName];
+    if (!assigned) return false;
+    if (galleryItem.isMain && assigned.isMain) return true;
+    if (galleryItem.newExtraIndex !== undefined && assigned.newExtraIndex === galleryItem.newExtraIndex) return true;
+    if (assigned.url && galleryItem.url && assigned.url === galleryItem.url) return true;
+    return false;
+  };
+
+  // Chọn hoặc bỏ chọn một ảnh từ dàn ảnh cho màu sắc
+  const handleToggleColorImage = (colorName, galleryItem) => {
+    if (isImageSelectedForColor(colorName, galleryItem)) {
+      setColorImages((prev) => {
+        const next = { ...prev };
+        delete next[colorName];
+        return next;
+      });
+    } else {
+      setColorImages((prev) => ({
+        ...prev,
+        [colorName]: {
+          url: galleryItem.url,
+          isMain: !!galleryItem.isMain,
+          newExtraIndex: galleryItem.newExtraIndex,
+        },
+      }));
+    }
+  };
+
+  // Bỏ chọn ảnh cho màu
+  const handleUnselectColorImage = (colorName) => {
+    setColorImages((prev) => {
+      const next = { ...prev };
+      delete next[colorName];
+      return next;
+    });
+  };
+
   // Validate form phía frontend trước khi submit
   const validateForm = () => {
     const newFieldErrors = {};
@@ -723,6 +899,26 @@ const ProductFormModal = ({ product, onClose, onSuccess }) => {
         payload.append('removeImage', 'true');
       }
 
+      // Đính kèm album ảnh phụ (gallery)
+      payload.append('existingImages', JSON.stringify(existingExtraImages));
+      newExtraFiles.forEach((item) => {
+        payload.append('images', item.file);
+      });
+
+      // Đính kèm cấu hình ảnh cho từng màu sắc (chọn từ dàn ảnh sản phẩm)
+      const colorImagesPayload = [];
+      Object.entries(colorImages).forEach(([colorName, assigned]) => {
+        if (!assigned) return;
+        colorImagesPayload.push({
+          color: colorName,
+          isMain: !!assigned.isMain,
+          newExtraIndex: assigned.newExtraIndex !== undefined ? assigned.newExtraIndex : undefined,
+          image: assigned.url && !assigned.url.startsWith('blob:') ? assigned.url : '',
+        });
+      });
+      payload.append('colorImagesMappings', JSON.stringify(colorImagesPayload));
+      payload.append('colorImages', JSON.stringify(colorImagesPayload));
+
       if (isEditing) {
         await updateProduct(product._id, payload);
       } else {
@@ -795,49 +991,116 @@ const ProductFormModal = ({ product, onClose, onSuccess }) => {
             />
           </div>
 
-          {/* Ảnh sản phẩm */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">
-              Ảnh sản phẩm
-            </label>
-            <div className="flex items-start gap-4">
-              <div className="shrink-0 w-24 h-24 border border-gray-200 rounded-lg overflow-hidden bg-gray-50 flex items-center justify-center relative group">
-                {imagePreview ? (
-                  <>
-                    <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
-                    <button
-                      type="button"
-                      onClick={handleRemoveImage}
-                      className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                      title="Xóa ảnh"
-                    >
-                      <TrashIcon className="w-5 h-5 text-white" />
-                    </button>
-                  </>
-                ) : (
-                  <ImageIcon />
-                )}
+          {/* Ảnh sản phẩm & Album ảnh */}
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                Ảnh đại diện chính <span className="text-gray-400 font-normal text-xs">(Hiển thị đầu tiên)</span>
+              </label>
+              <div className="flex items-start gap-4">
+                <div className="shrink-0 w-24 h-24 border border-gray-200 rounded-lg overflow-hidden bg-gray-50 flex items-center justify-center relative group">
+                  {imagePreview ? (
+                    <>
+                      <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
+                      <button
+                        type="button"
+                        onClick={handleRemoveImage}
+                        className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                        title="Xóa ảnh"
+                      >
+                        <TrashIcon className="w-5 h-5 text-white" />
+                      </button>
+                    </>
+                  ) : (
+                    <ImageIcon />
+                  )}
+                </div>
+                
+                <div className="flex-1 pt-1">
+                  <input
+                    type="file"
+                    id="pf-image"
+                    accept=".jpg,.jpeg,.png,.webp"
+                    onChange={handleImageChange}
+                    className="hidden"
+                  />
+                  <label
+                    htmlFor="pf-image"
+                    className="inline-flex items-center gap-2 h-9 px-3 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 cursor-pointer transition-colors shadow-2xs"
+                  >
+                    <UploadIcon />
+                    Chọn ảnh chính từ máy tính
+                  </label>
+                  <p className="mt-2 text-xs text-gray-400">
+                    Hỗ trợ JPG, PNG, WEBP. Dung lượng tối đa 5MB.
+                  </p>
+                </div>
               </div>
-              
-              <div className="flex-1 pt-1">
+            </div>
+
+            {/* Album ảnh phụ / Gallery bổ sung */}
+            <div className="p-3.5 bg-gray-50 border border-gray-200 rounded-xl space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="text-xs font-bold text-gray-800 uppercase tracking-wider">
+                    Album hình ảnh bổ sung ({existingExtraImages.length + newExtraFiles.length} ảnh)
+                  </h4>
+                  <p className="text-[11px] text-gray-500">
+                    Thêm nhiều góc chụp (mặt sau, chi tiết vải, tag mác...) để hiển thị thành chuỗi ảnh ở trang chi tiết
+                  </p>
+                </div>
+                <label
+                  htmlFor="pf-extra-images"
+                  className="inline-flex items-center gap-1.5 h-8 px-3 bg-white border border-gray-300 hover:border-black rounded-lg text-xs font-semibold text-gray-800 hover:bg-gray-50 cursor-pointer transition-all shadow-2xs shrink-0"
+                >
+                  <UploadIcon className="w-3.5 h-3.5" />
+                  <span>+ Thêm ảnh</span>
+                </label>
                 <input
                   type="file"
-                  id="pf-image"
+                  id="pf-extra-images"
                   accept=".jpg,.jpeg,.png,.webp"
-                  onChange={handleImageChange}
+                  multiple
+                  onChange={handleExtraImagesChange}
                   className="hidden"
                 />
-                <label
-                  htmlFor="pf-image"
-                  className="inline-flex items-center gap-2 h-9 px-3 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 cursor-pointer transition-colors shadow-2xs"
-                >
-                  <UploadIcon />
-                  Chọn ảnh từ máy tính
-                </label>
-                <p className="mt-2 text-xs text-gray-400">
-                  Hỗ trợ JPG, PNG, WEBP. Dung lượng tối đa 5MB.
-                </p>
               </div>
+
+              {(existingExtraImages.length > 0 || newExtraFiles.length > 0) ? (
+                <div className="flex flex-wrap gap-2.5 pt-1">
+                  {existingExtraImages.map((url, idx) => (
+                    <div key={`existing-${idx}`} className="relative w-16 h-16 rounded-lg border border-gray-200 overflow-hidden group bg-white shadow-2xs">
+                      <img src={url} alt={`Extra ${idx}`} className="w-full h-full object-cover" />
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveExistingExtraImage(idx)}
+                        className="absolute top-1 right-1 w-5 h-5 bg-red-600 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-xs font-bold shadow-xs hover:bg-red-700 cursor-pointer"
+                        title="Xóa ảnh này"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
+                  {newExtraFiles.map((item, idx) => (
+                    <div key={`new-${idx}`} className="relative w-16 h-16 rounded-lg border-2 border-emerald-400 overflow-hidden group bg-emerald-50 shadow-2xs">
+                      <img src={item.previewUrl} alt={`New extra ${idx}`} className="w-full h-full object-cover" />
+                      <span className="absolute bottom-0 inset-x-0 bg-emerald-600 text-white text-[8px] font-bold text-center py-0.5">Mới</span>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveNewExtraFile(idx)}
+                        className="absolute top-1 right-1 w-5 h-5 bg-red-600 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-xs font-bold shadow-xs hover:bg-red-700 cursor-pointer"
+                        title="Xóa ảnh này"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-[11px] text-gray-400 italic py-1">
+                  Chưa có ảnh bổ sung nào. Bạn có thể chọn nhiều ảnh cùng lúc để tạo bộ ảnh đẹp mắt.
+                </div>
+              )}
             </div>
           </div>
 
@@ -1175,6 +1438,89 @@ const ProductFormModal = ({ product, onClose, onSuccess }) => {
                         <span>Áp dụng nhanh cho tất cả size</span>
                       </button>
                     </div>
+
+                    {/* BỘ CHỌN ẢNH TỪ DÀN ẢNH CHO MÀU NÀY */}
+                    {(() => {
+                      const assigned = colorImages[activeColorTab];
+                      const matchedItem = assigned
+                        ? availableGalleryItems.find((it) => isImageSelectedForColor(activeColorTab, it))
+                        : null;
+
+                      return (
+                        <div className="mb-4 p-3 bg-white rounded-xl border border-gray-200 shadow-2xs space-y-2.5">
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs font-bold text-gray-900 truncate">
+                                  Ảnh sản phẩm màu {activeColorTab}
+                                </span>
+                                {matchedItem ? (
+                                  <span className="px-1.5 py-0.5 bg-emerald-50 text-emerald-700 text-[10px] font-bold rounded border border-emerald-200 shrink-0 flex items-center gap-1">
+                                    <CheckIcon className="w-2.5 h-2.5" />
+                                    Đã gán 1 ảnh ({matchedItem.label})
+                                  </span>
+                                ) : (
+                                  <span className="px-1.5 py-0.5 bg-gray-100 text-gray-500 text-[10px] font-medium rounded shrink-0">
+                                    Chưa chọn ảnh
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-[11px] text-gray-500 mt-0.5">
+                                Nhấp vào 1 ảnh trong dàn ảnh bên dưới để gán cho màu <strong>"{activeColorTab}"</strong>. Khi khách bấm vào màu này, ảnh chính sẽ tự động đổi sang ảnh đó.
+                              </p>
+                            </div>
+
+                            {matchedItem && (
+                              <button
+                                type="button"
+                                onClick={() => handleUnselectColorImage(activeColorTab)}
+                                className="px-2 py-1 text-xs font-semibold text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer shrink-0"
+                                title="Bỏ gán ảnh cho màu này"
+                              >
+                                Bỏ chọn ảnh
+                              </button>
+                            )}
+                          </div>
+
+                          {/* Dàn ảnh sản phẩm để nhấp chọn */}
+                          {availableGalleryItems.length > 0 ? (
+                            <div className="flex flex-wrap items-center gap-2 pt-1">
+                              {availableGalleryItems.map((item, idx) => {
+                                const isChosen = isImageSelectedForColor(activeColorTab, item);
+                                return (
+                                  <button
+                                    key={item.id || idx}
+                                    type="button"
+                                    onClick={() => handleToggleColorImage(activeColorTab, item)}
+                                    className={`relative w-14 h-14 sm:w-16 sm:h-16 rounded-lg overflow-hidden border-2 transition-all cursor-pointer group bg-gray-50 shrink-0 ${
+                                      isChosen
+                                        ? 'border-black ring-2 ring-black/20 shadow-md scale-105'
+                                        : 'border-gray-200 hover:border-gray-400 opacity-75 hover:opacity-100'
+                                    }`}
+                                    title={`Nhấp để ${isChosen ? 'bỏ chọn' : 'gán'} ảnh này cho màu ${activeColorTab} (${item.label})`}
+                                  >
+                                    <img src={item.url} alt={item.label} className="w-full h-full object-cover" />
+                                    <span className="absolute bottom-0 inset-x-0 bg-black/65 text-white text-[7px] sm:text-[8px] font-bold text-center py-0.5 truncate">
+                                      {item.label}
+                                    </span>
+                                    {isChosen && (
+                                      <div className="absolute top-1 right-1 w-4 h-4 sm:w-4.5 sm:h-4.5 bg-black text-white rounded-full flex items-center justify-center text-[9px] sm:text-[10px] font-black shadow-xs">
+                                        ✓
+                                      </div>
+                                    )}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          ) : (
+                            <div className="p-2.5 bg-amber-50/70 border border-amber-200 rounded-lg text-amber-800 text-[11px] flex items-center gap-2">
+                              <ImageIcon className="w-4 h-4 shrink-0 text-amber-600" />
+                              <span>Chưa có ảnh nào trong dàn ảnh sản phẩm. Vui lòng tải ảnh chính hoặc thêm ảnh phụ ở mục "Hình ảnh sản phẩm" phía trên trước.</span>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
 
                     {/* Danh sách các size của màu này */}
                     <div className="divide-y divide-gray-100">

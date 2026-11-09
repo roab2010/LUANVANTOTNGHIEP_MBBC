@@ -409,6 +409,19 @@ const StoreHeader = ({
                 </div>
               </div>
             </div>
+
+            {/* ƯU ĐÃI / VOUCHER */}
+            <div className="py-2">
+              <button
+                type="button"
+                onClick={() => navigate('/promotions')}
+                className={`text-[12px] lg:text-[13px] font-bold tracking-[0.14em] uppercase transition-colors flex items-center gap-1.5 focus:outline-none ${isHeaderActive ? 'text-red-600 hover:text-red-700' : 'text-red-400 hover:text-red-300'
+                  }`}
+              >
+                <span>ƯU ĐÃI</span>
+                <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+              </button>
+            </div>
           </nav>
 
           {/* CỘT PHẢI: 3 ICONS TỐI GIẢN (KÍNH LÚP, USER, GIỎ HÀNG) */}
@@ -497,6 +510,22 @@ const StoreHeader = ({
                         <ReviewStarIcon className="w-4 h-4" />
                       </span>
                       <span>Đánh giá của tôi</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setUserDropdownOpen(false);
+                        navigate('/my-vouchers');
+                      }}
+                      className="w-full text-left py-2 px-2 text-[11px] font-bold uppercase tracking-wider text-neutral-800 hover:text-black hover:bg-neutral-50 transition-colors flex items-center gap-3 whitespace-nowrap rounded group"
+                    >
+                      <span className="w-8 h-8 rounded-lg bg-red-50 border border-red-200/60 text-red-600 flex items-center justify-center shrink-0 transition-all duration-200 group-hover:bg-red-200 group-hover:border-red-400 group-hover:text-red-800 shadow-xs">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 6v.75m0 3v.75m0 3v.75m0 3V18m-9-5.25h5.25M7.5 15h3M3.375 5.25c-.621 0-1.125.504-1.125 1.125v3.026a2.999 2.999 0 010 5.198v3.026c0 .621.504 1.125 1.125 1.125h17.25c.621 0 1.125-.504 1.125-1.125v-3.026a2.999 2.999 0 010-5.198V6.375c0-.621-.504-1.125-1.125-1.125H3.375z" />
+                        </svg>
+                      </span>
+                      <span>Kho voucher của tôi</span>
                     </button>
 
                     {user.role === 'admin' && (
@@ -672,6 +701,21 @@ const StoreHeader = ({
                   GIAO HÀNG TOÀN CẦU
                 </button>
               </div>
+
+              {/* ƯU ĐÃI & VOUCHER */}
+              <div className="border-b border-neutral-100 pb-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    navigate('/promotions');
+                  }}
+                  className="w-full text-left py-2 text-[13px] font-bold uppercase tracking-[0.14em] text-red-600 flex items-center justify-between"
+                >
+                  <span>ƯU ĐÃI & VOUCHER</span>
+                  <span className="text-[10px] px-2 py-0.5 bg-red-100 text-red-700 font-black rounded">HOT</span>
+                </button>
+              </div>
             </div>
 
             {/* Bottom drawer: User info */}
@@ -707,6 +751,19 @@ const StoreHeader = ({
                       >
                         <ReviewStarIcon className="w-3.5 h-3.5 text-amber-500" />
                         <span>Đánh giá</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setMobileMenuOpen(false);
+                          navigate('/my-vouchers');
+                        }}
+                        className="flex items-center gap-1.5 px-2.5 py-1.5 bg-red-50/70 border border-red-200 rounded text-[11px] font-bold text-red-700 hover:border-red-400 transition-colors"
+                      >
+                        <svg className="w-3.5 h-3.5 text-red-600" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 6v.75m0 3v.75m0 3v.75m0 3V18m-9-5.25h5.25M7.5 15h3M3.375 5.25c-.621 0-1.125.504-1.125 1.125v3.026a2.999 2.999 0 010 5.198v3.026c0 .621.504 1.125 1.125 1.125h17.25c.621 0 1.125-.504 1.125-1.125v-3.026a2.999 2.999 0 010-5.198V6.375c0-.621-.504-1.125-1.125-1.125H3.375z" />
+                        </svg>
+                        <span>Voucher</span>
                       </button>
                     </div>
                   </div>

@@ -27,6 +27,11 @@ const orderItemSchema = new mongoose.Schema({
     default: '',
     trim: true,
   },
+  category: {
+    type: String,
+    default: '',
+    trim: true,
+  },
   price: {
     type: Number,
     required: true,
@@ -105,6 +110,53 @@ const orderSchema = new mongoose.Schema(
       },
     },
     items: [orderItemSchema],
+    subtotal: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+    discountAmount: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+    promotion: {
+      promotionId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Promotion',
+        default: null,
+      },
+      name: {
+        type: String,
+        default: '',
+        trim: true,
+      },
+      code: {
+        type: String,
+        default: '',
+        trim: true,
+      },
+      type: {
+        type: String,
+        default: '',
+      },
+      scope: {
+        type: String,
+        default: '',
+      },
+      discountType: {
+        type: String,
+        default: '',
+      },
+      discountValue: {
+        type: Number,
+        default: 0,
+      },
+      discountAmount: {
+        type: Number,
+        default: 0,
+      },
+    },
     shippingFee: {
       type: Number,
       default: 0,

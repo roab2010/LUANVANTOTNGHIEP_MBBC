@@ -10,6 +10,7 @@ import {
 } from '../../services/shippingApi';
 import MyOrdersModal from '../../pages/customer/MyOrdersModal';
 import MyReviewsModal from '../customer/MyReviewsModal';
+import CheckoutPromoCode from '../customer/CheckoutPromoCode';
 import { getVariantColorHex } from '../VariantSelect';
 
 // Close Icon
@@ -240,6 +241,7 @@ const StoreModals = ({ onOrderCompleted }) => {
 
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [checkoutError, setCheckoutError] = useState('');
+  const [appliedPromoInfo, setAppliedPromoInfo] = useState(null);
 
   // Thông tin cơ bản khách hàng
   const [customerInfo, setCustomerInfo] = useState({
@@ -565,6 +567,7 @@ const StoreModals = ({ onOrderCompleted }) => {
         quantity: it.quantity,
         size: it.size || undefined,
         color: it.color || undefined,
+        category: it.product?.category || undefined,
       }));
 
       const fullAddress = `${streetAddress.trim()}, ${selectedWardName}, ${selectedDistrictName}, ${selectedProvinceName}`;
@@ -583,6 +586,8 @@ const StoreModals = ({ onOrderCompleted }) => {
           address: fullAddress,
         },
         items: orderItems,
+        voucherCode: appliedPromoInfo?.voucherCode || undefined,
+        promotionId: appliedPromoInfo?.promotion?._id || undefined,
         paymentMethod: customerInfo.paymentMethod,
         notes: customerInfo.notes.trim() || undefined,
       });
@@ -620,7 +625,7 @@ const StoreModals = ({ onOrderCompleted }) => {
     }
   };
 
-  const finalGrandTotal = totalCartAmount + (shippingFee !== null ? shippingFee : 0);
+  const finalGrandTotal = Math.max(0, totalCartAmount - (appliedPromoInfo?.discountAmount || 0)) + (shippingFee !== null ? shippingFee : 0);
 
   return (
     <>
@@ -685,10 +690,16 @@ const StoreModals = ({ onOrderCompleted }) => {
                     const maxStock = getItemStock(item.product, item.size, item.color);
                     const isMaxReached = item.quantity >= maxStock;
 
+                    const itemImage =
+                      (item.color && item.product?.colorImages?.find((ci) => ci.color?.toLowerCase() === item.color?.toLowerCase())?.image) ||
+                      item.selectedImage ||
+                      item.product?.image ||
+                      'https://placehold.co/100x120/111/fff?text=MBBC';
+
                     return (
                       <div key={index} className="pt-4 first:pt-0 flex gap-4">
                         <img
-                          src={item.product.image || 'https://placehold.co/100x120/111/fff?text=MBBC'}
+                          src={itemImage}
                           alt={item.product.name}
                           className="w-16 h-20 object-cover bg-neutral-100 shrink-0 border border-neutral-100"
                         />
@@ -833,6 +844,8 @@ const StoreModals = ({ onOrderCompleted }) => {
               <div className="divide-y divide-neutral-200/60 max-h-44 overflow-y-auto space-y-2 pr-1">
                 {cart.map((it, idx) => {
                   const itemImg =
+                    (it.color && it.product?.colorImages?.find((ci) => ci.color?.toLowerCase() === it.color?.toLowerCase())?.image) ||
+                    it.selectedImage ||
                     it.product?.image ||
                     (Array.isArray(it.product?.images) && it.product.images[0]) ||
                     '';
@@ -892,56 +905,30 @@ const StoreModals = ({ onOrderCompleted }) => {
                 })}
               </div>
 
-              {/* Bảng chi tiết tính tiền: Tiền hàng + Phí GHN */}
-              <div className="pt-3 border-t border-neutral-200 space-y-1.5 text-xs">
-                <div className="flex justify-between items-center text-neutral-600">
-                  <span>Tiền hàng:</span>
-                  <span className="font-bold text-black tabular-nums">{formatPrice(totalCartAmount)}</span>
-                </div>
+              {/* BẢNG TÍNH TIỀN ĐƠN HÀNG & MÃ KHUYẾN MÃI (LUCIAN PROMPT #230) */}
+              <div className="pt-2 border-t border-neutral-200">
+                <CheckoutPromoCode
+                  cart={cart}
+                  subtotal={totalCartAmount}
+                  shippingFee={shippingFee}
+                  isLoggedIn={!!user}
+                  onPromoChange={({ promotion, discountAmount: disc, voucherCode }) => {
+                    setAppliedPromoInfo({ promotion, discountAmount: disc, voucherCode });
+                  }}
+                />
 
-                <div className="flex justify-between items-center">
-                  <span className="text-neutral-600 flex items-center gap-1.5">
-                    <span>Phí vận chuyển (GHN):</span>
-                    {shippingFee !== null && !isCalculatingFee && (
-                      <span className="px-1.5 py-0.2 bg-emerald-100 text-emerald-800 text-[9px] font-extrabold uppercase rounded">
-                        Giao chuẩn
-                      </span>
-                    )}
-                  </span>
-
-                  <span className="tabular-nums">
-                    {isCalculatingFee ? (
-                      <span className="text-neutral-500 italic flex items-center gap-1">
-                        <span className="w-3 h-3 border-2 border-neutral-400 border-t-black rounded-full animate-spin inline-block" />
-                        <span>Đang tính phí GHN...</span>
-                      </span>
-                    ) : shippingFee !== null ? (
-                      <span className="font-bold text-neutral-900">{formatPrice(shippingFee)}</span>
-                    ) : shippingFeeError ? (
-                      <span className="text-red-500 font-semibold text-[11px]">Lỗi tính phí</span>
-                    ) : (
-                      <span className="text-neutral-400 italic text-[11px]">Chọn Phường/Xã để tính phí</span>
-                    )}
-                  </span>
-                </div>
-
+                {/* Trạng thái tính phí GHN nếu đang tính hoặc có lỗi */}
+                {isCalculatingFee && (
+                  <div className="text-[11px] text-neutral-500 italic flex items-center gap-1.5 mt-2">
+                    <span className="w-3 h-3 border-2 border-neutral-400 border-t-black rounded-full animate-spin inline-block" />
+                    <span>Đang cập nhật phí vận chuyển GHN...</span>
+                  </div>
+                )}
                 {shippingFeeError && (
-                  <div className="p-2 bg-red-50 border border-red-200 text-red-600 text-[11px] rounded mt-1">
+                  <div className="p-2 bg-red-50 border border-red-200 text-red-600 text-[11px] rounded mt-2">
                     {shippingFeeError}
                   </div>
                 )}
-
-                <div className="pt-2 border-t border-neutral-200 flex justify-between items-baseline">
-                  <div>
-                    <span className="text-xs font-black uppercase tracking-wider">TỔNG THANH TOÁN:</span>
-                    {shippingFee === null && !isCalculatingFee && (
-                      <p className="text-[10px] text-neutral-400">(Chưa tính phí vận chuyển)</p>
-                    )}
-                  </div>
-                  <span className="text-base font-black text-red-600 tabular-nums">
-                    {formatPrice(finalGrandTotal)}
-                  </span>
-                </div>
               </div>
             </div>
 
@@ -1146,6 +1133,12 @@ const StoreModals = ({ onOrderCompleted }) => {
                 <span>Phí ship GHN:</span>
                 <span className="font-bold text-black">{formatPrice(orderSuccess.shippingFee || 0)}</span>
               </div>
+              {orderSuccess.discountAmount > 0 && (
+                <div className="flex justify-between pt-1 border-t border-neutral-200 text-emerald-700 font-bold">
+                  <span>Ưu đãi đã giảm:</span>
+                  <span>-{formatPrice(orderSuccess.discountAmount)}</span>
+                </div>
+              )}
               <div className="flex justify-between pt-1 border-t border-neutral-200">
                 <span className="text-neutral-500 font-bold">Tổng thanh toán:</span>
                 <span className="font-black text-red-600 text-sm">{formatPrice(orderSuccess.totalAmount)}</span>
@@ -1172,10 +1165,10 @@ const StoreModals = ({ onOrderCompleted }) => {
       <MyReviewsModal isOpen={isMyReviewsOpen} onClose={() => setIsMyReviewsOpen(false)} />
 
       {/* ========================================================= */}
-      {/* TOAST THÔNG BÁO GÓC DƯỚI */}
+      {/* TOAST THÔNG BÁO GÓC DƯỚI BÊN TRÁI */}
       {/* ========================================================= */}
       {toastMessage && (
-        <div className="fixed bottom-6 right-6 z-60 bg-black text-white px-5 py-3 shadow-2xl flex items-center gap-3 border border-neutral-800 animate-slide-up font-['Montserrat',sans-serif]">
+        <div className="fixed bottom-6 left-6 z-60 bg-black text-white px-5 py-3 shadow-2xl flex items-center gap-3 border border-neutral-800 animate-slide-up font-['Montserrat',sans-serif]">
           <div className="w-2 h-2 rounded-full bg-emerald-400 shrink-0" />
           <span className="text-xs font-medium tracking-wide">{toastMessage}</span>
         </div>

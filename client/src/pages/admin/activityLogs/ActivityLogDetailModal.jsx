@@ -68,6 +68,8 @@ const getModuleBadge = (mod) => {
     INVENTORY: 'Kho hàng',
     SHIPPING: 'Vận chuyển GHN',
     SYSTEM: 'Hệ thống',
+    REVIEW: 'Đánh giá sản phẩm',
+    PROMOTION: 'Khuyến mãi & Voucher',
   };
   return (
     <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800 border border-gray-200">
