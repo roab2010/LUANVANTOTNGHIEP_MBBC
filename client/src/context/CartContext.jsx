@@ -36,6 +36,9 @@ export const CartProvider = ({ children }) => {
   const [orderSuccess, setOrderSuccess] = useState(null);
   const [isMyOrdersOpen, setIsMyOrdersOpen] = useState(false);
   const [isMyReviewsOpen, setIsMyReviewsOpen] = useState(false);
+  const [isMyReturnsOpen, setIsMyReturnsOpen] = useState(false);
+  const [isReturnRequestModalOpen, setIsReturnRequestModalOpen] = useState(false);
+  const [selectedReturnOrder, setSelectedReturnOrder] = useState(null);
   const [toastMessage, setToastMessage] = useState(null);
 
   // Lưu giỏ hàng vào localStorage mỗi khi thay đổi
@@ -205,6 +208,20 @@ export const CartProvider = ({ children }) => {
     setIsMyOrdersOpen,
     isMyReviewsOpen,
     setIsMyReviewsOpen,
+    isMyReturnsOpen,
+    setIsMyReturnsOpen,
+    isReturnRequestModalOpen,
+    setIsReturnRequestModalOpen,
+    selectedReturnOrder,
+    setSelectedReturnOrder,
+    openReturnRequestModal: (order) => {
+      setSelectedReturnOrder(order);
+      setIsReturnRequestModalOpen(true);
+    },
+    closeReturnRequestModal: () => {
+      setSelectedReturnOrder(null);
+      setIsReturnRequestModalOpen(false);
+    },
     toastMessage,
     showToast,
   };

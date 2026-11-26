@@ -79,7 +79,7 @@ const StoreHeader = ({
   onSearch,
 }) => {
   const { user, logout } = useAuth();
-  const { totalCartCount, setIsCartOpen, setIsMyOrdersOpen, setIsMyReviewsOpen, showToast } = useCart();
+  const { totalCartCount, setIsCartOpen, setIsMyOrdersOpen, setIsMyReviewsOpen, setIsMyReturnsOpen, showToast } = useCart();
   const navigate = useNavigate();
 
   const [isHovered, setIsHovered] = useState(false);
@@ -528,6 +528,22 @@ const StoreHeader = ({
                       <span>Kho voucher của tôi</span>
                     </button>
 
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsMyReturnsOpen(true);
+                        setUserDropdownOpen(false);
+                      }}
+                      className="w-full text-left py-2 px-2 text-[11px] font-bold uppercase tracking-wider text-neutral-800 hover:text-black hover:bg-neutral-50 transition-colors flex items-center gap-3 whitespace-nowrap rounded group"
+                    >
+                      <span className="w-8 h-8 rounded-lg bg-blue-50 border border-blue-200/60 text-blue-600 flex items-center justify-center shrink-0 transition-all duration-200 group-hover:bg-blue-200 group-hover:border-blue-400 group-hover:text-blue-800 shadow-xs">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
+                        </svg>
+                      </span>
+                      <span>Yêu cầu đổi / trả hàng</span>
+                    </button>
+
                     {user.role === 'admin' && (
                       <button
                         type="button"
@@ -764,6 +780,17 @@ const StoreHeader = ({
                           <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 6v.75m0 3v.75m0 3v.75m0 3V18m-9-5.25h5.25M7.5 15h3M3.375 5.25c-.621 0-1.125.504-1.125 1.125v3.026a2.999 2.999 0 010 5.198v3.026c0 .621.504 1.125 1.125 1.125h17.25c.621 0 1.125-.504 1.125-1.125v-3.026a2.999 2.999 0 010-5.198V6.375c0-.621-.504-1.125-1.125-1.125H3.375z" />
                         </svg>
                         <span>Voucher</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setMobileMenuOpen(false);
+                          setIsMyReturnsOpen(true);
+                        }}
+                        className="flex items-center gap-1.5 px-2.5 py-1.5 bg-blue-50/70 border border-blue-200 rounded text-[11px] font-bold text-blue-700 hover:border-blue-400 transition-colors"
+                      >
+                        <span className="text-blue-600 text-xs">🔄</span>
+                        <span>Đổi / Trả</span>
                       </button>
                     </div>
                   </div>

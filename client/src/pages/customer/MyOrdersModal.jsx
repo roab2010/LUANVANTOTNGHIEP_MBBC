@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getMyOrders } from '../../services/orderApi';
 import { getMyReviews } from '../../services/reviewApi';
+import { getMyReturns } from '../../services/returnApi';
+import { useCart } from '../../context/CartContext';
 import { getVariantColorHex } from '../../components/VariantSelect';
 
 // ============================================
@@ -60,8 +62,11 @@ const getStatusBadge = (status) => {
 
 const MyOrdersModal = ({ isOpen, onClose, onExploreClick }) => {
   const navigate = useNavigate();
+  const { openReturnRequestModal, setIsMyReturnsOpen } = useCart();
   const [orders, setOrders] = useState([]);
   const [reviewedKeys, setReviewedKeys] = useState(new Set());
+  const [returnsMap, setReturnsMap] = useState({});
+  const [totalReturnsCount, setTotalReturnsCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -69,9 +74,10 @@ const MyOrdersModal = ({ isOpen, onClose, onExploreClick }) => {
     setLoading(true);
     setError('');
     try {
-      const [orderRes, reviewRes] = await Promise.allSettled([
+      const [orderRes, reviewRes, returnRes] = await Promise.allSettled([
         getMyOrders({ limit: 50 }),
         getMyReviews({ limit: 100 }),
+        getMyReturns({ limit: 50 }),
       ]);
 
       if (orderRes.status === 'fulfilled' && orderRes.value.data?.success) {
@@ -89,6 +95,19 @@ const MyOrdersModal = ({ isOpen, onClose, onExploreClick }) => {
           }
         });
         setReviewedKeys(set);
+      }
+
+      if (returnRes.status === 'fulfilled' && returnRes.value.data?.success) {
+        const rets = returnRes.value.data.data?.returns || [];
+        setTotalReturnsCount(rets.length);
+        const map = {};
+        rets.forEach((r) => {
+          const oId = r.orderId?._id ? r.orderId._id.toString() : (r.orderId ? r.orderId.toString() : '');
+          if (oId) {
+            map[oId] = r;
+          }
+        });
+        setReturnsMap(map);
       }
     } catch (err) {
       console.error('Lỗi tải danh sách đơn hàng:', err);
@@ -128,7 +147,23 @@ const MyOrdersModal = ({ isOpen, onClose, onExploreClick }) => {
             </p>
           </div>
           
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <button
+              onClick={() => {
+                onClose();
+                setIsMyReturnsOpen(true);
+              }}
+              className="text-[11px] font-bold uppercase tracking-wider px-2.5 py-1 bg-white/10 hover:bg-white/20 text-neutral-200 hover:text-white rounded transition-colors flex items-center gap-1.5 border border-white/10"
+              title="Xem danh sách yêu cầu đổi trả"
+            >
+              <span>🔄</span>
+              <span className="hidden sm:inline">Đổi / Trả</span>
+              {totalReturnsCount > 0 && (
+                <span className="bg-red-500 text-white text-[10px] px-1.5 py-0.2 rounded-full font-bold">
+                  {totalReturnsCount}
+                </span>
+              )}
+            </button>
             <button
               onClick={fetchOrders}
               disabled={loading}
@@ -352,6 +387,57 @@ const MyOrdersModal = ({ isOpen, onClose, onExploreClick }) => {
                         </p>
                       )}
                     </div>
+
+                    {/* Thanh thao tác Đổi / Trả dành cho đơn đã giao thành công */}
+                    {ord.status === 'delivered' && (
+                      <div className="w-full pt-2.5 mt-2 border-t border-neutral-200/80 flex flex-wrap items-center justify-between gap-2">
+                        {returnsMap[ord._id] ? (
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">Đổi / Trả:</span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                onClose();
+                                setIsMyReturnsOpen(true);
+                              }}
+                              className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-white hover:bg-neutral-100 border border-neutral-300 text-[10px] font-bold uppercase tracking-wider text-neutral-800 transition-colors shadow-2xs"
+                            >
+                              <span>Phiếu {returnsMap[ord._id].returnCode}</span>
+                              <span className="text-neutral-400">•</span>
+                              <span className="text-blue-600 font-bold">
+                                {returnsMap[ord._id].status === 'PENDING'
+                                  ? 'CHỜ DUYỆT'
+                                  : returnsMap[ord._id].status === 'APPROVED'
+                                  ? 'ĐÃ DUYỆT'
+                                  : returnsMap[ord._id].status === 'PROCESSING'
+                                  ? 'ĐANG XỬ LÝ'
+                                  : returnsMap[ord._id].status === 'COMPLETED'
+                                  ? 'HOÀN TẤT'
+                                  : returnsMap[ord._id].status === 'REJECTED'
+                                  ? 'TỪ CHỐI'
+                                  : 'ĐÃ HỦY'}
+                              </span>
+                              <span>➔</span>
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="text-[11px] text-neutral-400 italic">
+                            * Hỗ trợ đổi size / trả hàng hoàn tiền
+                          </div>
+                        )}
+
+                        {!returnsMap[ord._id] && (
+                          <button
+                            type="button"
+                            onClick={() => openReturnRequestModal(ord)}
+                            className="px-3.5 py-1.5 bg-neutral-900 hover:bg-black text-white text-[10px] font-bold uppercase tracking-wider transition-colors flex items-center gap-1.5 shadow-2xs"
+                          >
+                            <span>🔄</span>
+                            <span>Yêu cầu Đổi / Trả</span>
+                          </button>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}

@@ -10,6 +10,8 @@ import {
 } from '../../services/shippingApi';
 import MyOrdersModal from '../../pages/customer/MyOrdersModal';
 import MyReviewsModal from '../customer/MyReviewsModal';
+import ReturnRequestModal from '../customer/ReturnRequestModal';
+import MyReturnsModal from '../customer/MyReturnsModal';
 import CheckoutPromoCode from '../customer/CheckoutPromoCode';
 import { getVariantColorHex } from '../VariantSelect';
 
@@ -233,6 +235,11 @@ const StoreModals = ({ onOrderCompleted }) => {
     setIsMyOrdersOpen,
     isMyReviewsOpen,
     setIsMyReviewsOpen,
+    isMyReturnsOpen,
+    setIsMyReturnsOpen,
+    isReturnRequestModalOpen,
+    closeReturnRequestModal,
+    selectedReturnOrder,
     toastMessage,
     showToast,
   } = useCart();
@@ -1165,6 +1172,20 @@ const StoreModals = ({ onOrderCompleted }) => {
       {/* MODAL ĐÁNH GIÁ CỦA TÔI */}
       {/* ========================================================= */}
       <MyReviewsModal isOpen={isMyReviewsOpen} onClose={() => setIsMyReviewsOpen(false)} />
+
+      {/* ========================================================= */}
+      {/* MODAL YÊU CẦU ĐỔI / TRẢ HÀNG */}
+      {/* ========================================================= */}
+      <ReturnRequestModal
+        isOpen={isReturnRequestModalOpen}
+        onClose={closeReturnRequestModal}
+        order={selectedReturnOrder}
+      />
+
+      {/* ========================================================= */}
+      {/* MODAL YÊU CẦU ĐỔI / TRẢ CỦA TÔI */}
+      {/* ========================================================= */}
+      <MyReturnsModal isOpen={isMyReturnsOpen} onClose={() => setIsMyReturnsOpen(false)} />
 
       {/* ========================================================= */}
       {/* TOAST THÔNG BÁO GÓC DƯỚI BÊN TRÁI */}
