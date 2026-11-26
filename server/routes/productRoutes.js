@@ -20,9 +20,9 @@ router.get('/:id', getProductById);             // Lấy chi tiết
 // Thao tác chỉnh sửa, tạo mới, xóa yêu cầu đăng nhập + quyền admin
 router.use(authenticateToken, requireAdmin);
 
-// Thêm middleware upload.single('image') cho các API có ảnh
-router.post('/', upload.single('image'), createProduct);        // Tạo mới
-router.put('/:id', upload.single('image'), updateProduct);      // Cập nhật
+// Sử dụng middleware upload.any() để hỗ trợ upload nhiều ảnh cùng lúc: ảnh chính (image), ảnh phụ (images), ảnh theo màu (colorImage_...)
+router.post('/', upload.any(), createProduct);        // Tạo mới
+router.put('/:id', upload.any(), updateProduct);      // Cập nhật
 router.delete('/:id', deleteProduct);   // Xóa
 
 // Xử lý lỗi từ Multer

@@ -1,6 +1,6 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 
 // Assets
 import slideImg from '../../assets/slide.jpg';
@@ -9,6 +9,7 @@ import mbbcLogo from '../../assets/logo MBBC.png';
 // Service API Backend
 import { getProducts } from '../../services/productApi';
 import { getPublicCategories } from '../../services/categoryApi';
+import { getPublicPromotions } from '../../services/promotionApi';
 import { useCart } from '../../context/CartContext';
 import StoreModals from '../../components/common/StoreModals';
 
@@ -124,8 +125,70 @@ const CustomerHome = () => {
   const [quickViewProduct, setQuickViewProduct] = useState(null);
   const [quickViewSize, setQuickViewSize] = useState('M');
   const [quickViewColor, setQuickViewColor] = useState('Đen');
+  const [activePromotions, setActivePromotions] = useState([]);
 
   const searchBoxRef = useRef(null);
+
+  // Tải danh sách khuyến mãi đang hoạt động để hiển thị badge giảm giá và giá sale
+  useEffect(() => {
+    const fetchPromos = async () => {
+      try {
+        const res = await getPublicPromotions();
+        if (res.data?.success && Array.isArray(res.data.data?.promotions)) {
+          setActivePromotions(res.data.data.promotions.filter((p) => p.computedStatus === 'active'));
+        }
+      } catch (err) {
+        console.error('Lỗi tải khuyến mãi CustomerHome:', err);
+      }
+    };
+    fetchPromos();
+  }, []);
+
+  // Tính ưu đãi tốt nhất áp dụng cho 1 sản phẩm
+  const getProductDiscount = useCallback((prod) => {
+    if (!prod || !activePromotions.length) return null;
+    const prodId = (prod._id || prod.id)?.toString();
+    const prodCat = (prod.category || '').trim().toLowerCase();
+
+    const matched = activePromotions.filter((p) => {
+      if (p.scope === 'order') return false;
+      if (p.minOrderValue && prod.price < p.minOrderValue) return false;
+      if (Array.isArray(p.applicableProducts) && p.applicableProducts.length > 0) {
+        const hasProd = p.applicableProducts.some(
+          (item) => (typeof item === 'string' ? item : (item._id || item.id))?.toString() === prodId
+        );
+        if (hasProd) return true;
+      }
+      if (Array.isArray(p.applicableCategories) && p.applicableCategories.length > 0) {
+        const hasCat = p.applicableCategories.some(
+          (c) => (c || '').trim().toLowerCase() === prodCat
+        );
+        if (hasCat) return true;
+      }
+      return false;
+    });
+
+    if (matched.length === 0) return null;
+
+    let best = null;
+    let maxDisc = 0;
+    matched.forEach((p) => {
+      let disc = 0;
+      if (p.discountType === 'percentage') {
+        disc = Math.round((prod.price * p.discountValue) / 100);
+        if (p.maxDiscount && disc > p.maxDiscount) disc = p.maxDiscount;
+      } else {
+        disc = p.discountValue;
+      }
+      disc = Math.min(disc, prod.price);
+      if (disc > maxDisc) {
+        maxDisc = disc;
+        best = { promo: p, discountAmount: disc, finalPrice: Math.max(0, prod.price - disc) };
+      }
+    });
+
+    return best;
+  }, [activePromotions]);
 
   // Tải danh sách danh mục đang hoạt động từ Backend (ẩn danh mục đã bị khóa)
   useEffect(() => {
@@ -465,6 +528,17 @@ const CustomerHome = () => {
                 </div>
               </div>
             </div>
+
+            {/* ƯU ĐÃI & KHUYẾN MÃI (TRUNG TÂM VOUCHER) */}
+            <Link
+              to="/promotions"
+              className={`text-[12px] sm:text-[13px] font-bold tracking-[0.12em] uppercase transition-colors flex items-center gap-1.5 focus:outline-none ${
+                isHeaderActive ? 'text-red-600 hover:text-red-700' : 'text-red-400 hover:text-red-300'
+              }`}
+            >
+              <span>ƯU ĐÃI</span>
+              <span className="w-1.5 h-1.5 rounded-full bg-red-600 animate-pulse" />
+            </Link>
           </nav>
 
           {/* CỘT PHẢI: CHỈ 3 ICON TỐI GIẢN (KÍNH LÚP, USER, GIỎ HÀNG CHẤM ĐỎ) - KHÔNG CHỮ, KHÔNG TIẾNG VIỆT */}
@@ -571,6 +645,19 @@ const CustomerHome = () => {
                       <span>Đánh giá của tôi</span>
                     </button>
 
+                    <Link
+                      to="/my-vouchers"
+                      onClick={() => setUserDropdownOpen(false)}
+                      className="w-full text-left py-2 px-2 text-[11px] font-bold uppercase tracking-wider text-neutral-800 hover:text-black hover:bg-neutral-50 transition-colors flex items-center gap-3 whitespace-nowrap rounded group"
+                    >
+                      <span className="w-8 h-8 rounded-lg bg-red-50 border border-red-200/60 text-red-500 flex items-center justify-center shrink-0 transition-all duration-200 group-hover:bg-red-200 group-hover:border-red-400 group-hover:text-red-800 shadow-xs">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 6v.75m0 3v.75m0 3v.75m0 3V18m-9-5.25h5.25M7.5 15h3M3.375 5.25c-.621 0-1.125.504-1.125 1.125v3.026a2.999 2.999 0 010 5.198v3.026c0 .621.504 1.125 1.125 1.125h17.25c.621 0 1.125-.504 1.125-1.125v-3.026a2.999 2.999 0 010-5.198V6.375c0-.621-.504-1.125-1.125-1.125H3.375z" />
+                        </svg>
+                      </span>
+                      <span>Kho voucher của tôi</span>
+                    </Link>
+
                     {user.role === 'admin' && (
                       <button
                         type="button"
@@ -651,6 +738,20 @@ const CustomerHome = () => {
               </button>
             ))}
 
+            {/* Mục Ưu đãi trên Mobile */}
+            <button
+              onClick={() => {
+                setMobileMenuOpen(false);
+                navigate('/promotions');
+              }}
+              className="block w-full text-left py-2 text-xs font-black tracking-widest uppercase flex items-center justify-between text-red-600 hover:text-red-700 border-t border-neutral-100 pt-3"
+            >
+              <span>ƯU ĐÃI & VOUCHER</span>
+              <span className="text-[9px] font-extrabold uppercase px-1.5 py-0.5 bg-red-100 text-red-600 tracking-normal rounded-full animate-pulse">
+                HOT
+              </span>
+            </button>
+
             {/* Mobile Account Section */}
             <div className="pt-3 border-t border-neutral-100">
               {user ? (
@@ -683,6 +784,21 @@ const CustomerHome = () => {
                       <ReviewStarIcon className="w-3.5 h-3.5" />
                     </span>
                     <span>Đánh giá của tôi</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMobileMenuOpen(false);
+                      navigate('/my-vouchers');
+                    }}
+                    className="w-full text-left py-2 px-2.5 text-xs font-black uppercase tracking-[0.08em] text-neutral-900 hover:text-black flex items-center gap-2.5 rounded-lg hover:bg-neutral-50"
+                  >
+                    <span className="w-6 h-6 rounded-md bg-red-50 text-red-600 border border-red-200/50 flex items-center justify-center shrink-0">
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 6v.75m0 3v.75m0 3v.75m0 3V18m-9-5.25h5.25M7.5 15h3M3.375 5.25c-.621 0-1.125.504-1.125 1.125v3.026a2.999 2.999 0 010 5.198v3.026c0 .621.504 1.125 1.125 1.125h17.25c.621 0 1.125-.504 1.125-1.125v-3.026a2.999 2.999 0 010-5.198V6.375c0-.621-.504-1.125-1.125-1.125H3.375z" />
+                      </svg>
+                    </span>
+                    <span>Kho voucher của tôi</span>
                   </button>
                   <button
                     type="button"
@@ -789,6 +905,7 @@ const CustomerHome = () => {
                 const hasVariants = product.variants && product.variants.length > 0;
                 const variantSizes = hasVariants ? [...new Set(product.variants.map((v) => v.size))] : (product.sizes || []);
                 const isOutOfStock = product.stock <= 0;
+                const prodDiscount = getProductDiscount(product);
 
                 return (
                   <div key={prodId} className="group flex flex-col text-left">
@@ -803,11 +920,17 @@ const CustomerHome = () => {
                         loading="lazy"
                         className="w-full h-full object-cover object-center transition-transform duration-500 ease-out group-hover:scale-105"
                       />
-                      {isOutOfStock && (
+                      {isOutOfStock ? (
                         <div className="absolute top-2 left-2 px-2 py-0.5 bg-black/80 text-white text-[10px] font-black uppercase tracking-wider">
                           HẾT HÀNG
                         </div>
-                      )}
+                      ) : prodDiscount ? (
+                        <div className="absolute top-2 left-2 px-2 py-0.5 bg-[#b91c1c] text-white text-[10px] font-black uppercase tracking-wider shadow-xs">
+                          {prodDiscount.promo.discountType === 'percentage'
+                            ? `-${prodDiscount.promo.discountValue}%`
+                            : `-${prodDiscount.discountAmount.toLocaleString('vi-VN')}đ`}
+                        </div>
+                      ) : null}
                     </div>
 
                     {/* Dòng metadata kích thước / biến thể */}
@@ -825,9 +948,20 @@ const CustomerHome = () => {
 
                     {/* Hàng giá tiền & nút THÊM VÀO GIỎ */}
                     <div className="mt-2.5 flex items-center justify-between">
-                      <span className="text-[14px] font-bold text-black tracking-tight">
-                        {product.price ? product.price.toLocaleString('vi-VN') : 0}<u>đ</u>
-                      </span>
+                      {prodDiscount ? (
+                        <div className="flex items-baseline gap-1.5">
+                          <span className="text-[14px] font-bold text-[#b91c1c] tracking-tight">
+                            {prodDiscount.finalPrice.toLocaleString('vi-VN')}<u>đ</u>
+                          </span>
+                          <span className="text-[11px] text-neutral-400 line-through">
+                            {product.price ? product.price.toLocaleString('vi-VN') : 0}<u>đ</u>
+                          </span>
+                        </div>
+                      ) : (
+                        <span className="text-[14px] font-bold text-black tracking-tight">
+                          {product.price ? product.price.toLocaleString('vi-VN') : 0}<u>đ</u>
+                        </span>
+                      )}
 
                       <button
                         onClick={() => openQuickView(product)}
@@ -959,6 +1093,7 @@ const CustomerHome = () => {
         const isOutOfStock = qvHasVariants
           ? (!currentVariant || currentStock <= 0)
           : (currentStock <= 0);
+        const qvDiscount = getProductDiscount(quickViewProduct);
 
         return (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -970,18 +1105,31 @@ const CustomerHome = () => {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                 <div className="aspect-[3/4] bg-neutral-100 overflow-hidden relative">
                   <img src={quickViewProduct.image} alt={quickViewProduct.name} className="w-full h-full object-cover" />
-                  {isOutOfStock && (
+                  {isOutOfStock ? (
                     <div className="absolute top-3 left-3 px-2.5 py-1 bg-black/85 text-white text-[11px] font-black uppercase tracking-wider">
                       HẾT HÀNG
                     </div>
-                  )}
+                  ) : qvDiscount ? (
+                    <div className="absolute top-3 left-3 px-2.5 py-1 bg-[#b91c1c] text-white text-[11px] font-black uppercase tracking-wider shadow-xs">
+                      {qvDiscount.promo.discountType === 'percentage'
+                        ? `-${qvDiscount.promo.discountValue}%`
+                        : `-${qvDiscount.discountAmount.toLocaleString('vi-VN')}đ`}
+                    </div>
+                  ) : null}
                 </div>
 
                 <div className="flex flex-col justify-between">
                   <div className="space-y-4">
                     <div>
                       <h3 className="text-sm font-extrabold text-black uppercase leading-tight tracking-wider">{quickViewProduct.name}</h3>
-                      <p className="text-base font-black text-neutral-900 mt-2">{formatPrice(quickViewProduct.price)}</p>
+                      {qvDiscount ? (
+                        <div className="flex items-baseline gap-2 mt-2">
+                          <span className="text-base font-black text-[#b91c1c]">{formatPrice(qvDiscount.finalPrice)}</span>
+                          <span className="text-xs text-neutral-400 line-through">{formatPrice(quickViewProduct.price)}</span>
+                        </div>
+                      ) : (
+                        <p className="text-base font-black text-neutral-900 mt-2">{formatPrice(quickViewProduct.price)}</p>
+                      )}
                       {quickViewProduct.description && (
                         <p className="text-xs text-neutral-500 mt-2.5 leading-relaxed font-medium line-clamp-3">{quickViewProduct.description}</p>
                       )}

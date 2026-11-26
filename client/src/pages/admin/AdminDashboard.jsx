@@ -5,12 +5,18 @@ import { getWarehouseStats } from '../../services/warehouseApi';
 import { getOrders } from '../../services/orderApi';
 import { getProducts } from '../../services/productApi';
 import { getAdminReviews, moderateReview } from '../../services/reviewApi';
+import { getAdminPromotionStatistics } from '../../services/promotionApi';
 import StarRatingDisplay from '../../components/common/StarRatingDisplay';
 import ReviewDetailModal from './reviews/ReviewDetailModal';
 
 // ============================================
 // ICON COMPONENTS
 // ============================================
+const TicketIcon = () => (
+  <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 6v.75m0 3v.75m0 3v.75m0 3V18m-9-5.25h5.25M7.5 15h3M3.375 5.25c-.621 0-1.125.504-1.125 1.125v3.026a2.999 2.999 0 010 5.198v3.026c0 .621.504 1.125 1.125 1.125h17.25c.621 0 1.125-.504 1.125-1.125v-3.026a2.999 2.999 0 010-5.198V6.375c0-.621-.504-1.125-1.125-1.125H3.375z" />
+  </svg>
+);
 const PackageIcon = () => (
   <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
     <path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
@@ -134,6 +140,7 @@ const systemModules = [
   { name: 'Danh mục', icon: FolderIcon, desc: 'Phân loại nhóm mặt hàng', path: '/admin/categories', color: 'bg-blue-50 text-blue-600' },
   { name: 'Nhà cung cấp', icon: TruckIcon, desc: 'Đối tác & lịch sử nhập', path: '/admin/suppliers', color: 'bg-amber-50 text-amber-600' },
   { name: 'Đơn hàng', icon: ShoppingBagIcon, desc: 'Theo dõi & xử lý đơn đặt', path: '/admin/orders', color: 'bg-violet-50 text-violet-600' },
+  { name: 'Khuyến mãi', icon: TicketIcon, desc: 'Voucher & giảm giá tự động', path: '/admin/promotions', color: 'bg-red-50 text-red-600' },
   { name: 'Đánh giá SP', icon: StarIcon, desc: 'Kiểm duyệt & phản hồi khách', path: '/admin/reviews', color: 'bg-amber-50 text-amber-500' },
   { name: 'Khách hàng', icon: UsersIcon, desc: 'Tài khoản khách hàng', path: '/admin/customers', color: 'bg-rose-50 text-rose-600' },
   { name: 'Thống kê', icon: ChartIcon, desc: 'Báo cáo doanh thu bán hàng', path: '/admin/statistics', color: 'bg-cyan-50 text-cyan-600' },
@@ -155,6 +162,7 @@ const AdminDashboard = () => {
   const [recentOrders, setRecentOrders] = useState([]);
   const [lowStockList, setLowStockList] = useState([]);
   const [reviewStats, setReviewStats] = useState(null);
+  const [promoStats, setPromoStats] = useState(null);
   const [approvingId, setApprovingId] = useState(null);
   const [selectedReviewForModal, setSelectedReviewForModal] = useState(null);
 
@@ -162,13 +170,14 @@ const AdminDashboard = () => {
     setLoading(true);
     setError('');
     try {
-      const [ovRes, whRes, chartRes, ordersRes, lowStockRes, revRes] = await Promise.all([
+      const [ovRes, whRes, chartRes, ordersRes, lowStockRes, revRes, promoRes] = await Promise.all([
         getOverviewStats(),
         getWarehouseStats(),
         getRevenueChart(),
         getOrders({ limit: 5 }),
         getProducts({ stockStatus: 'low_stock', limit: 4 }),
         getAdminReviews({ limit: 4 }),
+        getAdminPromotionStatistics(),
       ]);
 
       setOverview(ovRes.data?.data || null);
@@ -177,6 +186,7 @@ const AdminDashboard = () => {
       setRecentOrders(ordersRes.data?.data?.orders || []);
       setLowStockList(lowStockRes.data?.data?.products || []);
       setReviewStats(revRes.data?.data || null);
+      setPromoStats(promoRes.data?.data || null);
     } catch (err) {
       console.error('Lỗi tải dữ liệu Dashboard:', err);
       setError(err.response?.data?.message || 'Không thể kết nối đến server để tải dữ liệu thống kê');
@@ -286,7 +296,7 @@ const AdminDashboard = () => {
       )}
 
       {/* Stat KPI Cards (Dữ liệu thật 100%) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
         {/* Doanh thu */}
         <div className="p-5 bg-white border border-gray-200 rounded-[var(--radius-md)] shadow-sm">
           <div className="flex items-start justify-between mb-3">
@@ -408,6 +418,37 @@ const AdminDashboard = () => {
             <span>Tổng đánh giá</span>
             <span className="text-amber-600 font-medium">
               {reviewStats?.kpi?.approved || 0} đã duyệt
+            </span>
+          </div>
+        </Link>
+
+        {/* Khuyến mãi & Voucher */}
+        <Link
+          to="/admin/promotions"
+          className="p-5 bg-white border border-gray-200 rounded-[var(--radius-md)] shadow-sm hover:border-red-300 transition-all group block"
+          title="Nhấn để xem trang quản lý khuyến mãi & voucher"
+        >
+          <div className="flex items-start justify-between mb-3">
+            <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-red-50 text-red-600 group-hover:scale-105 transition-transform">
+              <TicketIcon />
+            </div>
+            {promoStats?.activeCount > 0 ? (
+              <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded-full">
+                {promoStats.activeCount} đang chạy
+              </span>
+            ) : (
+              <span className="text-[11px] font-medium text-gray-500 bg-gray-50 px-2 py-0.5 rounded-full">
+                0 đang chạy
+              </span>
+            )}
+          </div>
+          <p className="text-2xl font-bold text-gray-900 tracking-tight tabular-nums">
+            {loading ? '—' : promoStats?.totalPromotions || 0}
+          </p>
+          <div className="flex items-center justify-between text-xs text-gray-500 mt-1">
+            <span>Khuyến mãi & Voucher</span>
+            <span className="text-red-600 font-medium truncate max-w-[130px]" title={`Đã giảm: ${formatCurrency(promoStats?.totalDiscountGiven || 0)}`}>
+              Giảm: {formatCurrency(promoStats?.totalDiscountGiven || 0)}
             </span>
           </div>
         </Link>
@@ -793,13 +834,73 @@ const AdminDashboard = () => {
         )}
       </div>
 
+      {/* Promotions Overview Widget (Dữ liệu thật 100%) */}
+      {promoStats && (
+        <div className="bg-white border border-gray-200 rounded-[var(--radius-md)] p-5 shadow-sm">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-red-50 text-red-600 flex items-center justify-center shrink-0">
+                <TicketIcon />
+              </div>
+              <div>
+                <h2 className="text-base font-semibold text-gray-900">Chiến dịch Khuyến mãi & Voucher</h2>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  Đang chạy: <strong className="text-emerald-600 font-semibold">{promoStats.activeCount || 0}</strong> • Sắp tới: <strong className="text-blue-600 font-semibold">{promoStats.scheduledCount || 0}</strong> • Đã dùng: <strong className="text-gray-900 font-semibold">{promoStats.totalUsageCount || 0} lượt</strong>
+                </p>
+              </div>
+            </div>
+            <Link
+              to="/admin/promotions"
+              className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary-600 hover:text-primary-700 bg-primary-50 hover:bg-primary-100 px-3 py-2 rounded-lg transition-colors shrink-0 self-start sm:self-auto"
+            >
+              <span>Quản lý chương trình</span>
+              <ArrowRightIcon />
+            </Link>
+          </div>
+
+          {promoStats.topUsedPromotions?.length > 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 pt-3 border-t border-gray-100">
+              {promoStats.topUsedPromotions.map((p) => (
+                <div key={p._id} className="p-3 bg-gray-50/70 rounded-lg border border-gray-100 flex items-center justify-between">
+                  <div className="min-w-0 pr-2">
+                    <p className="text-xs font-bold text-gray-900 truncate">{p.name}</p>
+                    <p className="text-[11px] text-gray-500 mt-0.5">
+                      {p.code ? (
+                        <span className="font-mono bg-purple-50 text-purple-700 px-1.5 py-0.5 border border-purple-200 rounded text-[10px] font-bold tracking-wider">
+                          {p.code}
+                        </span>
+                      ) : (
+                        <span className="text-[10px] font-semibold text-blue-700 bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded">
+                          Tự động
+                        </span>
+                      )}
+                    </p>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <span className="text-xs font-bold text-emerald-600 tabular-nums">
+                      {p.useCount} lượt
+                    </span>
+                    <p className="text-[10px] text-gray-400 font-medium tabular-nums">-{formatCurrency(p.totalDiscount)}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="pt-3 border-t border-gray-100 flex flex-col sm:flex-row sm:items-center sm:justify-between text-xs text-gray-500 gap-2">
+              <span>Hệ thống voucher và khuyến mãi tự động đã được tích hợp đầy đủ vào quy trình mua sắm & thanh toán.</span>
+              <span className="text-gray-400">Tổng ngân sách đã chiết khấu: <strong className="text-red-600">{formatCurrency(promoStats.totalDiscountGiven || 0)}</strong></span>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* System Modules Quick Access */}
       <div>
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-base font-semibold text-gray-900">Quản lý hệ thống</h2>
           <span className="text-xs text-gray-400">{systemModules.length} phân hệ quản trị</span>
         </div>
-        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-9 gap-3">
           {systemModules.map((item) => {
             const Icon = item.icon;
             return (

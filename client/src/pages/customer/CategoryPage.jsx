@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useParams, useSearchParams, useNavigate, Link } from 'react-router-dom';
 import { getProducts, getFilterOptions } from '../../services/productApi';
 import { getPublicCategories } from '../../services/categoryApi';
+import { getPublicPromotions } from '../../services/promotionApi';
 import { useCart } from '../../context/CartContext';
 import StoreHeader from '../../components/common/StoreHeader';
 import StoreModals from '../../components/common/StoreModals';
@@ -99,6 +100,7 @@ const CategoryPage = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [fetchError, setFetchError] = useState(null);
+  const [activePromotions, setActivePromotions] = useState([]);
 
   // Phân trang
   const [page, setPage] = useState(1);
@@ -191,6 +193,67 @@ const CategoryPage = () => {
     };
     fetchCategories();
   }, []);
+
+  // Tải danh sách khuyến mãi đang hoạt động để hiển thị badge giảm giá trên thẻ sản phẩm
+  useEffect(() => {
+    const fetchPromos = async () => {
+      try {
+        const res = await getPublicPromotions();
+        if (res.data?.success && Array.isArray(res.data.data?.promotions)) {
+          setActivePromotions(res.data.data.promotions.filter((p) => p.computedStatus === 'active'));
+        }
+      } catch (err) {
+        console.error('Lỗi tải khuyến mãi CategoryPage:', err);
+      }
+    };
+    fetchPromos();
+  }, []);
+
+  // Tìm ưu đãi tốt nhất áp dụng cho 1 sản phẩm
+  const getProductDiscount = useCallback((prod) => {
+    if (!prod || !activePromotions.length) return null;
+    const prodId = prod._id?.toString();
+    const prodCat = (prod.category || '').trim().toLowerCase();
+
+    const matched = activePromotions.filter((p) => {
+      if (p.scope === 'order') return false;
+      if (p.minOrderValue && prod.price < p.minOrderValue) return false;
+      if (Array.isArray(p.applicableProducts) && p.applicableProducts.length > 0) {
+        const hasProd = p.applicableProducts.some(
+          (item) => (typeof item === 'string' ? item : item._id)?.toString() === prodId
+        );
+        if (hasProd) return true;
+      }
+      if (Array.isArray(p.applicableCategories) && p.applicableCategories.length > 0) {
+        const hasCat = p.applicableCategories.some(
+          (c) => (c || '').trim().toLowerCase() === prodCat
+        );
+        if (hasCat) return true;
+      }
+      return false;
+    });
+
+    if (matched.length === 0) return null;
+
+    let best = null;
+    let maxDisc = 0;
+    matched.forEach((p) => {
+      let disc = 0;
+      if (p.discountType === 'percentage') {
+        disc = Math.round((prod.price * p.discountValue) / 100);
+        if (p.maxDiscount && disc > p.maxDiscount) disc = p.maxDiscount;
+      } else {
+        disc = p.discountValue;
+      }
+      disc = Math.min(disc, prod.price);
+      if (disc > maxDisc) {
+        maxDisc = disc;
+        best = { promo: p, discountAmount: disc, finalPrice: Math.max(0, prod.price - disc) };
+      }
+    });
+
+    return best;
+  }, [activePromotions]);
 
   // Bộ nhớ đệm options theo danh mục để chuyển đổi tức thì (0ms delay)
   const optionsCacheRef = useRef({});
@@ -707,6 +770,7 @@ const CategoryPage = () => {
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6 lg:gap-8">
                 {products.map((p) => {
                   const isOutOfStock = (p.stock || 0) <= 0;
+                  const prodDiscount = getProductDiscount(p);
                   const colors = Array.isArray(p.variants)
                     ? Array.from(new Set(p.variants.map((v) => v.color).filter(Boolean)))
                     : [];
@@ -733,6 +797,12 @@ const CategoryPage = () => {
                           {isOutOfStock ? (
                             <span className="px-2 py-0.5 bg-black/85 text-white text-[10px] font-black uppercase tracking-wider">
                               HẾT HÀNG
+                            </span>
+                          ) : prodDiscount ? (
+                            <span className="px-2 py-0.5 bg-[#b91c1c] text-white text-[10px] font-black uppercase tracking-wider">
+                              {prodDiscount.promo.discountType === 'percentage'
+                                ? `-${prodDiscount.promo.discountValue}%`
+                                : `-${formatPrice(prodDiscount.discountAmount)}`}
                             </span>
                           ) : p.isFeatured ? (
                             <span className="px-2 py-0.5 bg-black text-white text-[10px] font-black uppercase tracking-wider">
@@ -793,9 +863,20 @@ const CategoryPage = () => {
 
                         {/* GIÁ SẢN PHẨM (MÀU ĐỎ #b91c1c THỐNG NHẤT NHẬN DIỆN THƯƠNG HIỆU MBBC) */}
                         <div className="mt-auto flex items-baseline justify-between gap-2 pt-1">
-                          <span className="text-sm sm:text-base font-extrabold text-[#b91c1c] tracking-tight">
-                            {formatPrice(p.price)}
-                          </span>
+                          {prodDiscount ? (
+                            <div className="flex items-baseline gap-1.5">
+                              <span className="text-sm sm:text-base font-extrabold text-[#b91c1c] tracking-tight">
+                                {formatPrice(prodDiscount.finalPrice)}
+                              </span>
+                              <span className="text-xs text-neutral-400 line-through">
+                                {formatPrice(p.price)}
+                              </span>
+                            </div>
+                          ) : (
+                            <span className="text-sm sm:text-base font-extrabold text-[#b91c1c] tracking-tight">
+                              {formatPrice(p.price)}
+                            </span>
+                          )}
 
                           <span className="text-[10px] uppercase font-semibold text-neutral-400">
                             {isOutOfStock ? (

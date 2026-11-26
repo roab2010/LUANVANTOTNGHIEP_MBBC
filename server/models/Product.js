@@ -21,6 +21,10 @@ const variantSchema = new mongoose.Schema(
       min: [0, 'Số lượng tồn kho biến thể không được âm'],
       max: [10000, 'Số lượng tồn kho biến thể tối đa là 10,000'],
     },
+    image: {
+      type: String,
+      default: '',
+    },
   },
   { _id: true }
 );
@@ -86,6 +90,21 @@ const productSchema = new mongoose.Schema(
     imageHash: {
       type: String,
       default: '',
+    },
+    // Danh sách ảnh phụ / gallery của sản phẩm
+    images: {
+      type: [String],
+      default: [],
+    },
+    // Danh sách ảnh đại diện cho từng màu sắc biến thể
+    colorImages: {
+      type: [
+        {
+          color: { type: String, required: true, trim: true },
+          image: { type: String, required: true, trim: true },
+        },
+      ],
+      default: [],
     },
     status: {
       type: String,

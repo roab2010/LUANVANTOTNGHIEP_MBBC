@@ -72,6 +72,8 @@ const getModuleBadge = (mod) => {
     INVENTORY: 'Kho hàng',
     SHIPPING: 'Vận chuyển',
     SYSTEM: 'Hệ thống',
+    REVIEW: 'Đánh giá',
+    PROMOTION: 'Khuyến mãi',
   };
   return (
     <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-gray-100 text-gray-700 border border-gray-200">
@@ -241,6 +243,8 @@ const ActivityLogsPage = () => {
             <option value="ORDER">Đơn hàng</option>
             <option value="INVENTORY">Kho hàng (Nhập/Xuất kho)</option>
             <option value="SHIPPING">Vận chuyển GHN</option>
+            <option value="REVIEW">Đánh giá sản phẩm</option>
+            <option value="PROMOTION">Khuyến mãi & Voucher</option>
             <option value="SYSTEM">Hệ thống</option>
           </select>
 

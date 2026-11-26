@@ -51,6 +51,7 @@ const activityLogSchema = new mongoose.Schema(
         'SHIPPING',
         'SYSTEM',
         'REVIEW',
+        'PROMOTION',
       ],
       trim: true,
     },

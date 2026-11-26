@@ -160,6 +160,49 @@ const ProductDetailModal = ({ product, onClose, onOpenImport, onOpenExport, onOp
                 </span>
               </div>
 
+              {/* Bộ sưu tập ảnh sản phẩm (Dàn ảnh chính + phụ) */}
+              {(() => {
+                const galleryList = [];
+                const seen = new Set();
+                if (product.image) {
+                  galleryList.push({ url: product.image, label: 'Chính' });
+                  seen.add(product.image);
+                }
+                (product.images || []).forEach((img, i) => {
+                  if (img && !seen.has(img)) {
+                    const matchColor = product.colorImages?.find((ci) => ci.image === img)?.color;
+                    galleryList.push({ url: img, label: matchColor ? `Màu ${matchColor}` : `Phụ ${i + 1}` });
+                    seen.add(img);
+                  }
+                });
+                (product.colorImages || []).forEach((ci) => {
+                  if (ci.image && !seen.has(ci.image)) {
+                    galleryList.push({ url: ci.image, label: `Màu ${ci.color}` });
+                    seen.add(ci.image);
+                  }
+                });
+
+                if (galleryList.length <= 1) return null;
+
+                return (
+                  <div className="w-full mt-2.5 space-y-1.5">
+                    <div className="flex items-center justify-between text-[10px] font-bold text-gray-500 uppercase tracking-wider">
+                      <span>Dàn ảnh sản phẩm ({galleryList.length} ảnh)</span>
+                    </div>
+                    <div className="flex gap-1.5 overflow-x-auto pb-1 max-w-full">
+                      {galleryList.map((item, i) => (
+                        <div key={i} className="w-12 h-12 rounded border border-gray-300 overflow-hidden shrink-0 relative group" title={item.label}>
+                          <img src={item.url} alt={item.label} className="w-full h-full object-cover" />
+                          <span className="absolute bottom-0 inset-x-0 bg-neutral-900/80 text-[7px] text-white text-center font-bold truncate px-0.5">
+                            {item.label}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
+
               {/* Thao tác kho nhanh */}
               <div className="grid grid-cols-2 gap-2 w-full mt-3">
                 <button

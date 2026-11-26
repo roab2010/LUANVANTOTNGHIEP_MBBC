@@ -79,6 +79,12 @@ const StarIcon = () => (
   </svg>
 );
 
+const TicketIcon = () => (
+  <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 6v.75m0 3v.75m0 3v.75m0 3V18m-9-5.25h5.25M7.5 15h3M3.375 5.25c-.621 0-1.125.504-1.125 1.125v3.026a2.999 2.999 0 010 5.198v3.026c0 .621.504 1.125 1.125 1.125h17.25c.621 0 1.125-.504 1.125-1.125v-3.026a2.999 2.999 0 010-5.198V6.375c0-.621-.504-1.125-1.125-1.125H3.375z" />
+  </svg>
+);
+
 // ============================================
 // SIDEBAR NAV ITEMS
 // ============================================
@@ -88,6 +94,7 @@ const navItems = [
   { label: 'Danh mục', path: '/admin/categories', icon: CategoryIcon },
   { label: 'Nhà cung cấp', path: '/admin/suppliers', icon: SupplierIcon },
   { label: 'Đơn hàng', path: '/admin/orders', icon: ShoppingBagIcon },
+  { label: 'Khuyến mãi', path: '/admin/promotions', icon: TicketIcon },
   { label: 'Khách hàng', path: '/admin/customers', icon: UsersIcon },
   { label: 'Đánh giá sản phẩm', path: '/admin/reviews', icon: StarIcon },
   { label: 'Thống kê', path: '/admin/statistics', icon: ChartIcon },

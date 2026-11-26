@@ -523,12 +523,14 @@ const createProduct = async (req, res) => {
       }
     }
 
-    // --- Xử lý ảnh + kiểm tra trùng nội dung ảnh ---
+    // --- Xử lý ảnh: ảnh chính, album ảnh phụ, và ảnh theo từng màu ---
     let imageUrl = '';
     let imageHash = '';
-    if (req.file) {
+    const mainFile = (req.files && Array.isArray(req.files) ? req.files.find((f) => f.fieldname === 'image') : null) || req.file;
+
+    if (mainFile) {
       // 1. Tính toán SHA-256 hash từ binary buffer của ảnh
-      imageHash = crypto.createHash('sha256').update(req.file.buffer).digest('hex');
+      imageHash = crypto.createHash('sha256').update(mainFile.buffer).digest('hex');
 
       // 2. Kiểm tra trùng nội dung ảnh với các sản phẩm đã có
       const existingByHash = await Product.findOne({ imageHash });
@@ -540,8 +542,74 @@ const createProduct = async (req, res) => {
       }
 
       // 3. Nếu chưa trùng, upload buffer lên Cloudinary
-      const uploadResult = await uploadToCloudinary(req.file.buffer);
+      const uploadResult = await uploadToCloudinary(mainFile.buffer);
       imageUrl = uploadResult.secure_url;
+    }
+
+    // Xử lý album ảnh phụ (images)
+    let extraImages = [];
+    if (req.body.existingImages) {
+      try {
+        const parsed = typeof req.body.existingImages === 'string' ? JSON.parse(req.body.existingImages) : req.body.existingImages;
+        if (Array.isArray(parsed)) extraImages = parsed.filter(Boolean);
+      } catch (e) {}
+    }
+    const extraFiles = req.files && Array.isArray(req.files)
+      ? req.files.filter((f) => f.fieldname === 'images' || f.fieldname === 'extraImages')
+      : [];
+    let extraUploads = [];
+    if (extraFiles.length > 0) {
+      extraUploads = await Promise.all(extraFiles.map((f) => uploadToCloudinary(f.buffer).then((r) => r.secure_url)));
+      extraImages = [...extraImages, ...extraUploads];
+    }
+
+    // Xử lý ảnh theo từng màu sắc biến thể (colorImages) chọn từ dàn ảnh
+    let colorImagesList = [];
+    const rawColorMappings = req.body.colorImagesMappings || req.body.colorImages || req.body.existingColorImages;
+    if (rawColorMappings) {
+      try {
+        const parsed = typeof rawColorMappings === 'string' ? JSON.parse(rawColorMappings) : rawColorMappings;
+        if (Array.isArray(parsed)) {
+          for (const item of parsed) {
+            if (!item.color) continue;
+            let resolvedUrl = '';
+            if (item.isMain) {
+              resolvedUrl = imageUrl;
+            } else if (item.newExtraIndex !== undefined && extraUploads[item.newExtraIndex]) {
+              resolvedUrl = extraUploads[item.newExtraIndex];
+            } else if (item.image) {
+              resolvedUrl = item.image;
+            }
+            if (resolvedUrl) {
+              colorImagesList.push({ color: item.color.trim(), image: resolvedUrl });
+            }
+          }
+        }
+      } catch (e) {}
+    }
+
+    // Hỗ trợ nếu có file tải lên riêng
+    const colorFiles = req.files && Array.isArray(req.files)
+      ? req.files.filter((f) => f.fieldname.startsWith('colorImage_'))
+      : [];
+    for (const cf of colorFiles) {
+      const colorName = decodeURIComponent(cf.fieldname.replace('colorImage_', '')).trim();
+      const uploadResult = await uploadToCloudinary(cf.buffer);
+      const exIdx = colorImagesList.findIndex((ci) => ci.color.toLowerCase() === colorName.toLowerCase());
+      if (exIdx > -1) {
+        colorImagesList[exIdx].image = uploadResult.secure_url;
+      } else {
+        colorImagesList.push({ color: colorName, image: uploadResult.secure_url });
+      }
+    }
+
+    // ĐẢM BẢO QUY TẮC: Mọi ảnh trong colorImagesList đều nằm trong dàn ảnh phụ (extraImages) nếu không phải ảnh chính
+    const allImagesSet = new Set([imageUrl, ...extraImages].filter(Boolean));
+    for (const ci of colorImagesList) {
+      if (ci.image && !allImagesSet.has(ci.image)) {
+        extraImages.push(ci.image);
+        allImagesSet.add(ci.image);
+      }
     }
 
     // --- Tạo sản phẩm ---
@@ -556,14 +624,21 @@ const createProduct = async (req, res) => {
       status: status || 'active',
       image: imageUrl,
       imageHash: imageHash,
+      images: extraImages,
+      colorImages: colorImagesList,
     };
 
     if (parsedVariants.length > 0) {
-      productPayload.variants = parsedVariants.map((v) => ({
-        size: v.size.trim(),
-        color: v.color.trim(),
-        stock: Math.max(0, parseInt(v.stock) || 0),
-      }));
+      productPayload.variants = parsedVariants.map((v) => {
+        const vColor = v.color.trim();
+        const matchedColorImg = colorImagesList.find((ci) => ci.color.toLowerCase() === vColor.toLowerCase())?.image || '';
+        return {
+          size: v.size.trim(),
+          color: vColor,
+          stock: Math.max(0, parseInt(v.stock) || 0),
+          image: matchedColorImg || v.image || '',
+        };
+      });
       productPayload.stock = productPayload.variants.reduce((sum, v) => sum + v.stock, 0);
     } else {
       productPayload.variants = [];
@@ -829,9 +904,10 @@ const updateProduct = async (req, res) => {
       existingProduct.stock = Math.max(0, Number(stock));
     }
 
-    // Xử lý ảnh
-    if (req.file) {
-      const newHash = crypto.createHash('sha256').update(req.file.buffer).digest('hex');
+    // Xử lý ảnh: ảnh chính, album ảnh phụ, và ảnh theo từng màu
+    const mainFile = (req.files && Array.isArray(req.files) ? req.files.find((f) => f.fieldname === 'image') : null) || req.file;
+    if (mainFile) {
+      const newHash = crypto.createHash('sha256').update(mainFile.buffer).digest('hex');
       const existingByHash = await Product.findOne({
         _id: { $ne: req.params.id },
         imageHash: newHash,
@@ -843,12 +919,104 @@ const updateProduct = async (req, res) => {
         });
       }
 
-      const uploadResult = await uploadToCloudinary(req.file.buffer);
+      const uploadResult = await uploadToCloudinary(mainFile.buffer);
       existingProduct.image = uploadResult.secure_url;
       existingProduct.imageHash = newHash;
     } else if (req.body.removeImage === 'true') {
       existingProduct.image = '';
       existingProduct.imageHash = '';
+    }
+
+    // Xử lý album ảnh phụ (images)
+    let updatedExtraImages = existingProduct.images || [];
+    if (req.body.existingImages !== undefined) {
+      try {
+        const parsed = typeof req.body.existingImages === 'string' ? JSON.parse(req.body.existingImages) : req.body.existingImages;
+        if (Array.isArray(parsed)) updatedExtraImages = parsed.filter(Boolean);
+      } catch (e) {}
+    }
+    const extraFiles = req.files && Array.isArray(req.files)
+      ? req.files.filter((f) => f.fieldname === 'images' || f.fieldname === 'extraImages')
+      : [];
+    let extraUploads = [];
+    if (extraFiles.length > 0) {
+      extraUploads = await Promise.all(extraFiles.map((f) => uploadToCloudinary(f.buffer).then((r) => r.secure_url)));
+      updatedExtraImages = [...updatedExtraImages, ...extraUploads];
+    }
+
+    // Xử lý ảnh theo từng màu sắc biến thể (colorImages) chọn từ dàn ảnh
+    let updatedColorImages = [];
+    const rawColorMappings = req.body.colorImagesMappings !== undefined ? req.body.colorImagesMappings : (req.body.colorImages !== undefined ? req.body.colorImages : req.body.existingColorImages);
+    if (rawColorMappings !== undefined) {
+      try {
+        const parsed = typeof rawColorMappings === 'string' ? JSON.parse(rawColorMappings) : rawColorMappings;
+        if (Array.isArray(parsed)) {
+          for (const item of parsed) {
+            if (!item.color) continue;
+            let resolvedUrl = '';
+            if (item.isMain) {
+              resolvedUrl = existingProduct.image;
+            } else if (item.newExtraIndex !== undefined && extraUploads[item.newExtraIndex]) {
+              resolvedUrl = extraUploads[item.newExtraIndex];
+            } else if (item.image) {
+              resolvedUrl = item.image;
+            }
+            if (resolvedUrl) {
+              updatedColorImages.push({ color: item.color.trim(), image: resolvedUrl });
+            }
+          }
+        }
+      } catch (e) {}
+    } else {
+      updatedColorImages = existingProduct.colorImages || [];
+    }
+
+    // Hỗ trợ nếu có file tải lên riêng
+    const colorFiles = req.files && Array.isArray(req.files)
+      ? req.files.filter((f) => f.fieldname.startsWith('colorImage_'))
+      : [];
+    for (const cf of colorFiles) {
+      const colorName = decodeURIComponent(cf.fieldname.replace('colorImage_', '')).trim();
+      const uploadResult = await uploadToCloudinary(cf.buffer);
+      const exIdx = updatedColorImages.findIndex((ci) => ci.color.toLowerCase() === colorName.toLowerCase());
+      if (exIdx > -1) {
+        updatedColorImages[exIdx].image = uploadResult.secure_url;
+      } else {
+        updatedColorImages.push({ color: colorName, image: uploadResult.secure_url });
+      }
+    }
+
+    // Hỗ trợ xóa ảnh của một màu nếu chỉ định trong removeColorImages
+    if (req.body.removeColorImages) {
+      try {
+        const toRemove = typeof req.body.removeColorImages === 'string' ? JSON.parse(req.body.removeColorImages) : req.body.removeColorImages;
+        if (Array.isArray(toRemove)) {
+          updatedColorImages = updatedColorImages.filter((ci) => !toRemove.includes(ci.color));
+        }
+      } catch (e) {}
+    }
+
+    // ĐẢM BẢO QUY TẮC: Mọi ảnh trong updatedColorImages đều nằm trong dàn ảnh phụ (updatedExtraImages) nếu không phải ảnh chính
+    const allImagesSet = new Set([existingProduct.image, ...updatedExtraImages].filter(Boolean));
+    for (const ci of updatedColorImages) {
+      if (ci.image && !allImagesSet.has(ci.image)) {
+        updatedExtraImages.push(ci.image);
+        allImagesSet.add(ci.image);
+      }
+    }
+    existingProduct.images = updatedExtraImages;
+    existingProduct.colorImages = updatedColorImages;
+
+    // Đồng bộ ảnh vào các biến thể (variants)
+    if (existingProduct.variants && existingProduct.variants.length > 0) {
+      existingProduct.variants = existingProduct.variants.map((v) => {
+        const match = updatedColorImages.find((ci) => ci.color.toLowerCase() === v.color.toLowerCase());
+        const plainV = v.toObject ? v.toObject() : v;
+        return {
+          ...plainV,
+          image: match ? match.image : (plainV.image || ''),
+        };
+      });
     }
 
     await existingProduct.save();
